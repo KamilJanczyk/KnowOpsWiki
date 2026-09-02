@@ -1,3 +1,0 @@
-# Procedura Obsługi Incydentów Security
-
-Należy wprowadzić treść procedury IR...

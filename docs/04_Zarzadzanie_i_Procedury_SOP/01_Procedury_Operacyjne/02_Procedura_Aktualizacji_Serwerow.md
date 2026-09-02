@@ -1,3 +1,0 @@
-# Procedura Aktualizacji Serwerów
-
-Harmonogram okien serwisowych i aktualizacji...

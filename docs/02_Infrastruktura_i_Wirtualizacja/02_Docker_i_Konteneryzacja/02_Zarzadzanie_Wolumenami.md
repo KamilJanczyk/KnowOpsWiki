@@ -1,3 +1,0 @@
-# Zarządzanie Wolumenami i Trwałością Danych
-
-Wytyczne montowania punktów podłączeń woluminów...

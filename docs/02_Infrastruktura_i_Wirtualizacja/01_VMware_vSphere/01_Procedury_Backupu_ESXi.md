@@ -1,3 +1,0 @@
-# Procedury Backupu ESXi
-
-Procedury tworzenia i weryfikacji kopii zapasowych...

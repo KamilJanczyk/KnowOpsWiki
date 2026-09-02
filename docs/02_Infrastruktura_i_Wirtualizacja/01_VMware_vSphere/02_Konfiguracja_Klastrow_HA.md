@@ -1,3 +1,0 @@
-# Konfiguracja Klastrów High Availability
-
-Wytyczne dla mechanizmów vMotion i HA...

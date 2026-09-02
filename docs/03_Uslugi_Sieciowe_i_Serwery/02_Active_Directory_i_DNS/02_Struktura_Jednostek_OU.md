@@ -1,3 +1,0 @@
-# Struktura Jednostek Organizacyjnych OU
-
-Wzorce hierarchii struktury obiektów AD...

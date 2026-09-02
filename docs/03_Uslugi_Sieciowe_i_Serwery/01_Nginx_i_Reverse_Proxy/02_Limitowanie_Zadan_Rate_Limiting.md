@@ -1,3 +1,0 @@
-# Limitowanie Żądań HTTP (Rate Limiting)
-
-Zasady konfiguracji profili ochrony przed spamo-ruchami...
