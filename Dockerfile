@@ -4,7 +4,7 @@ RUN apk add --no-cache git
 COPY package*.json ./
 RUN npm install
 COPY server.mjs build_navigation.mjs backup_wiki.mjs build_knowops.mjs add_page.mjs ./
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
-USER appuser
+RUN chown -R node:node /app
+USER node
 EXPOSE 9000
 CMD ["node", "server.mjs"]
