@@ -4,6 +4,12 @@ Nowoczesny, lekki, utwardzony portal wiedzy **KnowOps** oraz centrum operacyjne 
 
 ---
 
+## Powstanie Projektu i Autorstwo
+
+Projekt oraz kod źródłowy aplikacji zostały stworzone i zaimplementowane przez zaawansowanego agenta sztucznej inteligencji (AI) pod bezpośrednim nadzorem technologicznym, kierownictwem architektonicznym i według wytycznych właściciela projektu.
+
+---
+
 ## Architektura i Trwałość Danych (Docker Volumes)
 
 Aplikacja została zaprojektowana w oparciu o architekturę izolacji i trwałości danych. Zmienne dane użytkownika są montowane jako woluminy z dysku hosta w `docker-compose.yml`:
