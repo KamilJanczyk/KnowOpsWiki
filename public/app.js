@@ -623,7 +623,7 @@ function parseMarkdown(text) {
 let currentArticlePath = '';
 
 async function loadArticle(articlePath) {
-  articlePath = decodeURIComponent(articlePath);
+  articlePath = decodeURIComponent(articlePath).replace(/^#\/?/, "");
   currentArticlePath = articlePath;
   const contentArea = document.getElementById('articleContentArea');
   const breadcrumbArea = document.getElementById('breadcrumbArea');

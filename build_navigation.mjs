@@ -1,18 +1,16 @@
-const DOCS_DIR = path.resolve('docs');
-const DOCS_EXAMPLE_DIR = path.resolve('docs.example');
-
-// Jeśli katalog docs/ nie istnieje lub jest pusty, automatycznie skopiuj docs.example/ -> docs/
-if (!fs.existsSync(DOCS_DIR) || fs.readdirSync(DOCS_DIR).length === 0) {
-  if (fs.existsSync(DOCS_EXAMPLE_DIR)) {
-    console.log('[Wiki Build] Inicjalizacja katalogu docs/ na podstawie docs.example/...');
-    fs.cpSync(DOCS_EXAMPLE_DIR, DOCS_DIR, { recursive: true });
-  }
-}
-
 import fs from 'node:fs';
 import path from 'node:path';
 
 const docsDir = path.resolve('docs');
+const docsExampleDir = path.resolve('docs.example');
+
+// Jeśli katalog docs/ nie istnieje lub jest pusty, automatycznie skopiuj docs.example/ -> docs/
+if (!fs.existsSync(docsDir) || fs.readdirSync(docsDir).length === 0) {
+  if (fs.existsSync(docsExampleDir)) {
+    console.log('[Wiki Build] Inicjalizacja katalogu docs/ na podstawie docs.example/...');
+    fs.cpSync(docsExampleDir, docsDir, { recursive: true });
+  }
+}
 
 function cleanTitle(name) {
   let title = name.replace(/\.md$/i, '');
@@ -66,14 +64,12 @@ function scanDirectoryRecursive(dirPath, baseRel) {
 
     if (entry.isDirectory()) {
       const subItems = scanDirectoryRecursive(full, rel);
-      if (subItems.length > 0) {
-        items.push({
-          type: 'directory',
-          title: cleanTitle(entry.name),
-          relPath: rel,
-          items: subItems
-        });
-      }
+      items.push({
+        type: 'directory',
+        title: cleanTitle(entry.name),
+        relPath: rel,
+        items: subItems
+      });
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       items.push({
         type: 'file',
@@ -106,24 +102,38 @@ if (fs.existsSync(docsDir)) {
       const subRel = path.posix.join(catDir.name, subDir.name);
       const files = scanSubcategoryFiles(subPath, subRel);
       const items = scanDirectoryRecursive(subPath, subRel);
-      if (files.length > 0) {
-        subcategories.push({
-          id: subDir.name,
-          title: cleanTitle(subDir.name),
-          relPath: subRel,
-          files,
-          items
-        });
-      }
-    }
-
-    if (subcategories.length > 0) {
-      availableCategories.push({
-        id: catDir.name,
-        title: cleanTitle(catDir.name),
-        subcategories
+      subcategories.push({
+        id: subDir.name,
+        title: cleanTitle(subDir.name),
+        relPath: subRel,
+        files,
+        items
       });
     }
+
+    // Dodanie również pojedynczych plików Markdown znajdujących się bezpośrednio w kategorii głównej
+    const directFiles = fs.readdirSync(catPath, { withFileTypes: true })
+      .filter(f => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('.'))
+      .map(f => ({
+        title: cleanTitle(f.name),
+        relPath: path.posix.join(catDir.name, f.name)
+      }));
+
+    if (directFiles.length > 0 && subcategories.length === 0) {
+      subcategories.push({
+        id: 'glowne',
+        title: 'Ogólne',
+        relPath: catDir.name,
+        files: directFiles,
+        items: directFiles.map(f => ({ type: 'file', title: f.title, relPath: f.relPath }))
+      });
+    }
+
+    availableCategories.push({
+      id: catDir.name,
+      title: cleanTitle(catDir.name),
+      subcategories
+    });
   }
 }
 
