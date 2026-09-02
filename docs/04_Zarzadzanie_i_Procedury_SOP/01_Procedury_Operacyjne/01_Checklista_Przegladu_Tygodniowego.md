@@ -1,0 +1,3 @@
+# Checklista Przeglądu Tygodniowego
+
+Lista kontrolna przeglądu infrastruktury...

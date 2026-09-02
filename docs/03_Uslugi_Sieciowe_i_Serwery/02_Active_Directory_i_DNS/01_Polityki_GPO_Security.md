@@ -1,0 +1,3 @@
+# Polityki Grupy GPO Security
+
+Szablony polityk bezpieczeństwa GPO...
