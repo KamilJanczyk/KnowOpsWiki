@@ -13,6 +13,18 @@ Nowoczesny, lekki, utwardzony portal wiedzy **KnowOps** oraz centrum operacyjne 
 
 ---
 
+## Model Użytkowania i Architektura Dostępu (Single-User)
+
+> [!IMPORTANT]
+> **Model Jednoużytkownikowy (Single-User):** 
+> Na obecnym etapie rozważania architektoniczne i funkcjonalne zakładają, że aplikacja jest przeznaczona do **użytku osobistego dla jednego inżyniera / administratora** (Single-User Environment). System nie zawiera wbudowanego modułu wieloużytkownikowego z podziałem uprawnień (RBAC / multi-account).
+
+**Zalecany Model Wdrożenia i Bezpieczny Dostęp:**
+- **Self-Hosted w Sieci Lokalnej (LAN / VPN):** Uruchomienie na własnym serwerze domowym lub firmowym z dostępem z poziomu sieci lokalnej bądź za pośrednictwem szyfrowanego tunelu VPN (np. WireGuard, Tailscale).
+- **Publikacja w Sieci Publicznej (Cloudflare Tunnel & Access):** W przypadku wystawiania portalu na zewnątrz zaleca się zabezpieczenie dostępu poprzez **Cloudflare Tunnel (`cloudflared`)** z podłączoną warstwą uwierzytelniania **Cloudflare Zero Trust / Access** (np. logowanie One-Time Pin / Google / OAuth). Hasło zdefiniowane w `.env` (`ADMIN_PASSWORD`) służy do zabezpieczenia tokenów sesyjnych API.
+
+---
+
 ## Powstanie Projektu i Autorstwo
 
 Projekt oraz kod źródłowy aplikacji zostały stworzone i zaimplementowane przez zaawansowanego agenta sztucznej inteligencji (AI) pod bezpośrednim nadzorem technologicznym, kierownictwem architektonicznym i według wytycznych właściciela projektu.
@@ -103,7 +115,7 @@ docs/
 
 Aplikacja posiada zaimplementowane producenckie mechanizmy utwardzania i bezpieczeństwa:
 
-- **Nieuprzywilejowany Kontener (`USER appuser`):** Kontener API Node.js działa na wyizolowanym koncie nieuprzywilejowanym bez uprawnień `root`.
+- **Nieuprzywilejowany Kontener (`USER node` - UID 1000):** Kontener API Node.js działa na wyizolowanym koncie nieuprzywilejowanym z UID 1000, dopasowanym do uprawnień właściciela na serwerze Linux.
 - **Dynamiczny Rate-Limiter API:** Ochrona przed atakami typu Brute-Force na logowanie (max 5 prób / 60s) oraz obostrzenie operacji modyfikacji danych (max 30 żądań POST / 60s per IP).
 - **Ochrona przed Path Traversal i SSRF:** Rygorystyczna walidacja ścieżek `DOCS_DIR` oraz blokada zapytań skrapera do podsieci prywatnych (`127.0.0.1`, `localhost`, `192.168.x.x`, `10.x.x.x`).
 - **Autoryzacja i Nagłówki HTTP:** Tokeny z 24h okresem ważności, limity czasu procesów potomnych oraz nagłówki `Content-Security-Policy` w serwerze Nginx.
