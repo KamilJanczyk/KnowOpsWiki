@@ -934,7 +934,7 @@ const server = http.createServer(async (req, res) => {
           fs.mkdirSync(targetDir, { recursive: true });
         } catch (err) {
           if (err.code === 'EACCES') {
-            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chmod -R 777 docs data public/images' });
+            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images' });
           }
           throw err;
         }
@@ -946,7 +946,7 @@ const server = http.createServer(async (req, res) => {
       } catch (err) {
         isApiSaving = false;
         if (err.code === 'EACCES') {
-          return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chmod -R 777 docs data public/images' });
+          return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images' });
         }
         throw err;
       }
@@ -1005,7 +1005,7 @@ const server = http.createServer(async (req, res) => {
           fs.mkdirSync(targetDir, { recursive: true });
         } catch (err) {
           if (err.code === 'EACCES') {
-            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chmod -R 777 docs data public/images' });
+            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images' });
           }
           throw err;
         }
