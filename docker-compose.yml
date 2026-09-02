@@ -29,7 +29,6 @@ services:
       - ./docs:/app/docs:rw
       - ./data:/app/data:rw
       - ./public:/app/public:rw
-      - ./build_navigation.mjs:/app/build_navigation.mjs:ro
     env_file:
       - .env
     environment:
