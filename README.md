@@ -4,6 +4,13 @@ Nowoczesny, lekki, utwardzony portal wiedzy **KnowOps** oraz centrum operacyjne 
 
 ---
 
+## Status Projektu i Cel (Wersja Beta)
+
+> [!NOTE]
+> **Aplikacja znajduje się w fazie Beta** — projekt jest aktywnie rozwijany, testowany i sukcesywnie ulepszany o nowe funkcjonalności. KnowOpsWiki powstało jako własne, samowystarczalne i utwardzone bezpieczeństwem (SecOps) **zastępstwo dla komercyjnego środowiska Notion**, zapewniając 100% kontroli nad prywatnymi danymi, szybkie lokalne działanie w kontenerach Docker oraz brak zależności od zewnętrznych usług chmurowych.
+
+---
+
 ## Powstanie Projektu i Autorstwo
 
 Projekt oraz kod źródłowy aplikacji zostały stworzone i zaimplementowane przez zaawansowanego agenta sztucznej inteligencji (AI) pod bezpośrednim nadzorem technologicznym, kierownictwem architektonicznym i według wytycznych właściciela projektu.
