@@ -2,6 +2,8 @@
 
 Nowoczesny, lekki, utwardzony portal wiedzy **KnowOps** oraz centrum operacyjne zarządzania zadaniami systemowymi dla inżynierów systemowych, administratorów sieci i ekspertów CyberSec.
 
+![Strona Główna KnowOpsWiki](.github/assets/main_page.png)
+
 ---
 
 ## Status Projektu i Cel (Wersja Beta)
