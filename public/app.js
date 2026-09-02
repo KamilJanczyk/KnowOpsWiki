@@ -438,14 +438,52 @@ async function handleHashNavigation() {
 }
 
 
-function renderMermaidDiagrams() {
-  if (typeof mermaid !== 'undefined') {
-    try {
-      mermaid.init(undefined, document.querySelectorAll('.markdown-body .mermaid'));
-    } catch (e) {
-      console.warn('Błąd renderowania diagramu Mermaid:', e.message);
+function renderMermaidDiagrams(container = null) {
+  if (typeof mermaid === 'undefined') return;
+
+  const target = container || document;
+  const mermaidBlocks = target.querySelectorAll('pre code.language-mermaid, pre code.lang-mermaid, div.mermaid, pre.mermaid, code.language-mermaid');
+
+  if (mermaidBlocks.length === 0) return;
+
+  mermaidBlocks.forEach((block, index) => {
+    let rawCode = block.innerText || block.textContent;
+    rawCode = rawCode.trim();
+
+    let parentEl = block;
+    if (block.tagName.toLowerCase() === 'code' && block.parentElement && block.parentElement.tagName.toLowerCase() === 'pre') {
+      parentEl = block.parentElement;
     }
-  }
+
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.style.background = '#0d0d0e';
+    div.style.padding = '12px';
+    div.style.borderRadius = '6px';
+    div.style.border = '1px solid #27272a';
+    div.style.margin = '12px 0';
+    div.style.display = 'flex';
+    div.style.justifyContent = 'center';
+    div.style.overflowX = 'auto';
+    div.id = 'mermaid-id-' + Date.now() + '-' + Math.floor(Math.random() * 1000) + '-' + index;
+    div.textContent = rawCode;
+
+    if (parentEl && parentEl.parentNode) {
+      parentEl.parentNode.replaceChild(div, parentEl);
+    }
+  });
+
+  setTimeout(() => {
+    try {
+      if (typeof mermaid.run === 'function') {
+        mermaid.run({ querySelector: '.mermaid' });
+      } else if (typeof mermaid.init === 'function') {
+        mermaid.init(undefined, target.querySelectorAll('.mermaid'));
+      }
+    } catch (e) {
+      console.warn('[Wiki API Mermaid Render Error]', e);
+    }
+  }, 50);
 }
 
 function addCopyButtons(container = null) {
@@ -2760,7 +2798,7 @@ function updateEditorPreview() {
   if (textarea && preview && typeof parseMarkdown === 'function') {
     preview.innerHTML = parseMarkdown(textarea.value);
     if (typeof renderMermaidDiagrams === 'function') {
-      renderMermaidDiagrams();
+      renderMermaidDiagrams(preview);
     }
   }
 }
