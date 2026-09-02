@@ -930,11 +930,26 @@ const server = http.createServer(async (req, res) => {
 
       const targetDir = path.dirname(targetPath);
       if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
+        try {
+          fs.mkdirSync(targetDir, { recursive: true });
+        } catch (err) {
+          if (err.code === 'EACCES') {
+            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chmod -R 777 docs data public/images' });
+          }
+          throw err;
+        }
       }
 
       isApiSaving = true;
-      fs.writeFileSync(targetPath, content, 'utf8');
+      try {
+        fs.writeFileSync(targetPath, content, 'utf8');
+      } catch (err) {
+        isApiSaving = false;
+        if (err.code === 'EACCES') {
+          return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chmod -R 777 docs data public/images' });
+        }
+        throw err;
+      }
       console.log(`[Wiki API] Zapisano plik: ${sanitizedRelPath}`);
 
       rebuildWiki().then(() => {
@@ -986,7 +1001,14 @@ const server = http.createServer(async (req, res) => {
 
       const targetDir = path.dirname(targetPath);
       if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
+        try {
+          fs.mkdirSync(targetDir, { recursive: true });
+        } catch (err) {
+          if (err.code === 'EACCES') {
+            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chmod -R 777 docs data public/images' });
+          }
+          throw err;
+        }
       }
 
       isApiSaving = true;
