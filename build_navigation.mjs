@@ -1,3 +1,14 @@
+const DOCS_DIR = path.resolve('docs');
+const DOCS_EXAMPLE_DIR = path.resolve('docs.example');
+
+// Jeśli katalog docs/ nie istnieje lub jest pusty, automatycznie skopiuj docs.example/ -> docs/
+if (!fs.existsSync(DOCS_DIR) || fs.readdirSync(DOCS_DIR).length === 0) {
+  if (fs.existsSync(DOCS_EXAMPLE_DIR)) {
+    console.log('[Wiki Build] Inicjalizacja katalogu docs/ na podstawie docs.example/...');
+    fs.cpSync(DOCS_EXAMPLE_DIR, DOCS_DIR, { recursive: true });
+  }
+}
+
 import fs from 'node:fs';
 import path from 'node:path';
 

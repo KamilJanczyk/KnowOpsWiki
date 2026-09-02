@@ -1,0 +1,3 @@
+# Konfiguracja Certyfikatów SSL/TLS w Nginx
+
+Wzorce bezpiecznej konfiguracji TLS...

@@ -1,8 +1,7 @@
 # DevOpsAI Wiki - Git Ignore Rules
 
-# Exclude User Content and Documentation Files
-docs/**/*.md
-!docs/README.md
+# Exclude User Documentation Directory (Each environment maintains its own docs/)
+docs/
 
 # Exclude User Persistent Data (Kanban, Quick Notes, Task Templates)
 data/

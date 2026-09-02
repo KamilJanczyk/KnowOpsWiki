@@ -1,0 +1,3 @@
+# Dobre Praktyki Tworzenia Obrazów Dockerfile
+
+Zasady tworzenia bezpiecznych obrazów nieuprzywilejowanych...

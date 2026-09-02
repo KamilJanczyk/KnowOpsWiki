@@ -1,0 +1,3 @@
+# Hardening Windows & Active Directory
+
+Wytyczne utwardzania środowisk domeny AD...

@@ -22,6 +22,15 @@ const PORT = process.env.API_PORT || 9000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || null;
 if (!ADMIN_PASSWORD) { console.warn('[SECURITY WARNING] ADMIN_PASSWORD nie jest zdefiniowany w środowisku!'); }
 const DOCS_DIR = path.resolve('docs');
+const DOCS_EXAMPLE_DIR = path.resolve('docs.example');
+if (!fs.existsSync(DOCS_DIR) || fs.readdirSync(DOCS_DIR).length === 0) {
+  if (fs.existsSync(DOCS_EXAMPLE_DIR)) {
+    console.log('[Wiki API] Inicjalizacja katalogu docs/ z szablonu docs.example/...');
+    fs.cpSync(DOCS_EXAMPLE_DIR, DOCS_DIR, { recursive: true });
+  } else {
+    fs.mkdirSync(DOCS_DIR, { recursive: true });
+  }
+}
 const DIST_DIR = path.resolve('dist');
 const IMAGES_DIR = path.join(path.resolve('public'), 'images');
 const DATA_DIR = path.resolve('data');
