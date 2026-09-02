@@ -29,6 +29,47 @@ Dzięki tej strukturze rekompilacja obrazów Docker (`docker compose up -d --bui
 
 ---
 
+## Przykładowa Struktura Katalogów i Migracja Treści
+
+Projekt udostępnia domyślny, czysty i wolny od praw autorskich szkielet struktury katalogów oraz przykładowych plików szablonowych w katalogu `docs/`. Struktura ta służy do natychmiastowej weryfikacji aplikacji oraz jako baza startowa do budowania własnej bazy wiedzy.
+
+> [!NOTE]
+> **Elastyczna Migracja Treści:** 
+> Do katalogu `docs/` można swobodnie migrować i kopiować własne pliki `.md` oraz katalogi pochodzące z innych systemów lub notatek (o ile nie naruszają one niczyich praw autorskich ani poufności). Serwer po uruchomieniu automatycznie odczytuje pełną strukturę katalogów i buduje dynamiczne drzewo nawigacyjne.
+
+Przykładowe drzewo struktury szkieletowej w `docs/`:
+
+```text
+docs/
+├── 01_Cyberbezpieczenstwo/
+│   ├── 01_SOC_i_Incident_Response/
+│   │   ├── 01_Procedura_Obslugi_Incydentow.md
+│   │   └── 02_Analiza_Logow_i_SIEM.md
+│   └── 02_Hardening_Systemowy/
+│       ├── 01_Hardening_Serwerow_Linux.md
+│       └── 02_Hardening_Windows_Active_Directory.md
+├── 02_Infrastruktura_i_Wirtualizacja/
+│   ├── 01_VMware_vSphere/
+│   │   ├── 01_Procedury_Backupu_ESXi.md
+│   │   └── 02_Konfiguracja_Klastrow_HA.md
+│   └── 02_Docker_i_Konteneryzacja/
+│       ├── 01_Dobre_Praktyki_Dockerfile.md
+│       └── 02_Zarzadzanie_Wolumenami.md
+├── 03_Uslugi_Sieciowe_i_Serwery/
+│   ├── 01_Nginx_i_Reverse_Proxy/
+│   │   ├── 01_Konfiguracja_Certyfikatow_SSL.md
+│   │   └── 02_Limitowanie_Zadan_Rate_Limiting.md
+│   └── 02_Active_Directory_i_DNS/
+│       ├── 01_Polityki_GPO_Security.md
+│       └── 02_Struktura_Jednostek_OU.md
+└── 04_Zarzadzanie_i_Procedury_SOP/
+    └── 01_Procedury_Operacyjne/
+        ├── 01_Checklista_Przegladu_Tygodniowego.md
+        └── 02_Procedura_Aktualizacji_Serwerow.md
+```
+
+---
+
 ## Główne Funkcjonalności
 
 1. **Wbudowany Edytor Markdown z Podglądem na Żywo:**
