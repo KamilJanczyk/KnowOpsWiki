@@ -1,0 +1,395 @@
+Loaded 4684 files. Starting search...
+
+Searching for: 'znajdz konta bez wygasniecia hasla' (keywords: ['wygas', 'neverexpire', 'expire'])
+  - MATCH [wygas]: Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02b_Poczta\Fundamenty_i_Zabezpieczenia_Poczty\Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+  - MATCH [wygas]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Skrypt wysyłający maila przypominający o wygaśnięc.md
+  - MATCH [wygas]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\04_Skrypty_i_Automatyzacja_Wdrozen\Skrypt wysyłający maila przypominający o wygaśnięc.md
+  - MATCH [wygas]: 004_Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Poczta\01_Fundamenty_i_Zabezpieczenia_Poczty\004_Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+  - MATCH [wygas]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Skrypt wysyłający maila przypominający o wygaśnięc.md
+  - MATCH [wygas]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Skrypt wysyłający maila przypominający o wygaśnięc.md
+
+Searching for: 'Naprawa polaczen AD' (keywords: ['napraw', 'polacz', 'secure', 'channel', 'trust'])
+  - MATCH [trust]: Modele_Kontroli_Dostepu_i_Zero_Trust.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\01_Cyberbezpieczenstwo_i_SOC\CompTIA_Security_Plus_SOC\Zagrozenia_i_Kontrola_Dostepu\Modele_Kontroli_Dostepu_i_Zero_Trust.md
+  - MATCH [napraw]: Naprawa relacji zaufania między stacją roboczą a d.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Naprawa relacji zaufania między stacją roboczą a d.md
+  - MATCH [polacz]: 03_Szyfrowanie_Polaczen_SSL_TLS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Bazy_Danych\PostgreSQL\03_Szyfrowanie_Polaczen_SSL_TLS.md
+  - MATCH [napraw]: Naprawa relacji zaufania między stacją roboczą a d.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\01_Wdrozenia_Systemow_Windows\Naprawa relacji zaufania między stacją roboczą a d.md
+  - MATCH [polacz]: 03_Szyfrowanie_Polaczen_SSL_TLS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs\06_Bazy_Danych\01_PostgreSQL\03_Szyfrowanie_Polaczen_SSL_TLS.md
+  - MATCH [trust]: 01_Cloudflare_Zero_Trust_Tunnels_i_Access_Policies.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs\07_Aplikacje\01_Cloudflare_i_Edge_Services\01_Cloudflare_Zero_Trust_Tunnels_i_Access_Policies.md
+  - MATCH [trust]: 003_Modele_Kontroli_Dostepu_i_Zero_Trust.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\01_Cyberbezpieczenstwo_i_SOC\CompTIA_Security_Plus_SOC\003_Modele_Kontroli_Dostepu_i_Zero_Trust.md
+  - MATCH [channel]: DiagnosticsChannel.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\node_modules\undici\docs\docs\api\DiagnosticsChannel.md
+  - MATCH [napraw]: Awarie Baz Danych (SUSPECT, EMERGENCY) i Naprawa D.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\BAZY DANYCH\MSSQL - Microsoft SQL Server\04 Optymalizacja, Diagnostyka DMV i Rozwiązywanie Problemów\Awarie Baz Danych (SUSPECT, EMERGENCY) i Naprawa D.md
+  - MATCH [napraw]: Naprawa relacji zaufania między stacją roboczą a d.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Naprawa relacji zaufania między stacją roboczą a d.md
+  - MATCH [napraw]: Awarie Baz Danych (SUSPECT, EMERGENCY) i Naprawa D.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\BAZY DANYCH\MSSQL - Microsoft SQL Server\04 Optymalizacja, Diagnostyka DMV i Rozwiązywanie\Awarie Baz Danych (SUSPECT, EMERGENCY) i Naprawa D.md
+  - MATCH [napraw]: Naprawa relacji zaufania między stacją roboczą a d.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Naprawa relacji zaufania między stacją roboczą a d.md
+
+Searching for: 'Z MBR do GPT' (keywords: ['mbr', 'gpt', 'mbr2gpt'])
+  - MATCH [gpt]: Z MRB do GPT - konwersja partycji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Z MRB do GPT - konwersja partycji.md
+  - MATCH [gpt]: Z MRB do GPT - konwersja partycji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\01_Wdrozenia_Systemow_Windows\Z MRB do GPT - konwersja partycji.md
+  - MATCH [gpt]: 006_Z_MRB_do_GPT_-_konwersja_partycji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\08_Wdrozenia_OS_i_Diagnostyka\006_Z_MRB_do_GPT_-_konwersja_partycji.md
+  - MATCH [gpt]: Z MRB do GPT - konwersja partycji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Z MRB do GPT - konwersja partycji.md
+  - MATCH [gpt]: Z MRB do GPT - konwersja partycji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Z MRB do GPT - konwersja partycji.md
+  - MATCH [gpt]: Z MRB do GPT - konwersja partycji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Z MRB do GPT - konwersja partycji.md
+
+Searching for: 'Wylaczenie zarzadzania drukarkami' (keywords: ['drukark', 'manage', 'wylacz'])
+  - MATCH [manage]: Mobile-Device-Management-for-Android-and-iOS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\01_Cyberbezpieczenstwo_i_SOC\ESET_Protect\Mobile-Device-Management-for-Android-and-iOS.md
+  - MATCH [manage]: Mobile-Device-Management-for-Android-and-iOS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\01_Cyberbezpieczenstwo_i_SOC\ESET_Protect\Instalacja_Agenci_i_Zabezpieczenia\Mobile-Device-Management-for-Android-and-iOS.md
+  - MATCH [manage]: compliance management Zgodność z przepisami i arch.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02b_Poczta\MICROSOFT - ONPERM\compliance management Zgodność z przepisami i arch.md
+  - MATCH [drukark]: Aby wyłączyć opcję zarządzania drukarkami w system.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Aby wyłączyć opcję zarządzania drukarkami w system.md
+  - MATCH [manage]: FSRM [File server resource Manager] - Menedżer zas.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\FSRM [File server resource Manager] - Menedżer zas.md
+  - MATCH [drukark]: Serwer Wydruku - drukarki AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Serwer Wydruku - drukarki AD.md
+  - MATCH [drukark]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [drukark]: Mapowanie drukarki - pobieranie sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\GPO\05 Konfiguracja Środowiska Pracy i Mapowania GPP\Mapowanie drukarki - pobieranie sterowników.md
+  - MATCH [manage]: NGINX NGINX PROXY MANAGER - PROXY.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Reverse Proxy - NGINX, HAProxy, Treafik, Squid\NGINX NGINX PROXY MANAGER - PROXY.md
+  - MATCH [manage]: NGINX NGINX PROXY MANAGER - PROXY.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Uslugi_WWW_Proxy_i_Aplikacje\NGINX NGINX PROXY MANAGER - PROXY.md
+  - MATCH [drukark]: Serwer Wydruku - drukarki AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Active_Directory_i_Tozsamosc\01_Zarzadzanie_Kontami_i_Domena\Serwer Wydruku - drukarki AD.md
+  - MATCH [drukark]: Mapowanie_drukarki_-_pobieranie_sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Dostep_Zdalny_i_RDS\Mapowanie_drukarki_-_pobieranie_sterowników.md
+  - MATCH [drukark]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Dostep_Zdalny_i_RDS\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [drukark]: Aby wyłączyć opcję zarządzania drukarkami w system.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\01_Wdrozenia_Systemow_Windows\Aby wyłączyć opcję zarządzania drukarkami w system.md
+  - MATCH [manage]: FSRM [File server resource Manager] - Menedżer zas.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\01_Wdrozenia_Systemow_Windows\FSRM [File server resource Manager] - Menedżer zas.md
+  - MATCH [drukark]: Mapowanie drukarki - pobieranie sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\01_Wdrozenia_Systemow_Windows\Mapowanie drukarki - pobieranie sterowników.md
+  - MATCH [manage]: PROXMOX DATACENTER MANAGER.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\03_Wirtualizacja\01_Proxmox_VE\PROXMOX DATACENTER MANAGER.md
+  - MATCH [manage]: Resourcemanagement_Aplikacje_vApps.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\03_Wirtualizacja\02_VMware_vSphere\13_vSphere_Resource_Management\Resourcemanagement_Aplikacje_vApps.md
+  - MATCH [manage]: Resourcemanagement_Limity_CPU_i_RAM.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\03_Wirtualizacja\02_VMware_vSphere\13_vSphere_Resource_Management\Resourcemanagement_Limity_CPU_i_RAM.md
+  - MATCH [manage]: Resourcemanagement_Rezerwacje_Zasobow.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\03_Wirtualizacja\02_VMware_vSphere\13_vSphere_Resource_Management\Resourcemanagement_Rezerwacje_Zasobow.md
+  - MATCH [manage]: Resourcemanagement_Ustawienia_Alokacji_Zasobow.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\03_Wirtualizacja\02_VMware_vSphere\13_vSphere_Resource_Management\Resourcemanagement_Ustawienia_Alokacji_Zasobow.md
+  - MATCH [manage]: Integracja_z_Nginx_Proxy_Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\04_DevOps_Automatyzacja_i_AI\N8N\Bezpieczenstwo_SSL_i_Reverse_Proxy\Integracja_z_Nginx_Proxy_Manager.md
+  - MATCH [drukark]: Centralne zarządzanie drukarkami.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Centralne zarządzanie drukarkami.md
+  - MATCH [manage]: ManageEngine - ServiceDesk.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Narzedzia_Webowe_i_Utility\ManageEngine - ServiceDesk.md
+  - MATCH [manage]: NGINX _ NGINX PROXY MANAGER - PROXY.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Narzedzia_Webowe_i_Utility\NGINX _ NGINX PROXY MANAGER - PROXY.md
+  - MATCH [manage]: ManageEngine - ServiceDesk.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Systemy ticketowe\ManageEngine - ServiceDesk.md
+  - MATCH [manage]: Veeam_Backup_Enterprise_Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Veeam_Backup\Veeam_Backup_Enterprise_Manager.md
+  - MATCH [manage]: Veeam Backup Enterprise Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Veeam_Backup\VEEAM Wszystko BR, ONE, EM\Veeam Backup Enterprise Manager.md
+  - MATCH [drukark]: Centralne zarządzanie drukarkami.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Zarzadzanie_Drukiem\Centralne zarządzanie drukarkami.md
+  - MATCH [drukark]: Mapowanie drukarki - pobieranie sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Zarzadzanie_Drukiem\Mapowanie drukarki - pobieranie sterowników.md
+  - MATCH [drukark]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Zarzadzanie_Drukiem\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [manage]: 009_Nginx_Proxy_Manager_GUI.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Linux\08_Uslugi_WWW_Proxy_i_Aplikacje\Nginx\009_Nginx_Proxy_Manager_GUI.md
+  - MATCH [drukark]: 065_Serwer_Wydruku_-_drukarki_AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\01_Active_Directory_i_Tozsamosc\065_Serwer_Wydruku_-_drukarki_AD.md
+  - MATCH [drukark]: 005_Mapowanie_drukarki_-_pobieranie_sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\06_Dostep_Zdalny_i_RDS\005_Mapowanie_drukarki_-_pobieranie_sterowników.md
+  - MATCH [drukark]: 015_Skrypt_czyszczący_domyślne_drukarki_w_RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\06_Dostep_Zdalny_i_RDS\015_Skrypt_czyszczący_domyślne_drukarki_w_RDS.md
+  - MATCH [drukark]: Serwer Wydruku - drukarki AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\AutoSync\Serwer Wydruku - drukarki AD.md
+  - MATCH [manage]: PROXMOX DATACENTER MANAGER.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\03_Wirtualizacja_Kontenery_i_Sieci\01_Wirtualizacja\02_Proxmox_VE\AutoSync\PROXMOX DATACENTER MANAGER.md
+  - MATCH [manage]: 006_Veeam_Backup_Enterprise_Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\03_Wirtualizacja_Kontenery_i_Sieci\04_Backup_i_Pamieci_Masowe\01_Veeam_Backup_and_Replication\006_Veeam_Backup_Enterprise_Manager.md
+  - MATCH [manage]: Veeam Backup Enterprise Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\03_Wirtualizacja_Kontenery_i_Sieci\04_Backup_i_Pamieci_Masowe\AutoSync\Veeam Backup Enterprise Manager.md
+  - MATCH [manage]: 001_Integracja_z_Nginx_Proxy_Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\04_DevOps_Automatyzacja_i_AI\N8N\02_Bezpieczenstwo_SSL_i_Reverse_Proxy\001_Integracja_z_Nginx_Proxy_Manager.md
+  - MATCH [manage]: 001_ManageEngine_ServiceDesk.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\02_Katalog_Aplikacji\02_Systemy_Ticketowe_i_Helpdesk\001_ManageEngine_ServiceDesk.md
+  - MATCH [drukark]: Centralne zarządzanie drukarkami.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Centralne zarządzanie drukarkami.md
+  - MATCH [manage]: ManageEngine - ServiceDesk.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\ManageEngine - ServiceDesk.md
+  - MATCH [drukark]: Mapowanie drukarki - pobieranie sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Mapowanie drukarki - pobieranie sterowników.md
+  - MATCH [manage]: Mobile-Device-Management-for-Android-and-iOS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Mobile-Device-Management-for-Android-and-iOS.md
+  - MATCH [manage]: NGINX _ NGINX PROXY MANAGER - PROXY.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\NGINX _ NGINX PROXY MANAGER - PROXY.md
+  - MATCH [drukark]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [drukark]: 006_Centralne_zarządzanie_drukarkami.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\Katalog_Aplikacji\006_Centralne_zarządzanie_drukarkami.md
+  - MATCH [manage]: 011_ManageEngine_-_ServiceDesk.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\Katalog_Aplikacji\011_ManageEngine_-_ServiceDesk.md
+  - MATCH [drukark]: Centralne zarządzanie drukarkami.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\APLIKACJE PODZIELONE NA KATEGORIE\Centralne zarządzanie drukarkami.md
+  - MATCH [manage]: ManageEngine - ServiceDesk.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\APLIKACJE PODZIELONE NA KATEGORIE\Systemy ticketowe\ManageEngine - ServiceDesk.md
+  - MATCH [manage]: Veeam Backup Enterprise Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\BACKUP\VEEAM Wszystko BR, ONE, EM\Veeam Backup Enterprise Manager.md
+  - MATCH [manage]: SSMS - SQL Server Management Studio i Narzędzia GU.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\BAZY DANYCH\MSSQL - Microsoft SQL Server\03 Strategia Kopii Zapasowych i Odtwarzanie Awaryjne\SSMS - SQL Server Management Studio i Narzędzia GU.md
+  - MATCH [manage]: Mobile-Device-Management-for-Android-and-iOS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\ESET\Mobile-Device-Management-for-Android-and-iOS.md
+  - MATCH [manage]: NGINX NGINX PROXY MANAGER - PROXY.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\LINUX\Reverse Proxy - NGINX, HAProxy, Treafik, Squid\NGINX NGINX PROXY MANAGER - PROXY.md
+  - MATCH [drukark]: Aby wyłączyć opcję zarządzania drukarkami w system.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Aby wyłączyć opcję zarządzania drukarkami w system.md
+  - MATCH [manage]: FSRM [File server resource Manager] - Menedżer zas.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\FSRM [File server resource Manager] - Menedżer zas.md
+  - MATCH [drukark]: Serwer Wydruku - drukarki AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Serwer Wydruku - drukarki AD.md
+  - MATCH [drukark]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [drukark]: Mapowanie drukarki - pobieranie sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\GPO\05 Konfiguracja Środowiska Pracy i Mapowania GPP\Mapowanie drukarki - pobieranie sterowników.md
+  - MATCH [manage]: compliance management Zgodność z przepisami i arch.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\POCZTA\MICROSOFT - ONPERM\compliance management Zgodność z przepisami i arch.md
+  - MATCH [manage]: PROXMOX DATACENTER MANAGER.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\WIRTUALIZACJA\Proxmox\PROXMOX DATACENTER MANAGER.md
+  - MATCH [manage]: Aktualizacje - Update Manager(menadżer aktualizacj.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\WIRTUALIZACJA\VMware - ESXi, vCenter, Workstation PRO\Aktualizacje - Update Manager(menadżer aktualizacj.md
+  - MATCH [manage]: vSphere Resource Management(Resource Pools (cpu, r.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\WIRTUALIZACJA\VMware - ESXi, vCenter, Workstation PRO\vSphere Resource Management(Resource Pools (cpu, r.md
+  - MATCH [drukark]: Centralne zarządzanie drukarkami.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\APLIKACJE PODZIELONE NA KATEGORIE\Centralne zarządzanie drukarkami.md
+  - MATCH [manage]: ManageEngine - ServiceDesk.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\APLIKACJE PODZIELONE NA KATEGORIE\Systemy ticketowe\ManageEngine - ServiceDesk.md
+  - MATCH [manage]: Veeam Backup Enterprise Manager.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\BACKUP\VEEAM Wszystko BR, ONE, EM,\Veeam Backup Enterprise Manager.md
+  - MATCH [manage]: SSMS - SQL Server Management Studio i Narzędzia GU.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\BAZY DANYCH\MSSQL - Microsoft SQL Server\03 Strategia Kopii Zapasowych i Odtwarzanie Awaryj\SSMS - SQL Server Management Studio i Narzędzia GU.md
+  - MATCH [manage]: Mobile-Device-Management-for-Android-and-iOS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\ESET\Mobile-Device-Management-for-Android-and-iOS.md
+  - MATCH [manage]: NGINX NGINX PROXY MANAGER - PROXY.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\LINUX\Revers Proxy - NGINX, HAProxy, Apache, Treafik, Sq\NGINX NGINX PROXY MANAGER - PROXY.md
+  - MATCH [drukark]: Aby wyłączyć opcję zarządzania drukarkami w system.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Aby wyłączyć opcję zarządzania drukarkami w system.md
+  - MATCH [manage]: FSRM [File server resource Manager] - Menedżer zas.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\FSRM [File server resource Manager] - Menedżer zas.md
+  - MATCH [drukark]: Serwer Wydruku - drukarki AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Serwer Wydruku - drukarki AD.md
+  - MATCH [drukark]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [drukark]: Mapowanie drukarki - pobieranie sterowników.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\GPO\05 Konfiguracja Środowiska Pracy & Mapowania GPP\Mapowanie drukarki - pobieranie sterowników.md
+  - MATCH [manage]: compliance management Zgodność z przepisami i arch.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\POCZTA\MICROSOFT - ONPERM\compliance management Zgodność z przepisami i arch.md
+  - MATCH [manage]: PROXMOX DATACENTER MANAGER.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\WIRTUALIZACJA\Proxmox\PROXMOX DATACENTER MANAGER.md
+  - MATCH [manage]: Aktualizacje - Update Manager(menadżer aktualizacj.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\WIRTUALIZACJA\VMware - ESXi, vCenter, Workstation PRO\Aktualizacje - Update Manager(menadżer aktualizacj.md
+  - MATCH [manage]: vSphere Resource Management(Resource Pools (cpu, r.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\WIRTUALIZACJA\VMware - ESXi, vCenter, Workstation PRO\vSphere Resource Management(Resource Pools (cpu, r.md
+
+Searching for: 'Hibernacja' (keywords: ['hibern', 'powercfg'])
+  - MATCH [hibern]: Wyłączenie hibernacji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Wyłączenie hibernacji.md
+  - MATCH [hibern]: Wyłączenie hibernacji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\01_Wdrozenia_Systemow_Windows\Wyłączenie hibernacji.md
+  - MATCH [hibern]: 012_Wyłączenie_hibernacji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\08_Wdrozenia_OS_i_Diagnostyka\012_Wyłączenie_hibernacji.md
+  - MATCH [hibern]: Wyłączenie hibernacji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Wyłączenie hibernacji.md
+  - MATCH [hibern]: Wyłączenie hibernacji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Wyłączenie hibernacji.md
+  - MATCH [hibern]: Wyłączenie hibernacji.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Wyłączenie hibernacji.md
+
+Searching for: 'Odblokowanie ExecutionPolicy' (keywords: ['execution', 'policy', 'bypass', 'unrestricted', 'odblok', 'skrypt'])
+  - MATCH [odblok]: Odblokowanie komunikacji Veeam BR ↔ Agent.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\01b_Sieci_Enterprise\02_pfSense\REGUŁY (RULES)\VLAN to VLAN\Odblokowanie komunikacji Veeam BR ↔ Agent.md
+  - MATCH [odblok]: Odblokowanie komunikacji Veeam BR ↔ Agent.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\01b_Sieci_Enterprise\pFsense\REGUŁY (RULES)\VLAN to VLAN\Odblokowanie komunikacji Veeam BR ↔ Agent.md
+  - MATCH [skrypt]: SKRYPT - uniwersalny.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\01_Cyberbezpieczenstwo_i_SOC\Wazuh_SIEM_XDR\INSTALACJA AGENTA i ZABEZPIECZENIE\SKRYPT - uniwersalny.md
+  - MATCH [skrypt]: SKRYPT - uniwersalny.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\01_Cyberbezpieczenstwo_i_SOC\Wazuh_SIEM_XDR\Instalacja_i_Zarządzanie_Agentami\SKRYPT - uniwersalny.md
+  - MATCH [skrypt]: Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02b_Poczta\Fundamenty_i_Zabezpieczenia_Poczty\Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+  - MATCH [policy]: 10_Zabezpieczenie_Mechanizmem_SPF_Sender_Policy_Framework.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02b_Poczta\Serwery_OpenSource_Linux\Postfix_Mail_Server_Server_World\10_Zabezpieczenie_Mechanizmem_SPF_Sender_Policy_Framework.md
+  - MATCH [skrypt]: Aktualizowanie systemu za pomocą skryptu.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Aktualizowanie systemu za pomocą skryptu.md
+  - MATCH [skrypt]: Dodawanie użytkownika do AD - skrypt.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Dodawanie użytkownika do AD - skrypt.md
+  - MATCH [odblok]: Odblokowanie uruchamiania skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Odblokowanie uruchamiania skryptów.md
+  - MATCH [skrypt]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [skrypt]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Skrypt wysyłający maila przypominający o wygaśnięc.md
+  - MATCH [skrypt]: Skrypty monitorujące kto i gdzie się logował.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\Skrypty monitorujące kto i gdzie się logował.md
+  - MATCH [skrypt]: xcopy - skrypt sprawdzająco kopiujący.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Active_Directory_Windows\xcopy - skrypt sprawdzająco kopiujący.md
+  - MATCH [skrypt]: Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+  - MATCH [skrypt]: Skrypt kasujący foldery z podkatalogów np @eadir.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Skrypt kasujący foldery z podkatalogów np @eadir.md
+  - MATCH [skrypt]: Uruchamianie skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Uruchamianie skryptów.md
+  - MATCH [skrypt]: SKRYPT.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Skrypt Automatyzacji Wdrożenia\SKRYPT.md
+  - MATCH [skrypt]: Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Skrypty_Bash_i_Automatyzacja\Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+  - MATCH [skrypt]: Skrypt kasujący foldery z podkatalogów np @eadir.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Skrypty_Bash_i_Automatyzacja\Skrypt kasujący foldery z podkatalogów np @eadir.md
+  - MATCH [skrypt]: SKRYPT.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Skrypty_Bash_i_Automatyzacja\SKRYPT.md
+  - MATCH [skrypt]: Uruchamianie skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Linux\Skrypty_Bash_i_Automatyzacja\Uruchamianie skryptów.md
+  - MATCH [skrypt]: Dodawanie użytkownika do AD - skrypt.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Active_Directory_i_Tozsamosc\01_Zarzadzanie_Kontami_i_Domena\Dodawanie użytkownika do AD - skrypt.md
+  - MATCH [odblok]: Odblokowanie_uruchamiania_skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Active_Directory_i_Tozsamosc\01_Zarzadzanie_Kontami_i_Domena\Odblokowanie_uruchamiania_skryptów.md
+  - MATCH [skrypt]: Aktualizowanie_systemu_za_pomocą_skryptu.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Active_Directory_i_Tozsamosc\07_Wdrozenia_i_Diagnostyka\Aktualizowanie_systemu_za_pomocą_skryptu.md
+  - MATCH [skrypt]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Dostep_Zdalny_i_RDS\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [skrypt]: Aktualizowanie systemu za pomocą skryptu.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\02_Aktualizacje_i_WSUS\Aktualizowanie systemu za pomocą skryptu.md
+  - MATCH [skrypt]: Skrypty monitorujące kto i gdzie się logował.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\03_Diagnostyka_i_Rozwiazywanie_Problemow\Skrypty monitorujące kto i gdzie się logował.md
+  - MATCH [odblok]: Odblokowanie uruchamiania skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\04_Skrypty_i_Automatyzacja_Wdrozen\Odblokowanie uruchamiania skryptów.md
+  - MATCH [skrypt]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\04_Skrypty_i_Automatyzacja_Wdrozen\Skrypt wysyłający maila przypominający o wygaśnięc.md
+  - MATCH [skrypt]: xcopy - skrypt sprawdzająco kopiujący.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\02_Infrastruktura_Systemowa\Microsoft\Wdrozenia_OS_i_Diagnostyka\04_Skrypty_i_Automatyzacja_Wdrozen\xcopy - skrypt sprawdzająco kopiujący.md
+  - MATCH [skrypt]: WIN - Skrypt wypisujący użytkowników z konretnego.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07b_Skrypty\WIN - Skrypt wypisujący użytkowników z konretnego.md
+  - MATCH [skrypt]: WIN - Skrypt wypisujący użytkowników z konretnego.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07b_Skrypty\01_Skrypty_PowerShell_i_Active_Directory\WIN - Skrypt wypisujący użytkowników z konretnego.md
+  - MATCH [skrypt]: SKRYPT  - uniwersalny.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Narzedzia_Webowe_i_Utility\SKRYPT  - uniwersalny.md
+  - MATCH [skrypt]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs_backup_before_dedup\07_Aplikacje\Zarzadzanie_Drukiem\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [skrypt]: 01_Komendy_i_Skrypty_NSE.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\kopie\www_wiki_md_backup_2026-08-26\docs\02_Sieci\07_Nmap\01_Komendy_i_Skrypty_NSE.md
+  - MATCH [skrypt]: 001_SKRYPT_-_uniwersalny.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\01_Cyberbezpieczenstwo_i_SOC\Wazuh_SIEM_XDR\04_Zarzadzanie_Agentami\001_SKRYPT_-_uniwersalny.md
+  - MATCH [skrypt]: 003_SKRYPT.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Linux\09_Skrypty_Bash_i_Automatyzacja\003_SKRYPT.md
+  - MATCH [skrypt]: 004_Uruchamianie_skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Linux\09_Skrypty_Bash_i_Automatyzacja\004_Uruchamianie_skryptów.md
+  - MATCH [skrypt]: 056_Dodawanie_użytkownika_do_AD_-_skrypt.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\01_Active_Directory_i_Tozsamosc\056_Dodawanie_użytkownika_do_AD_-_skrypt.md
+  - MATCH [skrypt]: 140_Aktualizowanie_systemu_za_pomocą_skryptu.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\01_Active_Directory_i_Tozsamosc\140_Aktualizowanie_systemu_za_pomocą_skryptu.md
+  - MATCH [odblok]: 141_Odblokowanie_uruchamiania_skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\01_Active_Directory_i_Tozsamosc\141_Odblokowanie_uruchamiania_skryptów.md
+  - MATCH [skrypt]: 015_Skrypt_czyszczący_domyślne_drukarki_w_RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\06_Dostep_Zdalny_i_RDS\015_Skrypt_czyszczący_domyślne_drukarki_w_RDS.md
+  - MATCH [skrypt]: 014_xcopy_-_skrypt_sprawdzająco_kopiujący.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\08_Wdrozenia_OS_i_Diagnostyka\014_xcopy_-_skrypt_sprawdzająco_kopiujący.md
+  - MATCH [skrypt]: Dodawanie użytkownika do AD - skrypt.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Microsoft\AutoSync\Dodawanie użytkownika do AD - skrypt.md
+  - MATCH [skrypt]: 004_Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\02_Infrastruktura_Systemowa\Poczta\01_Fundamenty_i_Zabezpieczenia_Poczty\004_Skrypt_Powiadomien_Wygasanie_Hasla_AD.md
+  - MATCH [odblok]: Odblokowanie komunikacji Veeam BR ↔ Agent.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\03_Wirtualizacja_Kontenery_i_Sieci\04_Backup_i_Pamieci_Masowe\AutoSync\Odblokowanie komunikacji Veeam BR ↔ Agent.md
+  - MATCH [skrypt]: Aktualizowanie systemu za pomocą skryptu.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Aktualizowanie systemu za pomocą skryptu.md
+  - MATCH [odblok]: Odblokowanie uruchamiania skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Odblokowanie uruchamiania skryptów.md
+  - MATCH [skrypt]: SKRYPT  - uniwersalny.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\SKRYPT  - uniwersalny.md
+  - MATCH [skrypt]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [skrypt]: SKRYPT.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\SKRYPT.md
+  - MATCH [skrypt]: Skrypty monitorujące kto i gdzie się logował.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Skrypty monitorujące kto i gdzie się logował.md
+  - MATCH [skrypt]: Uruchamianie skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\Uruchamianie skryptów.md
+  - MATCH [skrypt]: xcopy - skrypt sprawdzająco kopiujący.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki\07_Aplikacje_i_Skrypty\AutoSync\xcopy - skrypt sprawdzająco kopiujący.md
+  - MATCH [skrypt]: WIN - Skrypt wypisujący użytkowników z konretnego.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\APLIKACJE skrypty\WIN - Skrypt wypisujący użytkowników z konretnego.md
+  - MATCH [skrypt]: Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\LINUX\Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+  - MATCH [skrypt]: Skrypt kasujący foldery z podkatalogów np @eadir.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\LINUX\Skrypt kasujący foldery z podkatalogów np @eadir.md
+  - MATCH [skrypt]: Uruchamianie skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\LINUX\Uruchamianie skryptów.md
+  - MATCH [skrypt]: SKRYPT.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\LINUX\Skrypt Automatyzacji Wdrożenia\SKRYPT.md
+  - MATCH [skrypt]: Aktualizowanie systemu za pomocą skryptu.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Aktualizowanie systemu za pomocą skryptu.md
+  - MATCH [skrypt]: Dodawanie użytkownika do AD - skrypt.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Dodawanie użytkownika do AD - skrypt.md
+  - MATCH [odblok]: Odblokowanie uruchamiania skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Odblokowanie uruchamiania skryptów.md
+  - MATCH [skrypt]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [skrypt]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Skrypt wysyłający maila przypominający o wygaśnięc.md
+  - MATCH [skrypt]: Skrypty monitorujące kto i gdzie się logował.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\Skrypty monitorujące kto i gdzie się logował.md
+  - MATCH [skrypt]: xcopy - skrypt sprawdzająco kopiujący.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\MICROSOFT\xcopy - skrypt sprawdzająco kopiujący.md
+  - MATCH [odblok]: Odblokowanie komunikacji Veeam BR ↔ Agent.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\NETWORK\pFsense\REGUŁY (RULES)\VLAN to VLAN\Odblokowanie komunikacji Veeam BR ↔ Agent.md
+  - MATCH [skrypt]: SKRYPT - uniwersalny.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\wiki_wsad\WAZUH\INSTALACJA AGENTA i ZABEZPIECZENIE\SKRYPT - uniwersalny.md
+  - MATCH [skrypt]: WIN - Skrypt wypisujący użytkowników z konretnego.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\APLIKACJE skrypty\WIN - Skrypt wypisujący użytkowników z konretnego.md
+  - MATCH [skrypt]: Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\LINUX\Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag.md
+  - MATCH [skrypt]: Skrypt kasujący foldery z podkatalogów np @eadir.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\LINUX\Skrypt kasujący foldery z podkatalogów np @eadir.md
+  - MATCH [skrypt]: Uruchamianie skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\LINUX\Uruchamianie skryptów.md
+  - MATCH [skrypt]: SKRYPT.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\LINUX\Skrypt automatyzacji wdrożenia (Ubuntu + Zabbix Ag\SKRYPT.md
+  - MATCH [skrypt]: Aktualizowanie systemu za pomocą skryptu.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Aktualizowanie systemu za pomocą skryptu.md
+  - MATCH [skrypt]: Dodawanie użytkownika do AD - skrypt.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Dodawanie użytkownika do AD - skrypt.md
+  - MATCH [odblok]: Odblokowanie uruchamiania skryptów.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Odblokowanie uruchamiania skryptów.md
+  - MATCH [skrypt]: Skrypt czyszczący domyślne drukarki w RDS.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Skrypt czyszczący domyślne drukarki w RDS.md
+  - MATCH [skrypt]: Skrypt wysyłający maila przypominający o wygaśnięc.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Skrypt wysyłający maila przypominający o wygaśnięc.md
+  - MATCH [skrypt]: Skrypty monitorujące kto i gdzie się logował.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\Skrypty monitorujące kto i gdzie się logował.md
+  - MATCH [skrypt]: xcopy - skrypt sprawdzająco kopiujący.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\MICROSOFT\xcopy - skrypt sprawdzająco kopiujący.md
+  - MATCH [odblok]: Odblokowanie komunikacji Veeam BR ↔ Agent.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\NETWORK\pFsense\REGUŁY (RULES)\VLAN to VLAN\Odblokowanie komunikacji Veeam BR ↔ Agent.md
+  - MATCH [skrypt]: SKRYPT - uniwersalny.md
+    Path: C:\Users\kjaki\Desktop\GIT\_kopie\Notion_git_wiki\WAZUH\INSTALACJA AGENTA & ZABEPIECZENIE\SKRYPT - uniwersalny.md

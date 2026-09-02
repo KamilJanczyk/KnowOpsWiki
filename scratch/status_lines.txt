@@ -1,0 +1,16 @@
+300: const archivedCount = kanbanTasks.filter(t => t.archived || t.status === 'done').length;
+339: const statuses = ['todo', 'in_progress', 'review'];
+340: statuses.forEach(status => {
+341: const container = document.getElementById(`cards-${status}`);
+344: const filtered = kanbanTasks.filter(t => t.status === status && !t.archived);
+389: ${status !== 'todo' ? `<button onclick="moveTask('${t.id}', 'prev')" title="Cofnij">◀</button>` : ''}
+390: ${status === 'review'
+510: throw new Error(`Błąd serwera HTTP ${res.status}`);
+545: status: 'todo',
+563: const archived = kanbanTasks.filter(t => t.archived || t.status === 'done');
+593: const statuses = ['todo', 'in_progress', 'review'];
+597: let idx = statuses.indexOf(task.status);
+598: if (dir === 'next' && idx < statuses.length - 1) idx++;
+601: task.status = statuses[idx];
+609: task.status = 'done';
+619: task.status = 'review';

@@ -593,22 +593,27 @@ async function loadArticle(articlePath) {
   try {
     let markdownText = '';
     
-    // Attempt 1: Fetch raw .md file from web server
-    const res = await fetch(`/docs/${articlePath}?t=` + Date.now());
-    if (res.ok) {
-      const rawText = await res.text();
-      if (!rawText.trim().startsWith('<!DOCTYPE')) {
-        markdownText = rawText;
-      }
-    }
-
-    // Attempt 2: Fallback to API endpoint if static fetch returned index.html or failed
-    if (!markdownText) {
+    window.currentMtime = '';
+    try {
       const apiRes = await fetch(`/api/get-page?relPath=${encodeURIComponent(articlePath)}&t=` + Date.now());
       if (apiRes.ok) {
         const apiData = await apiRes.json();
         markdownText = apiData.content || '';
-        if (apiData.mtime) { window.currentMtime = new Date(apiData.mtime).toLocaleString('pl-PL'); } else { window.currentMtime = ''; }
+        if (apiData.mtime) {
+          window.currentMtime = new Date(apiData.mtime).toLocaleString('pl-PL');
+        }
+      }
+    } catch (e) {
+      console.warn('[loadArticle] Nie udało się pobrać metadanych z API:', e);
+    }
+
+    if (!markdownText) {
+      const res = await fetch(`/docs/${articlePath}?t=` + Date.now());
+      if (res.ok) {
+        const rawText = await res.text();
+        if (!rawText.trim().startsWith('<!DOCTYPE')) {
+          markdownText = rawText;
+        }
       }
     }
 
@@ -625,7 +630,6 @@ async function loadArticle(articlePath) {
     const actionHeaderHtml = `<div style="display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px;">
       <div style="display:flex; flex-direction:column;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:600;">DOKUMENT: ${articlePath}</span><span style="font-size:0.65rem; color:#6b7280; margin-top:2px;">Ostatnia modyfikacja: ${window.currentMtime || "Brak danych"}</span></div>
       <div style="display:flex; gap:6px;">
-        <button class="btn-action" style="background:#047857; border:1px solid #059669; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="renameCurrentFile()">ZMIEŃ NAZWĘ</button>
         <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
         <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
       </div>
@@ -2182,9 +2186,12 @@ function openCreateItemModal() {
     let optionsHtml = '';
     for (const cat of navigationData.categories) {
       if (cat.id === 'kanban_board') continue;
-      optionsHtml += `<option value="${cat.id}">${cat.title} (Kategoria Główna)</option>`;
+      optionsHtml += `<option value="${cat.id}">📁 [KATEGORIA GŁÓWNA] ${cat.title}</option>`;
       for (const sub of (cat.subcategories || [])) {
-        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;└── ${sub.title}</option>`;
+        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;📂 ${sub.title}</option>`;
+        if (sub.items && sub.items.length > 0) {
+          optionsHtml += buildRecursiveFolderOptions(sub.items, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
+        }
       }
     }
     parentSelect.innerHTML = optionsHtml;
