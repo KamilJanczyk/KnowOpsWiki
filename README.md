@@ -63,21 +63,29 @@ Aplikacja posiada zaimplementowane producenckie mechanizmy utwardzania i bezpiec
 
 ## Szybkie Uruchomienie (Krok po Kroku)
 
-### 1. Przygotowanie Pliku Środowiskowego
+### 1. Sklonowanie Repozytorium z GitHub
+Do poprawnego uruchomienia środowiska wymagany jest pełny kod z repozytorium:
+
+```bash
+git clone https://github.com/KamilJanczyk/KnowOpsWiki.git
+cd KnowOpsWiki
+```
+
+### 2. Przygotowanie Pliku Środowiskowego
 Skopiuj plik wzorcowy `.env.example` do pliku `.env` i ustaw własne bezpieczne hasło administratora:
 
 ```bash
 cp .env.example .env
 ```
 
-Treść pliku `.env`:
+Przykładowa treść pliku `.env`:
 ```env
 API_PORT=9000
 ADMIN_PASSWORD=TwojeBezpieczneHaslo123!
 WIKI_PORT=8085
 ```
 
-### 2. Uruchomienie Środowiska (Docker Compose)
+### 3. Uruchomienie Środowiska (Docker Compose)
 
 ```bash
 docker compose up -d --build
