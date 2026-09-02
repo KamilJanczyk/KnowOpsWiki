@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KnowOps Wiki</title>
+
+  <!-- Favicon Icon -->
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg?v=1.0">
+  <link rel="alternate icon" type="image/x-icon" href="/public/favicon.svg?v=1.0">
+
+  <!-- Markdown-it and Mermaid.js for Dynamic Client-Side Rendering -->
+    <!-- Markdown and Mermaid Parsers -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <!-- Highlight.js: Syntax Highlighting dla blokow kodu [dodane: punkt 8] -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
+
+  <style>
+    :root {
+      --sw-black: #000000;
+      --sw-dark-bg: #090909;
+      --sw-panel: #111111;
+      --sw-border: #2b2b2b;
+      --sw-gold: #facc15;
+      --sw-blue: #2563eb;
+      --sw-heading: var(--sw-gold);
+      --sw-text: #dddddd;
+      --sw-link: #60a5fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background-color: var(--sw-black);
+      color: var(--sw-text);
+      font-size: 12px;
+      line-height: 1.4;
+      min-width: 1200px;
+    }
+
+    /* Top Navigation Header bar */
+    .header {
+      background-color: #000000;
+      color: #ffffff;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid #333333;
+      position: sticky;
+      top: 0;
+      z-index: 2000;
+      gap: 10px;
+    }
+    .header-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .header-brand .logo { color: var(--sw-gold); font-size: 1.05rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+
+    .cat-nav-bar { display: flex; align-items: center; flex: 1; min-width: 0; overflow: visible !important; position: relative; }
+    .cat-nav-bar::-webkit-scrollbar { display: none; }
+
+    /* Top Header Category Dropdowns */
+    .top-cat-nav { display: flex; align-items: center; list-style: none; gap: 4px; position: relative; }
+    .top-cat-item { position: relative; flex-shrink: 0; }
+    .top-cat-item.special-cat .top-cat-link { background: #1e3a8a; border-color: #3b82f6; color: #ffffff; font-weight: 700; cursor: pointer; }
+    .top-cat-link {
+      color: #cccccc; text-decoration: none; font-size: 0.74rem; font-weight: 600; padding: 5px 9px;
+      display: inline-flex; align-items: center; gap: 4px; border-radius: 3px; background: #111111; border: 1px solid #242424;
+      white-space: nowrap; transition: all 0.12s ease; cursor: default; user-select: none;
+    }
+    .top-cat-link .arrow { font-size: 0.65rem; color: #888888; transition: transform 0.15s ease; margin-left: 2px; }
+    .top-cat-item:hover .top-cat-link .arrow { transform: rotate(180deg); color: var(--sw-gold); }
+
+    .top-cat-item:hover .top-cat-link {
+      background-color: #1a1a1a; color: var(--sw-gold); border-color: #333;
+    }
+
+    .top-dropdown-menu {
+      display: none; position: absolute; top: 100%; left: 0; background-color: #111111; border: 1px solid #333333;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.85); border-radius: 4px; min-width: 220px;
+      z-index: 2500; padding: 4px 0; margin-top: 2px;
+    }
+    .top-cat-item:hover .top-dropdown-menu { display: block; }
+
+    .top-dropdown-item {
+      display: flex; align-items: center; justify-content: space-between; padding: 4px 10px; color: #dddddd;
+      text-decoration: none; font-size: 0.73rem; font-weight: 500; transition: background 0.1s ease; border-bottom: 1px dashed #1e1e1e;
+      white-space: nowrap;
+    }
+    .top-dropdown-item:last-child { border-bottom: none; }
+    .top-dropdown-item:hover { background-color: #222222; color: var(--sw-gold); }
+
+    /* Right Action Bar */
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .search-box input {
+      background: #111111; border: 1px solid #333333; color: #fff; padding: 4px 10px; font-size: 0.74rem; border-radius: 4px; width: 160px;
+    }
+    .btn-action {
+      background: var(--sw-gold); color: #000; border: none; padding: 5px 12px; font-size: 0.74rem; font-weight: 700; border-radius: 4px; cursor: pointer; transition: background 0.12s ease;
+    }
+    .btn-action:hover { background: #eab308; }
+
+    /* Layout Main Grid */
+    .layout-container { display: flex; min-height: calc(100vh - 44px); }
+    .left-topics-box { width: 250px; background: #0c0c0c; border-right: 1px solid var(--sw-border); padding: 12px 10px; flex-shrink: 0; max-height: calc(100vh - 44px); overflow-y: auto; }
+    .left-topics-header { font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; }
+    .left-topics-list { list-style: none; }
+    .topic-group-header { font-size: 0.75rem; font-weight: 700; color: #e5e7eb; margin-top: 8px; margin-bottom: 3px; }
+    .topic-group-header a { color: var(--sw-gold); text-decoration: none; }
+    .topic-item { font-size: 0.72rem; margin: 0; }
+    .topic-item a {
+      color: #aaaaaa; text-decoration: none; display: block; padding: 2px 4px; border-radius: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .topic-item a:hover, .topic-item.active a { background: #1f2937; color: #ffffff; }
+
+    /* Kafelkowy pasek boczny dla Dodatków */
+    .sidebar-tile-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #111111;
+      border: 1px solid #222222;
+      border-left: 3px solid #3f3f46;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      border-radius: 4px;
+      color: #bbbbbb;
+      text-decoration: none;
+      font-size: 0.74rem;
+      font-weight: 600;
+      transition: all 0.1s ease;
+      cursor: pointer;
+    }
+    .sidebar-tile-btn:hover {
+      background: #1c1c1e;
+      border-color: #333333;
+      border-left-color: var(--sw-gold);
+      color: #ffffff;
+      transform: translateX(2px);
+    }
+    .sidebar-tile-btn.active {
+      background: #1c1c1e;
+      border-color: #333333;
+      border-left-color: var(--sw-gold);
+      color: var(--sw-gold);
+      font-weight: 700;
+    }
+    .sidebar-tile-btn .icon {
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+
+    .main-content { flex: 1; padding: 20px 28px; min-width: 0; background: var(--sw-dark-bg); display: flex; justify-content: center; max-height: calc(100vh - 44px); overflow-y: auto; }
+    .content-inner-container { max-width: 1250px; width: 100%; display: flex; flex-direction: column; }
+    .breadcrumb-nav { font-size: 0.72rem; color: #888888; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #222; }
+
+    /* Right Kanban Sidebar Styles */
+    .right-kanban-sidebar { width: 260px; background: #0c0c0c; border-left: 1px solid var(--sw-border); padding: 12px 10px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: calc(100vh - 44px); }
+    .right-sidebar-title { font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; letter-spacing: 0.5px; }
+    .right-kanban-list { display: flex; flex-direction: column; gap: 8px; }
+    .right-kanban-item { background: #141416; border: 1px solid #222224; border-left: 3px solid var(--sw-gold); padding: 8px; border-radius: 4px; font-size: 0.7rem; }
+    .right-kanban-item.prio-high { border-left-color: #ef4444; }
+    .right-kanban-item.prio-medium { border-left-color: #f59e0b; }
+    .right-kanban-item.prio-low { border-left-color: #10b981; }
+    .right-kanban-item-title { font-weight: 700; color: #fff; margin-bottom: 4px; font-size: 0.74rem; }
+    .right-kanban-item-desc { font-size: 0.68rem; color: #888; margin-bottom: 4px; }
+    .right-kanban-item-progress { font-size: 0.65rem; color: var(--sw-gold); }
+
+    /* Kanban Styles */
+    .tool-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .tool-header h2 { font-size: 1.1rem; color: var(--sw-gold); }
+
+    .kanban-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    .kanban-col { background: #111111; border: 1px solid #222222; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; }
+    .col-title { font-size: 0.75rem; font-weight: 800; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; text-align: center; color: #fff; }
+    .col-todo-title { background: #1e293b; }
+    .col-progress-title { background: #1e3a8a; }
+    .col-review-title { background: #7c2d12; }
+    .col-done-title { background: #064e3b; }
+
+    .task-cards-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; min-height: auto; justify-content: start; }
+    .empty-card { grid-column: 1 / -1; font-size: 0.72rem; color: #666; text-align: center; padding: 14px; background: #090909; border: 1px dashed #222; border-radius: 4px; }
+
+    .kanban-card { background: #18181b; border: 1px solid #27272a; padding: 10px; border-radius: 5px; display: flex; flex-direction: column; gap: 6px; }
+    .kanban-card.prio-high { border-left: 3px solid #ef4444; }
+    .kanban-card.prio-medium { border-left: 3px solid #f59e0b; }
+    .kanban-card.prio-low { border-left: 3px solid #10b981; }
+
+    .card-head { display: flex; justify-content: space-between; font-size: 0.65rem; color: #888; }
+    .card-title { font-size: 0.8rem; font-weight: 700; color: #fff; }
+    .card-desc { font-size: 0.72rem; color: #aaa; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.65rem; color: #666; margin-top: 4px; }
+    .card-actions button { background: #27272a; border: none; color: #fff; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 0.65rem; }
+
+    /* Quick Notes Grid */
+    .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .note-card { background: #1c1917; border: 1px solid #44403c; padding: 12px; border-radius: 6px; display: flex; flex-direction: column; gap: 8px; min-height: 160px; }
+    .note-color-gold { border-top: 4px solid var(--sw-gold); }
+    .note-head { display: flex; justify-content: space-between; align-items: center; }
+    .note-title-input { background: none; border: none; color: #fff; font-weight: 700; font-size: 0.82rem; width: 85%; }
+    .note-body-input { background: none; border: none; color: #ccc; font-size: 0.78rem; resize: vertical; min-height: 100px; font-family: inherit; }
+    .note-del-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; }
+
+    /* Markdown Styling */
+    .markdown-body h1 { font-size: 1.5rem; color: #ffffff; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+    .markdown-body h2 { font-size: 1.2rem; color: var(--sw-heading); margin-top: 18px; margin-bottom: 10px; }
+    .markdown-body h3 { font-size: 1.0rem; color: var(--sw-gold); margin-top: 14px; margin-bottom: 8px; }
+    .markdown-body p { margin-bottom: 12px; font-size: 0.85rem; line-height: 1.5; color: #cccccc; }
+    .markdown-body ul, .markdown-body ol { padding-left: 22px; margin-bottom: 14px; }
+    .markdown-body li { margin-bottom: 6px; font-size: 0.85rem; line-height: 1.5; color: #cccccc; }
+    .markdown-body li > ul, .markdown-body li > ol { margin-top: 6px; margin-bottom: 0; padding-left: 20px; }
+    .markdown-body code { background: #1a1a1a; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #e2e8f0; }
+    .markdown-body pre { background: #121212; border: 1px solid #282828; padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 14px; position: relative; }
+    .markdown-body pre code { background: none; padding: 0; color: #e2e8f0; }
+    .copy-code-btn {
+      position: absolute; top: 6px; right: 6px; background: #27272a; border: 1px solid #3f3f46; color: #a1a1aa;
+      padding: 3px 8px; font-size: 0.65rem; font-family: inherit; font-weight: 600; border-radius: 4px; cursor: pointer;
+      opacity: 0; transition: opacity 0.15s ease, background 0.1s; user-select: none; z-index: 10;
+    }
+    .markdown-body pre:hover .copy-code-btn { opacity: 1; }
+    .copy-code-btn:hover { background: #3f3f46; color: #ffffff; }
+    .copy-code-btn.copied { background: #064e3b; border-color: #10b981; color: #34d399; }
+    .markdown-body img { max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #333; margin: 12px 0; display: block; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 0.8rem; }
+    .markdown-body th, .markdown-body td { border: 1px solid #333; padding: 8px 10px; text-align: left; }
+    .markdown-body th { background: #18181b; color: var(--sw-gold); }
+
+    /* Alerts */
+    .markdown-alert { border-left: 4px solid #3b82f6; background: #111827; padding: 10px 14px; margin-bottom: 14px; border-radius: 0 4px 4px 0; }
+    .markdown-alert-title { font-weight: 700; font-size: 0.78rem; margin-bottom: 4px; color: #60a5fa; }
+    .alert-tip { border-color: #10b981; background: #064e3b; } .alert-tip .markdown-alert-title { color: #34d399; }
+    .alert-important { border-color: #f59e0b; background: #78350f; } .alert-important .markdown-alert-title { color: #fbbf24; }
+    .alert-warning { border-color: #ef4444; background: #7f1d1d; } .alert-warning .markdown-alert-title { color: #f87171; }
+  
+    /* Modern Modal Overlay Styles */
+    .custom-modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .custom-modal {
+      background: #18181b; border: 1px solid #3f3f46; border-radius: 8px;
+      width: 90%; max-width: 520px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-header {
+      background: #09090b; padding: 14px 18px; border-bottom: 1px solid #27272a;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header h3 { font-size: 0.95rem; color: var(--sw-gold); margin: 0; font-weight: 700; }
+    .modal-close-btn { background: none; border: none; color: #a1a1aa; font-size: 1.1rem; cursor: pointer; }
+    .modal-close-btn:hover { color: #ffffff; }
+    .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-label { font-size: 0.75rem; color: #d4d4d8; font-weight: 600; margin-bottom: 4px; display: block; }
+    .modal-input, .modal-select, .modal-textarea {
+      width: 100%; background: #09090b; border: 1px solid #3f3f46; color: #f4f4f5;
+      padding: 8px 12px; border-radius: 5px; font-size: 0.82rem; font-family: inherit;
+    }
+    .modal-input:focus, .modal-select:focus, .modal-textarea:focus {
+      border-color: var(--sw-gold); outline: none;
+    }
+    .modal-textarea { min-height: 80px; resize: vertical; }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-footer {
+      background: #09090b; padding: 12px 18px; border-top: 1px solid #27272a;
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+    .btn-secondary {
+      background: #27272a; border: 1px solid #3f3f46; color: #d4d4d8;
+      padding: 6px 14px; border-radius: 4px; font-size: 0.78rem; cursor: pointer;
+    }
+    .btn-secondary:hover { background: #3f3f46; color: #ffffff; }
+    .btn-archive { background: #312e81; border: 1px solid #4338ca; color: #e0e7ff; margin-left: 8px; }
+    .btn-archive:hover { background: #3730a3; }
+    .archived-list { display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto; padding-right: 4px; }
+    .archived-item {
+      background: #09090b; border: 1px solid #27272a; padding: 10px 14px; border-radius: 5px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .archived-title { font-size: 0.82rem; font-weight: 700; color: #e4e4e7; }
+    .archived-meta { font-size: 0.7rem; color: #71717a; }
+
+  
+    /* Subtasks Styles */
+    .subtasks-container { margin-top: 8px; padding-top: 6px; border-top: 1px solid #27272a; display: flex; flex-direction: column; gap: 4px; }
+    .subtasks-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: #a1a1aa; font-weight: 700; margin-bottom: 2px; }
+    .subtask-progress-bar { width: 100%; background: #27272a; height: 4px; border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+    .subtask-progress-fill { background: var(--sw-gold); height: 100%; transition: width 0.2s ease; }
+    .subtask-checkbox-item { display: flex; align-items: center; gap: 6px; font-size: 0.73rem; color: #d4d4d8; cursor: pointer; user-select: none; }
+    .subtask-checkbox-item input[type="checkbox"] { accent-color: var(--sw-gold); cursor: pointer; }
+    .subtask-done { text-decoration: line-through; color: #71717a; }
+    .modal-subtask-item { display: flex; justify-content: space-between; align-items: center; background: #09090b; border: 1px solid #27272a; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; color: #e4e4e7; }
+
+    .toolbar-btn {
+      background: #27272a; border: 1px solid #3f3f46; color: #e4e4e7;
+      padding: 3px 8px; border-radius: 4px; font-size: 0.68rem; cursor: pointer;
+      font-weight: 500; font-family: inherit; transition: background 0.1s;
+    }
+    .toolbar-btn:hover { background: #3f3f46; color: #fff; }
+
+    /* Callout Alerts (Notion/GitHub style) */
+    .markdown-alert {
+      margin: 16px 0;
+      padding: 12px 16px;
+      border-left: 4px solid #333;
+      border-radius: 4px;
+    }
+    .markdown-alert-title {
+      font-weight: 700;
+      font-size: 0.76rem;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+    .markdown-alert-body {
+      font-size: 0.82rem;
+      color: #cccccc;
+    }
+    .markdown-alert-body > p:first-child { margin-top: 0; }
+    .markdown-alert-body > p:last-child { margin-bottom: 0; }
+
+    .markdown-alert-note { border-left-color: #3b82f6; background-color: rgba(59, 130, 246, 0.08); }
+    .markdown-alert-note .markdown-alert-title { color: #3b82f6; }
+
+    .markdown-alert-warning { border-left-color: #f59e0b; background-color: rgba(245, 158, 11, 0.08); }
+    .markdown-alert-warning .markdown-alert-title { color: #f59e0b; }
+
+    .markdown-alert-caution { border-left-color: #ef4444; background-color: rgba(239, 68, 68, 0.08); }
+    .markdown-alert-caution .markdown-alert-title { color: #ef4444; }
+
+    .markdown-alert-important { border-left-color: #a855f7; background-color: rgba(168, 85, 247, 0.08); }
+    .markdown-alert-important .markdown-alert-title { color: #a855f7; }
+
+    .markdown-alert-tip { border-left-color: #10b981; background-color: rgba(16, 185, 129, 0.08); }
+    .markdown-alert-tip .markdown-alert-title { color: #10b981; }
+
+    /* ===== TRYB DRUKU / PDF [dodane: punkt 9] ===== */
+    @media print {
+      /* Ukryj elementy interfejsu - sidebary, header, pasek akcji artykulu */
+      .header,
+      .left-topics-box,
+      .right-kanban-sidebar,
+      .left-sidebar-tools                    { display: none !important; }
+      /* Pasek akcji z przyciskami oraz chlebek */
+      .breadcrumb-nav,
+      #articleContentArea > div:first-child  { display: none !important; }
+
+      /* Layout pelna szerokosc */
+      .layout-container                      { display: block !important; }
+      .main-content                          { padding: 0 !important; }
+      .content-inner-container               { max-width: 100% !important; }
+
+      /* Reset tla i kolorow na biale/czarne */
+      body, html, .main-content,
+      .content-inner-container,
+      .markdown-body                         { background: #ffffff !important; color: #000000 !important; }
+      .markdown-body p, .markdown-body li    { color: #000000 !important; }
+      .markdown-body h1                      { color: #000000 !important; border-color: #ccc !important; }
+      .markdown-body h2, .markdown-body h3   { color: #111111 !important; }
+      .markdown-body pre                     { background: #f4f4f4 !important; border: 1px solid #ccc !important; page-break-inside: avoid; }
+      .markdown-body pre code                { background: none !important; color: #000000 !important; }
+      .markdown-body code                    { background: #f0f0f0 !important; color: #c7254e !important; }
+      .markdown-body table th                { background: #e8e8e8 !important; color: #000000 !important; }
+      .markdown-body table td                { color: #000000 !important; border-color: #ccc !important; }
+      .markdown-body a                       { color: #1a56db !important; }
+      .markdown-body img                     { border: 1px solid #ccc !important; max-width: 100% !important; }
+
+      /* Alerty w druku */
+      .markdown-body .markdown-alert { background: #fdfdfd !important; border: 1px solid #ccc !important; border-left: 4px solid #333 !important; }
+      .markdown-body .markdown-alert-note { border-left-color: #3b82f6 !important; }
+      .markdown-body .markdown-alert-warning { border-left-color: #f59e0b !important; }
+      .markdown-body .markdown-alert-caution { border-left-color: #ef4444 !important; }
+      .markdown-body .markdown-alert-important { border-left-color: #a855f7 !important; }
+      .markdown-body .markdown-alert-tip { border-left-color: #10b981 !important; }
+      .markdown-body .markdown-alert-body { color: #000000 !important; }
+
+      /* Zapobiegaj lamania naglowkow miedzy stronami */
+      .markdown-body h1, .markdown-body h2,
+      .markdown-body h3                      { page-break-after: avoid; }
+      .markdown-body pre, .markdown-body table { page-break-inside: avoid; }
+    }
+  
+    /* Dedykowane suwaki dla kazdej kolumny (pojawiaja sie automatycznie w razie potrzeby) */
+    .left-topics-box::-webkit-scrollbar,
+    .main-content::-webkit-scrollbar,
+    .right-kanban-sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .left-topics-box::-webkit-scrollbar-track,
+    .main-content::-webkit-scrollbar-track,
+    .right-kanban-sidebar::-webkit-scrollbar-track {
+      background: #090909;
+    }
+    .left-topics-box::-webkit-scrollbar-thumb,
+    .main-content::-webkit-scrollbar-thumb,
+    .right-kanban-sidebar::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 3px;
+    }
+    .left-topics-box::-webkit-scrollbar-thumb:hover,
+    .main-content::-webkit-scrollbar-thumb:hover,
+    .right-kanban-sidebar::-webkit-scrollbar-thumb:hover {
+      background: var(--sw-gold);
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="header">
+     <div class="header-brand">
+      <a href="#/kanban" class="logo"><span>KnowOps</span> <span style="color:#ffffff; font-size:0.75rem;">Wiki</span></a>
+    </div>
+
+    <div class="cat-nav-bar">
+      <ul class="top-cat-nav" id="topCatNav">
+        <!-- Dynamically rendered via app.js -->
+      </ul>
+    </div>
+
+
+  </header>
+
+  <!-- Main Layout Grid -->
+  <div class="layout-container">
+    <!-- Left Sidebar Topics Box -->
+        <!-- Left Sidebar Topics Box -->
+        <aside class="left-topics-box" id="leftSidebarContainer">
+      <!-- Tools moved under KnowOps Wiki logo -->
+      <div class="left-sidebar-tools" style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #222; display: flex; flex-direction: column; gap: 6px;">
+        <input type="text" id="globalSearchInput" placeholder="Szukaj w wiki..." style="width: 100%; background: #111111; border: 1px solid #333333; color: #ffffff; padding: 6px 10px; font-size: 0.73rem; border-radius: 4px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+          <button class="btn-action" style="background: var(--sw-gold); color: #000000; font-weight: 700; font-size: 0.68rem; padding: 5px 6px; white-space: nowrap;" onclick="triggerRescan()">Przeskanuj</button>
+          <button class="btn-action" style="background: #27272a; color: #ffffff; font-size: 0.68rem; padding: 5px 6px; white-space: nowrap;" onclick="window.print()">Drukuj / PDF</button>
+        </div>
+        <button class="btn-action" style="width: 100%; background: #1e3a8a; border: 1px solid #3b82f6; color: #ffffff; font-weight: 700; font-size: 0.72rem; padding: 6px; margin-top: 2px; cursor: pointer;" onclick="openCreateItemModal()">+ Dodaj Stronę / Dział</button>
+        <button class="btn-action" style="width: 100%; background: #27272a; border: 1px solid #3f3f46; color: #ffffff; font-weight: 700; font-size: 0.72rem; padding: 6px; margin-top: 4px; cursor: pointer;" onclick="openImportFileModal()">📥 Importuj Plik (MD / HTML)</button>
+      </div>
+      <div class="left-topics-header" id="sidebarTitle">NAWIGACJA</div>
+      <ul class="left-topics-list" id="sidebarNav">
+        <!-- Dynamically rendered via app.js -->
+      </ul>
+    </aside>
+
+    <!-- Center Article Area (Centered Content) -->
+    <main class="main-content">
+      <div class="content-inner-container">
+        <div class="breadcrumb-nav" id="breadcrumbArea">Ładowanie aplikacji...</div>
+        <div class="markdown-body" id="articleContentArea">
+          <p style="padding:20px; color:#888;">Ładowanie zasobów...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Sidebar for Active Kanban Tasks -->
+    <aside class="right-kanban-sidebar" id="rightKanbanSidebar">
+      <div class="right-sidebar-title">AKTYWNE ZADANIA KANBAN</div>
+      <div class="right-kanban-list" id="rightKanbanList">
+        <div style="font-size:0.68rem; color:#555; text-align:center; padding:10px;">Ładowanie zadań...</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Modal Editor Overlay -->
+  <div id="articleEditorModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:3000; justify-content:center; align-items:center; padding:20px;">
+    <div style="background:#111; border:1px solid #333; border-radius:8px; width:95%; max-width:1200px; height:90vh; display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+      <div style="padding:10px 18px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 id="editorModalTitle" style="color:var(--sw-gold); font-size:0.95rem; margin:0;">EDYCJA DOKUMENTU</h3>
+          <span id="editorModalPath" style="font-size:0.68rem; color:#888;"></span>
+        </div>
+        <button style="background:none; border:none; color:#aaa; font-size:1.2rem; cursor:pointer;" onclick="closeEditorModal()">✕</button>
+      </div>
+
+      <div class="editor-toolbar" style="background:#18181b; padding:6px 12px; border-bottom:1px solid #27272a; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('bold')" title="Pogrubienie" style="font-weight:bold;">B</button>
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('italic')" title="Kursywa" style="font-style:italic;">I</button>
+        <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('h1')" title="Nagłówek H1">H1</button>
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('h2')" title="Nagłówek H2">H2</button>
+        <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('code')" title="Blok kodu">Kod</button>
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('table')" title="Tabela">Tabela</button>
+        <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>
+        <select class="toolbar-btn" onchange="if(this.value){insertEditorText(this.value); this.value='';}" style="background:#27272a; color:#e4e4e7; border:1px solid #3f3f46; padding:3px 6px; font-size:0.68rem; border-radius:4px; cursor:pointer; outline:none;">
+          <option value="">Diagram Mermaid ▼</option>
+          <option value="mermaid_flow">Schemat Blokowy (Flowchart)</option>
+          <option value="mermaid_seq">Diagram Sekwencji (Sequence)</option>
+          <option value="mermaid_git">Wykres Git (Git Graph)</option>
+          <option value="mermaid_pie">Wykres Kołowy (Pie Chart)</option>
+          <option value="mermaid_gantt">Harmonogram Gantta (Gantt Chart)</option>
+          <option value="mermaid_state">Diagram Stanów (State Diagram)</option>
+          <option value="mermaid_class">Diagram Klas (Class Diagram)</option>
+          <option value="mermaid_ad">Diagram Sieci AD (Active Directory)</option>
+          <option value="mermaid_tree">Drzewo Hierarchiczne (Tree / OU Structure)</option>
+        </select>
+        <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>
+        <button type="button" class="toolbar-btn" onclick="openEditorImageUpload()" title="Wgraj obraz" style="background:#1e3a8a; color:#fff; border:1px solid #3b82f6; font-size:0.68rem; padding:3px 8px; font-weight:bold;">Wgraj Obraz / Grafikę</button>
+        <input type="file" id="editorImageInput" accept="image/*" style="display:none;" onchange="handleEditorImageUpload(event)">
+      </div>
+
+      <div style="flex:1; display:flex; min-height:0; overflow:hidden;">
+        <div style="flex:1; display:flex; flex-direction:column; padding:12px; border-right:1px solid #222;">
+          <textarea id="editorTextarea" style="flex:1; width:100%; background:#090909; color:#f4f4f5; border:1px solid #27272a; border-radius:4px; padding:12px; font-family:monospace; font-size:0.82rem; line-height:1.5; resize:none; outline:none;" placeholder="Wprowadź treść Markdown..." oninput="updateEditorPreview()"></textarea>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; padding:12px; min-width:0; background:#0c0c0d;">
+          <div id="editorPreview" class="markdown-body" style="flex:1; width:100%; overflow-y:auto; padding:12px; border:1px solid #27272a; border-radius:4px; font-size:0.85rem; color:#ccc;"></div>
+        </div>
+      </div>
+
+      <div style="padding:10px 18px; border-top:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#0a0a0a;">
+        <button class="btn-action" style="background:#ef4444; color:#fff; font-weight:bold; padding:6px 14px;" onclick="deleteCurrentArticleFromModal()">Usuń Dokument</button>
+        <span id="editorSaveStatus" style="font-size:0.75rem; color:#888; font-weight:600;">Wszystkie zmiany zapisane</span>
+        <div style="display:flex; gap:10px;">
+          <button class="btn-action" style="background:#27272a; color:#ccc; padding:6px 18px; font-weight:bold;" onclick="closeEditorModal()">Zamknij</button>
+          <button class="btn-action" style="background:var(--sw-gold); color:#000; padding:6px 18px; font-weight:bold;" onclick="saveCurrentArticleFromModal()">Zapisz Zmiany</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Item Modal Overlay -->
+  <div id="createItemModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:3000; justify-content:center; align-items:center; padding:20px;">
+    <div style="background:#111; border:1px solid #333; border-radius:8px; width:90%; max-width:650px; display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+      <div style="padding:14px 18px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="color:var(--sw-gold); font-size:1.0rem;">DODAJ NOWY ELEMENT DO WIKI</h3>
+        <button style="background:none; border:none; color:#aaa; font-size:1.2rem; cursor:pointer;" onclick="closeCreateItemModal()">✕</button>
+      </div>
+
+      <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label style="display:block; margin-bottom:6px; color:#ccc; font-size:0.78rem; font-weight:bold;">1. Co chcesz utworzyć?</label>
+          <div style="display:flex; gap:12px;">
+            <label style="flex:1; background:#1c1c1f; border:1px solid #333; padding:10px 14px; border-radius:4px; cursor:pointer; font-size:0.8rem; color:#fff; display:flex; align-items:center; gap:8px;">
+              <input type="radio" name="itemType" value="doc" checked onchange="toggleCreateItemType()">
+              <span>Nowy Dokument (Artykuł)</span>
+            </label>
+            <label style="flex:1; background:#1c1c1f; border:1px solid #333; padding:10px 14px; border-radius:4px; cursor:pointer; font-size:0.8rem; color:#fff; display:flex; align-items:center; gap:8px;">
+              <input type="radio" name="itemType" value="folder" onchange="toggleCreateItemType()">
+              <span>Nowy Dział (Podsekcja / Folder)</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block; margin-bottom:6px; color:#ccc; font-size:0.78rem; font-weight:bold;">2. Wybierz sekcję nadrzędną (Kategorię / Dział):</label>
+          <select id="createItemParentSelect" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px 12px; border-radius:4px; font-size:0.82rem; outline:none;">
+            <!-- Dynamically populated via app.js -->
+          </select>
+        </div>
+
+        <div>
+          <label id="createItemNameLabel" style="display:block; margin-bottom:6px; color:#ccc; font-size:0.78rem; font-weight:bold;">3. Nazwa nowego dokumentu (tytuł):</label>
+          <input type="text" id="createItemNameInput" placeholder="np. Podstawy_OSPF" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px 12px; border-radius:4px; font-size:0.82rem; outline:none;">
+        </div>
+
+
+      </div>
+
+      <div style="padding:14px 18px; border-top:1px solid #222; display:flex; justify-content:flex-end; gap:10px; background:#0a0a0a;">
+        <button class="btn-action" style="background:#27272a; color:#ccc; padding:6px 14px;" onclick="closeCreateItemModal()">Anuluj</button>
+        <button class="btn-action" style="background:var(--sw-gold); color:#000; font-weight:bold; padding:6px 18px;" onclick="submitCreateItemForm()">Utwórz Element</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Client Script -->
+  <script src="/public/app.js?v=2.0.4"></script>
+
+  <!-- Custom Modal Overlays for Kanban -->
+  <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal">
+      <div class="modal-header">
+        <h3>NOWE ZADANIE SYSTEMOWE</h3>
+        <button class="modal-close-btn" onclick="closeAddTaskModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:#18181b; border:1px solid #333; padding:10px; border-radius:6px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label class="modal-label" style="margin-bottom:0; color:var(--sw-gold); font-weight:bold;">📋 Wybierz Szablon Zadania (Opcjonalnie)</label>
+            <button type="button" class="btn-secondary" style="font-size:0.68rem; padding:3px 8px; cursor:pointer;" onclick="saveCurrentDraftAsTemplate()">💾 Zapamiętaj jako Szablon</button>
+          </div>
+          <select id="taskTemplateSelect" class="modal-select" onchange="applySelectedTaskTemplate()">
+            <option value="">-- Wybierz czysty formularz lub szablon --</option>
+          </select>
+        </div>
+        <div>
+          <label class="modal-label">Tytuł zadania *</label>
+          <input type="text" id="taskTitleInput" placeholder="Wprowadź tytuł zadania..." class="modal-input">
+        </div>
+        <div class="modal-row">
+          <div>
+            <label class="modal-label">Kategoria</label>
+            <select id="taskCategorySelect" class="modal-select">
+              <option value="SysAdmin">SysAdmin</option>
+              <option value="DevOps">DevOps</option>
+              <option value="CyberSec">CyberSec</option>
+              <option value="Network">Network</option>
+              <option value="Database">Database</option>
+            </select>
+          </div>
+          <div>
+            <label class="modal-label">Priorytet</label>
+            <select id="taskPrioritySelect" class="modal-select">
+              <option value="low">Niski</option>
+              <option value="medium" selected>Średni</option>
+              <option value="high">Wysoki</option>
+            </select>
+          </div>
+        </div>
+                <div>
+          <label class="modal-label">Opis zadania (opcjonalny)</label>
+          <textarea id="taskDescInput" placeholder="Opis szegółowy lub wytyczne..." class="modal-textarea"></textarea>
+        </div>
+        <div>
+          <label class="modal-label">Podzadania (checklisty)</label>
+          <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <input type="text" id="newSubtaskInput" placeholder="Treść nowego podzadania..." class="modal-input" onkeydown="if(event.key==='Enter'){event.preventDefault(); addSubtaskToModal();}">
+            <button type="button" class="btn-secondary" onclick="addSubtaskToModal()">+ Dodaj</button>
+          </div>
+          <div id="modalSubtasksList" style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAddTaskModal()">Anuluj</button>
+        <button class="btn-action" onclick="submitNewTask()">Zapisz Zadanie</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="archiveModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3>ARCHIWUM ZADAŃ ZROBIONYCH</h3>
+        <button class="modal-close-btn" onclick="closeArchiveModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="archived-list" id="archivedTasksList"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeArchiveModal()">Zamknij</button>
+      </div>
+    </div>
+  </div>
+  <div id="importFileModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal">
+      <div class="modal-header">
+        <h3>IMPORTUJ DOKUMENT (PLIK / URL)</h3>
+        <button class="modal-close-btn" onclick="closeImportFileModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; border-bottom:1px solid #333; margin-bottom:14px; gap:10px;">
+          <button id="importTabFileBtn" onclick="switchImportTab('file')" style="background:#222; color:#fff; border:none; padding:6px 12px; border-radius:4px 4px 0 0; font-size:0.75rem; cursor:pointer; font-weight:700;">Z dysku</button>
+          <button id="importTabUrlBtn" onclick="switchImportTab('url')" style="background:none; color:#888; border:none; padding:6px 12px; border-radius:4px 4px 0 0; font-size:0.75rem; cursor:pointer;">Z linku / URL</button>
+        </div>
+
+        <div>
+          <label class="modal-label">Katalog Docelowy *</label>
+          <select id="importFolderSelect" class="modal-select">
+            <!-- Dynamicznie ładowane foldery -->
+          </select>
+        </div>
+
+        <div id="importTabFileContent" style="margin-top: 10px;">
+          <label class="modal-label">Wybierz plik z dysku (.md, .html, .htm, .txt) *</label>
+          <input type="file" id="importFileInput" accept=".md,.html,.htm,.txt" class="modal-input" style="background:#111; color:#fff; border:1px solid #333; padding:6px; width:100%;">
+        </div>
+
+        <div id="importTabUrlContent" style="margin-top: 10px; display:none;">
+          <div style="margin-bottom:10px;">
+            <label class="modal-label">Adres URL strony/artykułu *</label>
+            <input type="text" id="importUrlInput" placeholder="https://np.niebezpiecznik.pl/artykul-o-pfsense" class="modal-input" style="width:100%; background:#111; color:#fff; border:1px solid #333; padding:6px; border-radius:4px; font-size:0.75rem;">
+          </div>
+          <div>
+            <label class="modal-label">Nazwa nowego pliku (np. Konfiguracja_pfSense) *</label>
+            <input type="text" id="importUrlFilename" placeholder="np. Konfiguracja_pfSense" class="modal-input" style="width:100%; background:#111; color:#fff; border:1px solid #333; padding:6px; border-radius:4px; font-size:0.75rem;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeImportFileModal()">Anuluj</button>
+        <button class="btn-action" onclick="submitImport()">Importuj</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="movePageModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal" style="max-width: 550px;">
+      <div class="modal-header">
+        <h3>PRZENIESIENIE DOKUMENTU</h3>
+        <button class="modal-close-btn" onclick="closeMovePageModal()">X</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px;">
+          <label class="modal-label">Aktualna lokalizacja</label>
+          <input type="text" id="movePageCurrentPath" readonly style="width:100%; background:#1c1c1f; color:#888; border:1px solid #333; padding:8px; border-radius:4px; font-size:0.78rem; outline:none;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="modal-label">Nowa lokalizacja (Kategoria / Dział) *</label>
+          <select id="movePageTargetSelect" class="modal-select" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px; border-radius:4px; font-size:0.8rem; outline:none;">
+            <!-- Dynamicznie ładowane foldery -->
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="modal-label">Nazwa pliku (opcjonalnie zmień) *</label>
+          <input type="text" id="movePageNameInput" class="modal-input" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px; border-radius:4px; font-size:0.8rem; outline:none;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeMovePageModal()">Anuluj</button>
+        <button class="btn-action" onclick="submitMovePage()">Zapisz i przenieś</button>
+      </div>
+    </div>
+</div>
+
+</body>
+</html>

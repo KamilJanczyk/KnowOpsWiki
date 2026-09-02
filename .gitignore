@@ -1,0 +1,26 @@
+# DevOpsAI Wiki - Git Ignore Rules
+
+# Exclude User Content and Documentation Files
+docs/**/*.md
+!docs/README.md
+
+# Exclude User Persistent Data (Kanban, Quick Notes, Task Templates)
+data/
+*.json.bak
+
+# Exclude User Uploaded Images
+public/images/*
+!public/images/.gitkeep
+
+# Node.js & Temporary Files
+node_modules/
+npm-debug.log
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Zmienne srodowiskowe - nigdy nie wersjonowac w Git
+.env
+.env.local
+.env.production

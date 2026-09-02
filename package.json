@@ -1,0 +1,22 @@
+{
+  "name": "knowops-wiki",
+  "version": "1.0.0",
+  "description": "Lekkie wiki techniczne KnowOps oparte na Markdown z dwustronną synchronizacją GitHub",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "build": "node build_knowops.mjs",
+    "start": "node server.mjs"
+  },
+  "keywords": [
+    "wiki",
+    "markdown",
+    "knowops",
+    "documentation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "markdown-it": "^15.0.0"
+  }
+}

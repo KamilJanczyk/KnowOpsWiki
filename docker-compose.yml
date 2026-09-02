@@ -1,0 +1,48 @@
+services:
+  wiki:
+    image: nginx:alpine
+    container_name: knowops-wiki
+    restart: unless-stopped
+    ports:
+      - "${WIKI_PORT:-8085}:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./public:/usr/share/nginx/html/public:ro
+      - ./docs:/usr/share/nginx/html/docs:ro
+      - ./data:/usr/share/nginx/html/data:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+    networks:
+      - knowops-internal
+
+  api:
+    build: .
+    image: knowopswiki-api:latest
+    container_name: knowops-api
+    restart: unless-stopped
+    # Port 9000 NIE jest mapowany na hosta - dostep tylko przez wewnetrzna siec Docker
+    # Nginx komunikuje sie z API przez knowops-internal (knowops-api:9000)
+    expose:
+      - "9000"
+    volumes:
+      - ./docs:/app/docs:rw
+      - ./data:/app/data:rw
+      - ./public:/app/public:rw
+      - ./build_navigation.mjs:/app/build_navigation.mjs:ro
+    env_file:
+      - .env
+    environment:
+      - API_PORT=9000
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"import('http').then(h => h.get('http://localhost:9000/api/check-auth', res => process.exit(res.statusCode === 200 ? 0 : 1)))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - knowops-internal
+
+networks:
+  knowops-internal:
+    driver: bridge
