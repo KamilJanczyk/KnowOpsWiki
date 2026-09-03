@@ -1004,13 +1004,14 @@ const server = http.createServer(async (req, res) => {
       }
       console.log(`[Wiki API] Zapisano plik: ${sanitizedRelPath}`);
 
-      rebuildWiki().then(() => {
+      try {
+        await rebuildWiki();
         rebuildSearchCache();
-        isApiSaving = false;
-      }).catch(err => {
+      } catch (err) {
         console.error('[Wiki API Rebuild Error]', err);
+      } finally {
         isApiSaving = false;
-      });
+      }
 
       return sendJson(200, {
         success: true,

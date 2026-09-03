@@ -60,6 +60,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('hashchange', async () => {
     await handleHashNavigation();
   });
+
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      await loadNavigation();
+      if (typeof renderSidebar === 'function') {
+        await renderSidebar();
+      }
+    }
+  });
 });
 
 async function loadNavigation() {
@@ -2318,10 +2327,12 @@ async function submitCreateItemForm() {
     const data = await res.json();
     if (data.success) {
       closeCreateItemModal();
-      await triggerRescan();
+      await loadNavigation();
       const parts = relPath.split('/');
       if (typeof selectCategory === 'function') {
         selectCategory(parts[0], parts[1] || '');
+      } else {
+        await renderSidebar();
       }
       window.location.hash = '#/' + relPath;
     } else {
