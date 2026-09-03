@@ -151,7 +151,7 @@ setInterval(() => {
 }, 30 * 60 * 1000);
  // ip -> { count, firstAttempt }
 function checkMutatingRateLimit(req, res, maxRequests = 30) {
-  const clientIp = req.socket.remoteAddress || 'unknown';
+  const clientIp = req.headers['x-real-ip'] || req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
   let attempts = mutatingAttempts.get(clientIp) || { count: 0, firstAttempt: now };
   if (now - attempts.firstAttempt > 60000) {
@@ -385,9 +385,16 @@ const server = http.createServer(async (req, res) => {
     }
   };
 
-  const getBody = () => new Promise((resolve) => {
+  const getBody = () => new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk.toString());
+    req.on('data', chunk => {
+      body += chunk.toString();
+      if (body.length > 10 * 1024 * 1024) {
+        req.destroy();
+        sendJson(413, { error: 'Zapytanie zbyt duże. Maksymalny rozmiar to 10 MB.' });
+        return reject(new Error('REQUEST_TOO_LARGE'));
+      }
+    });
     req.on('end', () => {
       if (!body || !body.trim()) return resolve({});
       try {
@@ -403,7 +410,7 @@ const server = http.createServer(async (req, res) => {
     // normPath defined above
 
     if (normPath === '/api/login' && req.method === 'POST') {
-      const clientIp = req.socket.remoteAddress || 'unknown';
+      const clientIp = req.headers['x-real-ip'] || req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
       const now = Date.now();
       let attempts = loginAttempts.get(clientIp) || { count: 0, firstAttempt: now };
       if (now - attempts.firstAttempt > 60000) {
@@ -415,7 +422,15 @@ const server = http.createServer(async (req, res) => {
       }
 
       const body = await getBody();
-      if (ADMIN_PASSWORD && body.password === ADMIN_PASSWORD) {
+      let passwordMatch = false;
+      if (ADMIN_PASSWORD && body.password) {
+        try {
+          const inputBuf = Buffer.from(String(body.password), 'utf8');
+          const secretBuf = Buffer.from(ADMIN_PASSWORD, 'utf8');
+          passwordMatch = inputBuf.length === secretBuf.length && crypto.timingSafeEqual(inputBuf, secretBuf);
+        } catch { passwordMatch = false; }
+      }
+      if (passwordMatch) {
         loginAttempts.delete(clientIp);
         const token = generateToken();
         return sendJson(200, { success: true, token });
@@ -441,6 +456,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath.includes('task-templates') && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const body = await getBody();
       if (!body.templates || !Array.isArray(body.templates)) {
         return sendJson(400, { error: 'Wymagana tablica templates' });
@@ -466,6 +482,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/server-stats' && req.method === 'GET') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       try {
         const startCpuTimes = os.cpus().map(cpu => cpu.times);
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -583,6 +600,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/rescan' && (req.method === 'POST' || req.method === 'GET')) {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       console.log('[Wiki API] Ręczne odświeżenie i skanowanie bazy wiedzy...');
       const rescanResult = await rebuildWiki();
       rebuildSearchCache();
@@ -590,6 +608,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/create-page' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const body = await getBody();
       const { categoryRel, filename, content } = body;
       if (!categoryRel || !filename) {
@@ -650,6 +669,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/kanban' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const body = await getBody();
       if (!body.tasks || !Array.isArray(body.tasks)) {
         return sendJson(400, { error: 'Wymagana tablica tasks' });
@@ -660,6 +680,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/quick-notes' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const body = await getBody();
       if (!body.notes || !Array.isArray(body.notes)) {
         return sendJson(400, { error: 'Wymagana tablica notes' });
@@ -670,6 +691,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/upload-image' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { filename, base64Data } = body;
@@ -678,10 +700,10 @@ const server = http.createServer(async (req, res) => {
         return sendJson(400, { error: 'Wymagane parametry: filename i base64Data' });
       }
 
-      const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+      const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
       const ext = (path.extname(filename) || '.png').toLowerCase();
       if (!allowedExts.includes(ext)) {
-        return sendJson(400, { error: 'Niedozwolone rozszerzenie pliku obrazu' });
+        return sendJson(400, { error: 'Niedozwolone rozszerzenie pliku obrazu. Dozwolone: png, jpg, jpeg, gif, webp' });
       }
 
       const pureBase64 = base64Data.replace(/^data:image\/[^;]+;base64,/, '').replace(/\s/g, '');
@@ -705,9 +727,11 @@ const server = http.createServer(async (req, res) => {
         fs.writeFileSync(targetDocsPath, imageBuffer);
       } catch (err) {
         if (err.code === 'EACCES') {
-          return sendJson(500, { error: 'Błąd uprawnień zapisu (EACCES). Wykonaj na serwerze: sudo chown -R 1000:1000 public/images && sudo chmod -R 775 public/images' });
+          console.error('[Wiki API] EACCES upload: sudo chown -R 1000:1000 public/images && sudo chmod -R 775 public/images');
+          return sendJson(500, { error: 'Błąd uprawnień zapisu pliku. Sprawdź uprawnienia katalogu images na serwerze.' });
         }
-        return sendJson(500, { error: `Błąd zapisu pliku obrazu na serwerze: ${err.message}` });
+        console.error('[Wiki API] Błąd zapisu obrazu:', err);
+        return sendJson(500, { error: 'Błąd zapisu pliku obrazu na serwerze.' });
       }
 
       console.log(`[Wiki API] Przesłano obrazek: ${uniqueFilename}`);
@@ -725,6 +749,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/import-file' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { categoryRel, filename, content } = body;
@@ -773,6 +798,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/scrape-url' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { url, categoryRel, filename } = body;
@@ -787,7 +813,13 @@ const server = http.createServer(async (req, res) => {
           return sendJson(400, { error: 'Niedozwolony protokół URL' });
         }
         const host = parsedUrl.hostname.toLowerCase();
-        if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.endsWith('.local')) {
+        const ssrfBlocked = [
+          host === 'localhost', host === '127.0.0.1', host === '0.0.0.0', host === '::1',
+          host.startsWith('192.168.'), host.startsWith('10.'), host.startsWith('169.254.'),
+          /^172\.(1[6-9]|2\d|3[01])\./.test(host),
+          host.endsWith('.local')
+        ];
+        if (ssrfBlocked.some(Boolean)) {
           return sendJson(403, { error: 'Niedozwolony adres docelowy (ochrona SSRF)' });
         }
       } catch (e) {
@@ -948,7 +980,8 @@ const server = http.createServer(async (req, res) => {
           fs.mkdirSync(targetDir, { recursive: true });
         } catch (err) {
           if (err.code === 'EACCES') {
-            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images' });
+            console.error('[Wiki API] EACCES: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images');
+            return sendJson(500, { error: 'Błąd uprawnień zapisu pliku. Sprawdź uprawnienia katalogów na serwerze.' });
           }
           throw err;
         }
@@ -960,7 +993,8 @@ const server = http.createServer(async (req, res) => {
       } catch (err) {
         isApiSaving = false;
         if (err.code === 'EACCES') {
-          return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images' });
+          console.error('[Wiki API] EACCES writeFile: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images');
+          return sendJson(500, { error: 'Błąd uprawnień zapisu pliku. Sprawdź uprawnienia katalogów na serwerze.' });
         }
         throw err;
       }
@@ -1111,10 +1145,12 @@ const server = http.createServer(async (req, res) => {
     // Endpointy dla RSS [dodane]
     if (normPath === '/api/rss-feeds') {
       if (req.method === 'GET') {
+        if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
         const data = fs.readFileSync(RSS_FEEDS_FILE, 'utf8');
         return sendJson(200, JSON.parse(data));
       }
       if (req.method === 'POST') {
+        if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
         const body = await getBody();
         if (!body.feeds || !Array.isArray(body.feeds)) {
           return sendJson(400, { error: 'Nieprawidłowy format danych. Oczekiwano tablicy feeds.' });
@@ -1125,6 +1161,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/rss-articles' && req.method === 'GET') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
       const feedId = parsedUrl.searchParams.get('feedId');
       
@@ -1174,7 +1211,7 @@ const server = http.createServer(async (req, res) => {
           clearTimeout(timeoutId);
 
           if (!response.ok) {
-            return sendJson(500, { error: `Błąd serwera źródłowego feeda: ${response.statusText}` });
+            return sendJson(500, { error: 'Błąd serwera źródłowego feeda RSS.' });
           }
 
           const xmlText = await response.text();
@@ -1185,25 +1222,28 @@ const server = http.createServer(async (req, res) => {
           });
           return sendJson(200, { articles });
         } catch (e) {
-          return sendJson(500, { error: `Nie udało się pobrać feeda RSS: ${e.message}` });
+          console.error('[RSS Engine] Błąd pobierania feeda:', e);
+          return sendJson(500, { error: 'Nie udało się pobrać feeda RSS.' });
         }
       }
     }
 
     if (normPath === '/api/create-backup' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const backupRes = createWikiBackup();
       if (backupRes.success) {
         return sendJson(200, { success: true, message: `Utworzono kopię zapasową: ${backupRes.filename}`, backup: backupRes });
       } else {
-        return sendJson(500, { success: false, error: backupRes.error || 'Nie można utworzyć kopii zapasowej' });
+        return sendJson(500, { success: false, error: 'Nie można utworzyć kopii zapasowej.' });
       }
     }
 
     sendJson(404, { error: 'Endpoint nie istnieje' });
 
   } catch (err) {
+    if (err.message === 'REQUEST_TOO_LARGE') return;
     console.error('[Wiki API Exception]', err);
-    sendJson(500, { error: err.message });
+    sendJson(500, { error: 'Wystąpił błąd serwera. Szczegóły w logach.' });
   }
 });
 
