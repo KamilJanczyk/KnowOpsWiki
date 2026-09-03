@@ -175,6 +175,7 @@ function generateToken() {
 }
 
 function verifyAuth(req) {
+  if (!ADMIN_PASSWORD) return true; // Tryb single-user bez hasła w env (LAN/CF Zero Trust)
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token || !activeTokens.has(token)) return false;
@@ -546,7 +547,7 @@ const server = http.createServer(async (req, res) => {
 
       } catch (err) {
         console.error('[Wiki API Server Stats Error]', err);
-        return sendJson(500, { error: err.message });
+        return sendJson(500, { error: 'Błąd pobierania statystyk serwera.' });
       }
     }
 
@@ -641,6 +642,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/delete-page' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { relPath } = body;
@@ -901,12 +903,13 @@ const server = http.createServer(async (req, res) => {
 
       } catch (err) {
         console.error('[Wiki API Scrape Error]', err);
-        return sendJson(500, { error: `Błąd połączenia z serwerem zewnętrznym: ${err.message}` });
+        return sendJson(500, { error: 'Błąd połączenia z serwerem zewnętrznym.' });
       }
     }
 
     
     if (normPath === '/api/rename-file' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { oldPath, newName } = body;
@@ -955,6 +958,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/save-page' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { relPath, content } = body;
@@ -1017,6 +1021,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/move-page' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { sourceRelPath, targetCategoryRel, targetFilename } = body;
@@ -1053,7 +1058,8 @@ const server = http.createServer(async (req, res) => {
           fs.mkdirSync(targetDir, { recursive: true });
         } catch (err) {
           if (err.code === 'EACCES') {
-            return sendJson(500, { error: 'Błąd uprawnień zapisu w systemie plików (EACCES). Wykonaj na serwerze Linux komendę: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images' });
+            console.error('[Wiki API] EACCES move-page: sudo chown -R 1000:1000 docs data public/images && sudo chmod -R 775 docs data public/images');
+            return sendJson(500, { error: 'Błąd uprawnień zapisu pliku. Sprawdź uprawnienia katalogów na serwerze.' });
           }
           throw err;
         }
@@ -1089,6 +1095,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/verify-page' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { relPath, verifiedHardware } = body;
