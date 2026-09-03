@@ -205,6 +205,16 @@ function renderTopCategories(categories) {
 }
 
 let expandedDirs = {};
+try {
+  const saved = localStorage.getItem('knowops_expanded_dirs');
+  if (saved) expandedDirs = JSON.parse(saved);
+} catch (e) {}
+
+function saveExpandedDirs() {
+  try {
+    localStorage.setItem('knowops_expanded_dirs', JSON.stringify(expandedDirs));
+  } catch (e) {}
+}
 
 window.toggleSidebarDir = function(relPath) {
   const dirId = 'dir-' + relPath.replace(/[^a-zA-Z0-9]/g, '-');
@@ -218,6 +228,7 @@ window.toggleSidebarDir = function(relPath) {
       arrow.innerText = isCollapsed ? '▼' : '▶';
     }
     expandedDirs[relPath] = isCollapsed;
+    saveExpandedDirs();
   }
 };
 
@@ -2356,6 +2367,7 @@ async function submitCreateItemForm() {
         pathAcc = pathAcc ? `${pathAcc}/${parts[i]}` : parts[i];
         expandedDirs[pathAcc] = true;
       }
+      saveExpandedDirs();
 
       currentCategory = catId;
       currentSubcategory = subId;

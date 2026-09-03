@@ -119,8 +119,8 @@ if (fs.existsSync(docsDir)) {
         relPath: path.posix.join(catDir.name, f.name)
       }));
 
-    if (directFiles.length > 0 && subcategories.length === 0) {
-      subcategories.push({
+    if (directFiles.length > 0) {
+      subcategories.unshift({
         id: 'glowne',
         title: 'Ogólne',
         relPath: catDir.name,
