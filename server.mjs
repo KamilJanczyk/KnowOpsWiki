@@ -684,18 +684,31 @@ const server = http.createServer(async (req, res) => {
         return sendJson(400, { error: 'Niedozwolone rozszerzenie pliku obrazu' });
       }
 
-      const pureBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+      const pureBase64 = base64Data.replace(/^data:image\/[^;]+;base64,/, '').replace(/\s/g, '');
       const imageBuffer = Buffer.from(pureBase64, 'base64');
 
       if (imageBuffer.length > 5 * 1024 * 1024) {
         return sendJson(400, { error: 'Rozmiar pliku przekracza dopuszczalny limit 5MB' });
       }
 
+      if (!fs.existsSync(IMAGES_DIR)) {
+        try {
+          fs.mkdirSync(IMAGES_DIR, { recursive: true });
+        } catch (e) {}
+      }
+
       const cleanName = path.basename(filename, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
       const uniqueFilename = `${Date.now()}_${cleanName}${ext}`;
       const targetDocsPath = path.join(IMAGES_DIR, uniqueFilename);
 
-      fs.writeFileSync(targetDocsPath, imageBuffer);
+      try {
+        fs.writeFileSync(targetDocsPath, imageBuffer);
+      } catch (err) {
+        if (err.code === 'EACCES') {
+          return sendJson(500, { error: 'Błąd uprawnień zapisu (EACCES). Wykonaj na serwerze: sudo chown -R 1000:1000 public/images && sudo chmod -R 775 public/images' });
+        }
+        return sendJson(500, { error: `Błąd zapisu pliku obrazu na serwerze: ${err.message}` });
+      }
 
       console.log(`[Wiki API] Przesłano obrazek: ${uniqueFilename}`);
 
@@ -706,6 +719,7 @@ const server = http.createServer(async (req, res) => {
         success: true,
         filename: uniqueFilename,
         url: publicUrl,
+        imageUrl: publicUrl,
         markdown: markdownSnippet
       });
     }
