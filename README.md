@@ -1,6 +1,6 @@
 # KnowOps Wiki Application
 
-Nowoczesny, lekki, utwardzony portal wiedzy **KnowOps** oraz centrum operacyjne zarządzania zadaniami systemowymi dla inżynierów systemowych, administratorów sieci i ekspertów CyberSec.
+Nowoczesny, lekki, bezpieczny portal wiedzy **KnowOps** oraz centrum operacyjne zarządzania zadaniami systemowymi dla inżynierów systemowych, administratorów sieci i ekspertów CyberSec.
 
 ![Strona główna KnowOpsWiki](.github/assets/main_page.png)
 
@@ -9,7 +9,7 @@ Nowoczesny, lekki, utwardzony portal wiedzy **KnowOps** oraz centrum operacyjne 
 ## Status projektu i cel (wersja beta)
 
 > [!NOTE]
-> **Aplikacja znajduje się w fazie Beta** — projekt jest aktywnie rozwijany, testowany i sukcesywnie ulepszany o nowe funkcjonalności. KnowOpsWiki powstało jako własne, samowystarczalne i utwardzone bezpieczeństwem (SecOps) **zastępstwo dla komercyjnego środowiska Notion**, zapewniając 100% kontroli nad prywatnymi danymi, szybkie lokalne działanie w kontenerach Docker oraz brak zależności od zewnętrznych usług chmurowych.
+> **Aplikacja znajduje się w fazie Beta** — projekt jest aktywnie rozwijany, testowany i sukcesywnie ulepszany o nowe funkcjonalności. KnowOpsWiki powstało jako własne, samowystarczalne i zabezpieczone zgodnie z zasadami SecOps **zastępstwo dla komercyjnego środowiska Notion**, zapewniając 100% kontroli nad prywatnymi danymi, szybkie lokalne działanie w kontenerach Docker oraz brak zależności od zewnętrznych usług chmurowych.
 
 ---
 
@@ -113,7 +113,7 @@ docs/
 
 ## Bezpieczeństwo i hardening (SecOps)
 
-Aplikacja posiada zaimplementowane producenckie mechanizmy utwardzania i bezpieczeństwa:
+Aplikacja posiada zaimplementowane producenckie mechanizmy ochrony i bezpieczeństwa:
 
 - **Nieuprzywilejowany kontener (`USER node` - UID 1000):** Kontener API Node.js działa na wyizolowanym koncie nieuprzywilejowanym z UID 1000, dopasowanym do uprawnień właściciela na serwerze Linux.
 - **Dynamiczny Rate-Limiter API:** Ochrona przed atakami typu Brute-Force na logowanie (max 5 prób / 60s) oraz obostrzenie operacji modyfikacji danych (max 30 żądań POST / 60s per IP).
