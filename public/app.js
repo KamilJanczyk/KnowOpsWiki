@@ -2299,7 +2299,7 @@ async function submitCreateItemForm() {
     return;
   }
 
-  let cleanName = rawName.replace(/[^a-zA-Z0-9_\-\s]/g, '_').trim().replace(/\s+/g, '_');
+  let cleanName = rawName.replace(/[<>:"|?*\x00\/\\]/g, '_').trim().replace(/\s+/g, '_');
   let relPath = '';
 
   if (isDoc) {

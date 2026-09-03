@@ -378,7 +378,7 @@ const server = http.createServer(async (req, res) => {
   const sendJson = (status, data) => {
     try {
       if (!res.headersSent) {
-        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify(data));
       }
     } catch (e) {
@@ -761,7 +761,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       let sanitizedFilename = filename.trim().replace(/\\/g, '/');
-      let parts = sanitizedFilename.split('/').map(p => p.trim().replace(/[^a-zA-Z0-9_\-\.\s]/g, '_')).filter(Boolean);
+      sanitizedFilename = sanitizedFilename.replace(/[<>:"|?*\x00]/g, '_');
+      let parts = sanitizedFilename.split('/').map(p => p.trim() === '..' ? '__' : p.trim()).filter(Boolean);
       let cleanFilename = parts.join('/');
       
       const isHtml = cleanFilename.toLowerCase().endsWith('.html') || cleanFilename.toLowerCase().endsWith('.htm');
@@ -927,7 +928,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       const dirName = path.dirname(sanitizedOld);
-      let cleanNewName = newName.trim().replace(/[^a-zA-Z0-9_\-\.\s]/g, '_').replace(/\s+/g, '_');
+      let cleanNewName = newName.trim().replace(/[<>:"|?*\x00]/g, '_').replace(/\s+/g, '_');
+      if (cleanNewName === '..' || cleanNewName === '.') cleanNewName = 'file.md';
       if (!cleanNewName.endsWith('.md')) cleanNewName += '.md';
 
       const newRelPath = dirName === '.' ? cleanNewName : `${dirName}/${cleanNewName}`;

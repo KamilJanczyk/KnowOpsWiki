@@ -50,8 +50,8 @@ if (args.length === 1) {
   pageTitle = args[2];
 }
 
-const cleanTopic = topicDir.trim().replace(/[^a-zA-Z0-9_\-\s]/g, '_').replace(/\s+/g, '_').replace(/\.\./g, '__');
-const cleanFileName = pageTitle.trim().replace(/[^a-zA-Z0-9_ -]/g, '').replace(/\s+/g, '_') + '.md';
+const cleanTopic = topicDir.trim().replace(/[<>:"|?*\x00\/\\]/g, '_').replace(/\s+/g, '_').replace(/\.\./g, '__');
+const cleanFileName = pageTitle.trim().replace(/[<>:"|?*\x00\/\\]/g, '').replace(/\s+/g, '_') + '.md';
 const targetDir = path.join(docsDir, categoryDir, cleanTopic);
 if (!path.resolve(targetDir).startsWith(docsDir)) {
   console.error('❌ Nieprawidłowa ścieżka docelowa katalogu!');
