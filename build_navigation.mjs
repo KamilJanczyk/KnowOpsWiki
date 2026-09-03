@@ -81,64 +81,74 @@ function scanDirectoryRecursive(dirPath, baseRel) {
   return items;
 }
 
-const availableCategories = [
-  { id: 'kanban_board', title: 'Pulpit', subcategories: [] }
-];
+export function generateNavigation() {
+  const availableCategories = [
+    { id: 'kanban_board', title: 'Pulpit', subcategories: [] }
+  ];
 
-if (fs.existsSync(docsDir)) {
-  const dirEntries = fs.readdirSync(docsDir, { withFileTypes: true })
-    .filter(e => e.isDirectory() && !e.name.startsWith('.') && !['media', 'public', 'images'].includes(e.name.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name, 'pl', { numeric: true }));
-
-  for (const catDir of dirEntries) {
-    const catPath = path.join(docsDir, catDir.name);
-    const subDirs = fs.readdirSync(catPath, { withFileTypes: true })
-      .filter(s => s.isDirectory() && !s.name.startsWith('.') && !['media', 'public', 'images'].includes(s.name.toLowerCase()))
+  if (fs.existsSync(docsDir)) {
+    const dirEntries = fs.readdirSync(docsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && !e.name.startsWith('.') && !['media', 'public', 'images', '.trash'].includes(e.name.toLowerCase()))
       .sort((a, b) => a.name.localeCompare(b.name, 'pl', { numeric: true }));
 
-    const subcategories = [];
-    for (const subDir of subDirs) {
-      const subPath = path.join(catPath, subDir.name);
-      const subRel = path.posix.join(catDir.name, subDir.name);
-      const files = scanSubcategoryFiles(subPath, subRel);
-      const items = scanDirectoryRecursive(subPath, subRel);
-      subcategories.push({
-        id: subDir.name,
-        title: cleanTitle(subDir.name),
-        relPath: subRel,
-        files,
-        items
+    for (const catDir of dirEntries) {
+      const catPath = path.join(docsDir, catDir.name);
+      const subDirs = fs.readdirSync(catPath, { withFileTypes: true })
+        .filter(s => s.isDirectory() && !s.name.startsWith('.') && !['media', 'public', 'images', '.trash'].includes(s.name.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name, 'pl', { numeric: true }));
+
+      const subcategories = [];
+      for (const subDir of subDirs) {
+        const subPath = path.join(catPath, subDir.name);
+        const subRel = path.posix.join(catDir.name, subDir.name);
+        const files = scanSubcategoryFiles(subPath, subRel);
+        const items = scanDirectoryRecursive(subPath, subRel);
+        subcategories.push({
+          id: subDir.name,
+          title: cleanTitle(subDir.name),
+          relPath: subRel,
+          files,
+          items
+        });
+      }
+
+      // Dodanie również pojedynczych plików Markdown znajdujących się bezpośrednio w kategorii głównej
+      const directFiles = fs.readdirSync(catPath, { withFileTypes: true })
+        .filter(f => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('.'))
+        .map(f => ({
+          title: cleanTitle(f.name),
+          relPath: path.posix.join(catDir.name, f.name)
+        }));
+
+      if (directFiles.length > 0) {
+        subcategories.unshift({
+          id: 'glowne',
+          title: 'Ogólne',
+          relPath: catDir.name,
+          files: directFiles,
+          items: directFiles.map(f => ({ type: 'file', title: f.title, relPath: f.relPath }))
+        });
+      }
+
+      availableCategories.push({
+        id: catDir.name,
+        title: cleanTitle(catDir.name),
+        subcategories
       });
     }
-
-    // Dodanie również pojedynczych plików Markdown znajdujących się bezpośrednio w kategorii głównej
-    const directFiles = fs.readdirSync(catPath, { withFileTypes: true })
-      .filter(f => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('.'))
-      .map(f => ({
-        title: cleanTitle(f.name),
-        relPath: path.posix.join(catDir.name, f.name)
-      }));
-
-    if (directFiles.length > 0) {
-      subcategories.unshift({
-        id: 'glowne',
-        title: 'Ogólne',
-        relPath: catDir.name,
-        files: directFiles,
-        items: directFiles.map(f => ({ type: 'file', title: f.title, relPath: f.relPath }))
-      });
-    }
-
-    availableCategories.push({
-      id: catDir.name,
-      title: cleanTitle(catDir.name),
-      subcategories
-    });
   }
+
+  const navigationData = { categories: availableCategories };
+  const navJsonPath = path.join(docsDir, 'navigation.json');
+  const tmpPath = `${navJsonPath}.tmp.${Date.now()}`;
+  fs.writeFileSync(tmpPath, JSON.stringify(navigationData, null, 2), 'utf-8');
+  fs.renameSync(tmpPath, navJsonPath);
+
+  return navigationData;
 }
 
-const navigationData = { categories: availableCategories };
-const navJsonPath = path.join(docsDir, 'navigation.json');
-fs.writeFileSync(navJsonPath, JSON.stringify(navigationData, null, 2), 'utf-8');
-
-console.log(`DETERMINISTIC NAVIGATION JSON GENERATED! (Categories: ${availableCategories.length})`);
+// Jeśli plik jest uruchamiany bezpośrednio z terminala (CLI)
+if (process.argv[1] && process.argv[1].endsWith('build_navigation.mjs')) {
+  const result = generateNavigation();
+  console.log(`DETERMINISTIC NAVIGATION JSON GENERATED! (Categories: ${result.categories.length})`);
+}

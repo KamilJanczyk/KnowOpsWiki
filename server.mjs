@@ -5,6 +5,7 @@ import { exec } from 'node:child_process';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { createWikiBackup } from './backup_wiki.mjs';
+import { generateNavigation } from './build_navigation.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -30,6 +31,21 @@ if (!fs.existsSync(DOCS_DIR) || fs.readdirSync(DOCS_DIR).length === 0) {
   } else {
     fs.mkdirSync(DOCS_DIR, { recursive: true });
   }
+}
+const TRASH_DIR = path.join(DOCS_DIR, '.trash');
+if (!fs.existsSync(TRASH_DIR)) {
+  try { fs.mkdirSync(TRASH_DIR, { recursive: true }); } catch (e) {}
+}
+
+// Atomowy zapis pliku (ochrona przed uszkodzeniem przy nagłym restarcie hosta/kontenera)
+function atomicWriteFile(filePath, data, encoding = 'utf8') {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  const tmpPath = `${filePath}.tmp.${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  fs.writeFileSync(tmpPath, data, encoding);
+  fs.renameSync(tmpPath, filePath);
 }
 const DIST_DIR = path.resolve('dist');
 const IMAGES_DIR = path.join(path.resolve('public'), 'images');
@@ -309,20 +325,18 @@ async function rebuildWiki() {
   }
 
   isRebuilding = true;
-  console.log('[Wiki API] Rekompilacja bazy wiedzy...');
   try {
-    const out = await runCommand('node build_navigation.mjs', process.cwd());
-    console.log('[Wiki API] Sukces kompilacji:', out.trim());
+    const navData = generateNavigation();
     isRebuilding = false;
 
     if (rebuildPending) {
       rebuildPending = false;
-      setTimeout(() => rebuildWiki(), 200);
+      setImmediate(() => rebuildWiki());
     }
-    return { success: true, message: out };
+    return { success: true, message: `Sukces: wygenerowano ${navData.categories.length} kategorii.` };
   } catch (err) {
     isRebuilding = false;
-    console.error('[Wiki API] Błąd kompilacji:', err.message);
+    console.error('[Wiki API] Błąd kompilacji nawigacji:', err);
     return { success: false, error: err.message };
   }
 }
@@ -558,21 +572,25 @@ const server = http.createServer(async (req, res) => {
       }
 
       const results = [];
-      const searchLower = query.toLowerCase();
+      const searchTokens = query.toLowerCase().split(/\s+/).filter(Boolean);
 
       searchCache.forEach(item => {
-        const matchedContent = item.contentLower.includes(searchLower);
-        const matchedTitle = item.title.toLowerCase().includes(searchLower);
+        // Wszystkie słowa muszą pasować w tytule LUB w treści
+        const titleLower = item.title.toLowerCase();
+        const allTokensMatch = searchTokens.every(token => 
+          item.contentLower.includes(token) || titleLower.includes(token)
+        );
 
-        if (matchedContent || matchedTitle) {
+        if (allTokensMatch) {
           let snippet = '';
-          if (matchedContent) {
-            const idx = item.contentLower.indexOf(searchLower);
+          const firstToken = searchTokens[0] || '';
+          const idx = item.contentLower.indexOf(firstToken);
+          if (idx !== -1) {
             const start = Math.max(0, idx - 40);
-            const end = Math.min(item.content.length, idx + searchLower.length + 60);
+            const end = Math.min(item.content.length, idx + firstToken.length + 80);
             snippet = item.content.substring(start, end).replace(/\r?\n/g, ' ');
           } else {
-            snippet = item.content.substring(0, 100).replace(/\r?\n/g, ' ');
+            snippet = item.content.substring(0, 120).replace(/\r?\n/g, ' ');
           }
 
           results.push({
@@ -648,7 +666,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const articleContent = content || `# ${path.basename(fullFilePath, '.md').replace(/_/g, ' ')}\n\nNowy artykuł stworzony z poziomu panelu Wiki.`;
-      fs.writeFileSync(fullFilePath, articleContent, 'utf8');
+      atomicWriteFile(fullFilePath, articleContent, 'utf8');
       console.log(`[Wiki API] Utworzono plik i podkatalogi: ${fullFilePath}`);
       await rebuildWiki();
       rebuildSearchCache();
@@ -667,8 +685,16 @@ const server = http.createServer(async (req, res) => {
         return sendJson(404, { error: 'Plik nie istnieje' });
       }
 
-      fs.unlinkSync(targetPath);
-      console.log(`[Wiki API] Usunięto plik: ${relPath}`);
+      // Bezpieczny kosz (Obsidian-style trash bin) - zachowaj plik w .trash przed usunięciem
+      try {
+        const trashFilename = `${Date.now()}_${path.basename(targetPath)}`;
+        const trashPath = path.join(TRASH_DIR, trashFilename);
+        fs.renameSync(targetPath, trashPath);
+        console.log(`[Wiki API] Przeniesiono plik do kosza (.trash): ${trashFilename}`);
+      } catch (err) {
+        fs.unlinkSync(targetPath);
+        console.log(`[Wiki API] Usunięto plik (bezpośrednio): ${relPath}`);
+      }
 
       const parentDir = path.dirname(targetPath);
       if (parentDir !== DOCS_DIR && fs.existsSync(parentDir)) {
@@ -1009,7 +1035,7 @@ const server = http.createServer(async (req, res) => {
 
       isApiSaving = true;
       try {
-        fs.writeFileSync(targetPath, content, 'utf8');
+        atomicWriteFile(targetPath, content, 'utf8');
       } catch (err) {
         isApiSaving = false;
         if (err.code === 'EACCES') {

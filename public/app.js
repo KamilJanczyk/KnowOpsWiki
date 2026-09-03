@@ -2802,12 +2802,24 @@ async function openEditorModal(targetPath) {
     const modalTextareaEl = document.getElementById('editorTextarea');
     if (modalPathEl) modalPathEl.innerText = relPath;
     if (modalTextareaEl) {
-      modalTextareaEl.value = rawText;
+      // Sprawdź czy istnieje nowszy szkic w localStorage
+      const draftKey = `knowops_draft_${relPath}`;
+      const savedDraft = localStorage.getItem(draftKey);
+      if (savedDraft && savedDraft !== rawText) {
+        modalTextareaEl.value = savedDraft;
+        const statusIndicator = document.getElementById('editorSaveStatus');
+        if (statusIndicator) {
+          statusIndicator.innerText = 'Przywrócono niezapisany szkic z przeglądarki';
+          statusIndicator.style.color = 'var(--sw-gold)';
+        }
+      } else {
+        modalTextareaEl.value = rawText;
+      }
       setupImageUploadHandlers(modalTextareaEl);
     }
 
     const statusIndicator = document.getElementById('editorSaveStatus');
-    if (statusIndicator) {
+    if (statusIndicator && !modalTextareaEl?.value.startsWith(localStorage.getItem(`knowops_draft_${relPath}`) || '___')) {
       statusIndicator.innerText = 'Wszystkie zmiany zapisane';
       statusIndicator.style.color = '#888';
     }
@@ -2855,6 +2867,7 @@ async function saveCurrentArticleFromModal(silent = false) {
 
     const data = await res.json();
     if (data.success) {
+      try { localStorage.removeItem(`knowops_draft_${currentEditingPath}`); } catch (e) {}
       if (!silent) {
         closeEditorModal();
         if (typeof loadArticle === 'function') await loadArticle(currentEditingPath);
@@ -2877,6 +2890,13 @@ function updateEditorPreview() {
     if (typeof renderMermaidDiagrams === 'function') {
       renderMermaidDiagrams(preview);
     }
+  }
+
+  // Zapisz szkic w localStorage w locie podczas pisania
+  if (textarea && currentEditingPath) {
+    try {
+      localStorage.setItem(`knowops_draft_${currentEditingPath}`, textarea.value);
+    } catch (e) {}
   }
 }
 
