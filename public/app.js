@@ -73,10 +73,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadNavigation() {
   try {
-    const res = await fetch('/docs/navigation.json?t=' + Date.now());
-    const data = await res.json();
-    navigationData = data;
-    renderTopCategories(data.categories || []);
+    let data = null;
+    try {
+      const apiRes = await fetch('/api/navigation?t=' + Date.now());
+      if (apiRes.ok) {
+        data = await apiRes.json();
+      }
+    } catch (e) {
+      console.warn('[loadNavigation] Błąd pobierania z /api/navigation:', e);
+    }
+
+    if (!data) {
+      const res = await fetch('/docs/navigation.json?t=' + Date.now());
+      if (res.ok) {
+        data = await res.json();
+      }
+    }
+
+    if (data) {
+      navigationData = data;
+      renderTopCategories(data.categories || []);
+    }
   } catch (err) {
     console.error('Błąd ładowania nawigacji:', err);
   }

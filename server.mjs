@@ -600,6 +600,20 @@ const server = http.createServer(async (req, res) => {
       return sendJson(200, { relPath, content, mtime: stat.mtime.toISOString() });
     }
 
+    if (normPath === '/api/navigation' && req.method === 'GET') {
+      const navFile = path.join(DOCS_DIR, 'navigation.json');
+      if (fs.existsSync(navFile)) {
+        try {
+          const navData = JSON.parse(fs.readFileSync(navFile, 'utf8'));
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+          return sendJson(200, navData);
+        } catch (e) {
+          console.error('[Wiki API] Błąd odczytu navigation.json:', e);
+        }
+      }
+      return sendJson(200, { categories: availableCategories });
+    }
+
     if (normPath === '/api/rescan' && (req.method === 'POST' || req.method === 'GET')) {
       if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       console.log('[Wiki API] Ręczne odświeżenie i skanowanie bazy wiedzy...');
