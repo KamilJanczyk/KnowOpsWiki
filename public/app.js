@@ -2328,13 +2328,31 @@ async function submitCreateItemForm() {
     if (data.success) {
       closeCreateItemModal();
       await loadNavigation();
+
       const parts = relPath.split('/');
-      if (typeof selectCategory === 'function') {
-        selectCategory(parts[0], parts[1] || '');
-      } else {
-        await renderSidebar();
+      const catId = parts[0];
+      const subId = parts[1] || '';
+
+      // Auto-rozwiń wszystkie podkatalogi prowadzące do nowego pliku
+      let pathAcc = '';
+      for (let i = 0; i < parts.length - 1; i++) {
+        pathAcc = pathAcc ? `${pathAcc}/${parts[i]}` : parts[i];
+        expandedDirs[pathAcc] = true;
       }
-      window.location.hash = '#/' + relPath;
+
+      currentCategory = catId;
+      currentSubcategory = subId;
+      if (navigationData && navigationData.categories) {
+        renderTopCategories(navigationData.categories);
+      }
+      await renderSidebar();
+
+      const newHash = '#/' + relPath;
+      if (window.location.hash === newHash) {
+        await handleHashNavigation();
+      } else {
+        window.location.hash = newHash;
+      }
     } else {
       alert('Błąd tworzenia elementu: ' + (data.error || 'Nieznany błąd'));
     }
