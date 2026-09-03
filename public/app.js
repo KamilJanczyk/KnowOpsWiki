@@ -668,6 +668,7 @@ async function loadArticle(articlePath) {
     const actionHeaderHtml = `<div style="display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px;">
       <div style="display:flex; flex-direction:column;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:600;">DOKUMENT: ${articlePath}</span><span style="font-size:0.65rem; color:#6b7280; margin-top:2px;">Ostatnia modyfikacja: ${window.currentMtime || "Brak danych"}</span></div>
       <div style="display:flex; gap:6px;">
+        <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ W TYM FOLDERZE</button>
         <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
         <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
       </div>
@@ -2215,7 +2216,21 @@ window.submitMovePage = async function() {
 
 // ================= CREATE ITEM MODAL ================= //
 
-function openCreateItemModal() {
+window.openCreateItemModalForCurrentFolder = function() {
+  let parentPath = '';
+  if (currentArticlePath) {
+    const cleanPath = decodeURIComponent(currentArticlePath).replace(/^#\/?/, '');
+    const lastSlash = cleanPath.lastIndexOf('/');
+    if (lastSlash !== -1) {
+      parentPath = cleanPath.substring(0, lastSlash);
+    } else {
+      parentPath = cleanPath;
+    }
+  }
+  openCreateItemModal(parentPath);
+};
+
+function openCreateItemModal(presetParentPath = null) {
   const modal = document.getElementById('createItemModal');
   const parentSelect = document.getElementById('createItemParentSelect');
   if (!modal) return;
@@ -2233,6 +2248,10 @@ function openCreateItemModal() {
       }
     }
     parentSelect.innerHTML = optionsHtml;
+
+    if (presetParentPath) {
+      parentSelect.value = presetParentPath;
+    }
   }
 
   const nameInput = document.getElementById('createItemNameInput');
