@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { createWikiBackup } from './backup_wiki.mjs';
@@ -118,9 +118,8 @@ if (fs.existsSync(oldNotes) && !fs.existsSync(QUICK_NOTES_FILE)) {
   fs.copyFileSync(oldNotes, QUICK_NOTES_FILE);
 }
 
-if (!fs.existsSync(DOCS_DIR)) {
-  fs.mkdirSync(DOCS_DIR, { recursive: true });
-}
+
+
 
 if (!fs.existsSync(IMAGES_DIR)) {
   fs.mkdirSync(IMAGES_DIR, { recursive: true });
@@ -191,10 +190,10 @@ function generateToken() {
 }
 
 function verifyAuth(req) {
-  if (!ADMIN_PASSWORD) return true; // Tryb single-user bez hasła w env (LAN/CF Zero Trust)
+  if (!ADMIN_PASSWORD) return true; // Tryb single-user bez hasla w env (LAN/CF Zero Trust)
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token || !activeTokens.has(token)) return false;
+  if (!token || token.length !== 64 || !activeTokens.has(token)) return false;
   const createdAt = activeTokens.get(token);
   if (Date.now() - createdAt > 24 * 60 * 60 * 1000) { // 24h Expiry
     activeTokens.delete(token);
@@ -203,14 +202,7 @@ function verifyAuth(req) {
   return true;
 }
 
-function runCommand(cmd, cwd = process.cwd()) {
-  return new Promise((resolve, reject) => {
-    exec(cmd, { cwd, timeout: 30000 }, (error, stdout, stderr) => {
-      if (error) return reject(new Error(stderr || error.message));
-      resolve(stdout);
-    });
-  });
-}
+
 
 function convertHtmlToMarkdown(html) {
   let md = html;
@@ -357,18 +349,16 @@ try {
       rebuildWiki().catch(e => console.error('[Wiki Watcher] Błąd:', e));
     }, 800);
   });
-  console.log('👀 Automatyczny obserwator plików w katalogu docs aktywny!');
+  console.log('[Wiki Watcher] Automatyczny obserwator plikow w katalogu docs aktywny.');
 } catch (err) {
   console.warn('[Wiki Watcher] Ostrzeżenie: Obserwator plików nie został uruchomiony:', err.message);
 }
 
 // HTTP Server API
 const server = http.createServer(async (req, res) => {
-  // Ograniczenie CORS - zezwol tylko na żądania z tej samej domeny/hosta
-  const requestOrigin = req.headers['origin'] || '';
+  // CORS - ograniczenie do wlasnego hosta (bez refleksji Origin)
   const requestHost = req.headers['host'] || 'localhost';
-  const allowedOrigin = requestOrigin || `http://${requestHost}`;
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Origin', `http://${requestHost}`);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Vary', 'Origin');
@@ -402,20 +392,26 @@ const server = http.createServer(async (req, res) => {
 
   const getBody = () => new Promise((resolve, reject) => {
     let body = '';
+    const bodyTimeout = setTimeout(() => {
+      req.destroy();
+      reject(new Error('BODY_TIMEOUT'));
+    }, 30000);
     req.on('data', chunk => {
       body += chunk.toString();
       if (body.length > 10 * 1024 * 1024) {
+        clearTimeout(bodyTimeout);
         req.destroy();
-        sendJson(413, { error: 'Zapytanie zbyt duże. Maksymalny rozmiar to 10 MB.' });
+        sendJson(413, { error: 'Zapytanie zbyt duze. Maksymalny rozmiar to 10 MB.' });
         return reject(new Error('REQUEST_TOO_LARGE'));
       }
     });
     req.on('end', () => {
+      clearTimeout(bodyTimeout);
       if (!body || !body.trim()) return resolve({});
       try {
         resolve(JSON.parse(body));
       } catch (e) {
-        console.warn('[Wiki API Warning] Błąd parsowania JSON body:', e.message, 'Przekazana treść:', body.slice(0, 100));
+        console.warn('[Wiki API Warning] Blad parsowania JSON body:', e.message, 'Przekazana tresc:', body.slice(0, 100));
         resolve({});
       }
     });
@@ -476,7 +472,7 @@ const server = http.createServer(async (req, res) => {
       if (!body.templates || !Array.isArray(body.templates)) {
         return sendJson(400, { error: 'Wymagana tablica templates' });
       }
-      fs.writeFileSync(TEMPLATES_FILE, JSON.stringify({ templates: body.templates }, null, 2), 'utf8');
+      atomicWriteFile(TEMPLATES_FILE, JSON.stringify({ templates: body.templates }, null, 2), 'utf8');
       return sendJson(200, { success: true, message: 'Szablony zadań zostały zapisane.' });
     }
 
@@ -523,7 +519,7 @@ const server = http.createServer(async (req, res) => {
         let disk = { total: 0, used: 0, free: 0, percent: 0 };
         try {
           const dfOutput = await new Promise((resolve, reject) => {
-            exec('df -B1 /', (err, stdout) => {
+            execFile('df', ['-B1', '/'], (err, stdout) => {
               if (err) reject(err);
               else resolve(stdout);
             });
@@ -629,7 +625,7 @@ const server = http.createServer(async (req, res) => {
           console.error('[Wiki API] Błąd odczytu navigation.json:', e);
         }
       }
-      return sendJson(200, { categories: availableCategories });
+      return sendJson(200, { categories: [] });
     }
 
     if (normPath === '/api/rescan' && (req.method === 'POST' || req.method === 'GET')) {
@@ -642,11 +638,16 @@ const server = http.createServer(async (req, res) => {
 
     if (normPath === '/api/create-page' && req.method === 'POST') {
       if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
+      if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { categoryRel, filename, content } = body;
       if (!categoryRel || !filename) {
         return sendJson(400, { error: 'Wymagane parametry: categoryRel oraz filename' });
       }
+
+      // Sanityzacja categoryRel (ochrona przed path traversal)
+      let sanitizedCatRel = categoryRel.replace(/\\/g, '/').replace(/[<>:"|?*\x00]/g, '_');
+      sanitizedCatRel = sanitizedCatRel.split('/').map(p => p === '..' ? '__' : p).filter(Boolean).join('/');
 
       let decodedFilename = decodeURIComponent(filename);
       let normalizedPath = decodedFilename.trim().replace(/\\/g, '/');
@@ -655,9 +656,9 @@ const server = http.createServer(async (req, res) => {
       let relativeFilePath = parts.join('/');
       if (!relativeFilePath.endsWith('.md')) relativeFilePath += '.md';
 
-      const fullFilePath = path.resolve(DOCS_DIR, categoryRel, relativeFilePath);
+      const fullFilePath = path.resolve(DOCS_DIR, sanitizedCatRel, relativeFilePath);
       if (!fullFilePath.startsWith(DOCS_DIR)) {
-        return sendJson(403, { error: 'Dostęp zabroniony' });
+        return sendJson(403, { error: 'Dostep zabroniony' });
       }
 
       const targetDir = path.dirname(fullFilePath);
@@ -716,7 +717,7 @@ const server = http.createServer(async (req, res) => {
       if (!body.tasks || !Array.isArray(body.tasks)) {
         return sendJson(400, { error: 'Wymagana tablica tasks' });
       }
-      fs.writeFileSync(KANBAN_FILE, JSON.stringify({ tasks: body.tasks }, null, 2), 'utf8');
+      atomicWriteFile(KANBAN_FILE, JSON.stringify({ tasks: body.tasks }, null, 2), 'utf8');
       console.log(`[Wiki API] Zaktualizowano tablicę Kanban (${body.tasks.length} zadań)`);
       return sendJson(200, { success: true, message: 'Zadania Kanban zostały zapisane.' });
     }
@@ -727,7 +728,7 @@ const server = http.createServer(async (req, res) => {
       if (!body.notes || !Array.isArray(body.notes)) {
         return sendJson(400, { error: 'Wymagana tablica notes' });
       }
-      fs.writeFileSync(QUICK_NOTES_FILE, JSON.stringify({ notes: body.notes }, null, 2), 'utf8');
+      atomicWriteFile(QUICK_NOTES_FILE, JSON.stringify({ notes: body.notes }, null, 2), 'utf8');
       console.log(`[Wiki API] Zaktualizowano Szybkie Notatki (${body.notes.length} notatek)`);
       return sendJson(200, { success: true, message: 'Szybkie Notatki zostały zapisane.' });
     }
@@ -753,6 +754,17 @@ const server = http.createServer(async (req, res) => {
 
       if (imageBuffer.length > 5 * 1024 * 1024) {
         return sendJson(400, { error: 'Rozmiar pliku przekracza dopuszczalny limit 5MB' });
+      }
+
+      // Weryfikacja sygnatury binarnej (Magic Bytes)
+      const isPng = imageBuffer.length >= 8 && imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50 && imageBuffer[2] === 0x4e && imageBuffer[3] === 0x47;
+      const isJpg = imageBuffer.length >= 3 && imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8 && imageBuffer[2] === 0xff;
+      const isGif = imageBuffer.length >= 6 && imageBuffer[0] === 0x47 && imageBuffer[1] === 0x49 && imageBuffer[2] === 0x46 && imageBuffer[3] === 0x38;
+      const isWebp = imageBuffer.length >= 12 && imageBuffer[0] === 0x52 && imageBuffer[1] === 0x49 && imageBuffer[2] === 0x46 && imageBuffer[3] === 0x46 && imageBuffer[8] === 0x57 && imageBuffer[9] === 0x45 && imageBuffer[10] === 0x42 && imageBuffer[11] === 0x50;
+
+      const isValidSignature = (ext === '.png' && isPng) || ((ext === '.jpg' || ext === '.jpeg') && isJpg) || (ext === '.gif' && isGif) || (ext === '.webp' && isWebp);
+      if (!isValidSignature) {
+        return sendJson(400, { error: 'Plik nie jest prawidłowym obrazem (niezgodna sygnatura binarna).' });
       }
 
       if (!fs.existsSync(IMAGES_DIR)) {
@@ -829,7 +841,7 @@ const server = http.createServer(async (req, res) => {
         finalContent = convertHtmlToMarkdown(content);
       }
 
-      fs.writeFileSync(fullFilePath, finalContent, 'utf8');
+      atomicWriteFile(fullFilePath, finalContent, 'utf8');
       console.log(`[Wiki API] Zaimportowano plik: ${fullFilePath}`);
       rebuildWiki().then(() => rebuildSearchCache()).catch(e => console.error(e));
 
@@ -880,6 +892,7 @@ const server = http.createServer(async (req, res) => {
       try {
         console.log(`[Wiki API] Rozpoczęto pobieranie URL: ${url}`);
         const response = await fetch(url, {
+          redirect: 'error',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
           }
@@ -925,7 +938,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         isApiSaving = true;
-        fs.writeFileSync(fullFilePath, markdown, 'utf8');
+        atomicWriteFile(fullFilePath, markdown, 'utf8');
         console.log(`[Wiki API] Pomyślnie zapisano plik z URL: ${fullFilePath}`);
 
         rebuildWiki().then(() => {
@@ -977,6 +990,10 @@ const server = http.createServer(async (req, res) => {
 
       if (!targetPath.startsWith(DOCS_DIR)) {
         return sendJson(400, { error: 'Nieprawidłowa ścieżka docelowa' });
+      }
+
+      if (sourcePath !== targetPath && fs.existsSync(targetPath)) {
+        return sendJson(409, { error: 'Plik o podanej nazwie już istnieje w katalogu docelowym' });
       }
 
       isApiSaving = true;
@@ -1095,6 +1112,10 @@ const server = http.createServer(async (req, res) => {
         return sendJson(400, { error: 'Nieprawidłowa ścieżka docelowa' });
       }
 
+      if (sourcePath !== targetPath && fs.existsSync(targetPath)) {
+        return sendJson(409, { error: 'Plik o podanej nazwie już istnieje w docelowej lokalizacji' });
+      }
+
       const targetDir = path.dirname(targetPath);
       if (!fs.existsSync(targetDir)) {
         try {
@@ -1149,7 +1170,7 @@ const server = http.createServer(async (req, res) => {
       if (sanitizedRelPath.endsWith('.html')) {
         sanitizedRelPath = sanitizedRelPath.replace(/\.html$/, '.md');
       }
-      sanitizedRelPath = sanitizedRelPath.replace(/[^a-zA-Z0-9_\-\.\/]/g, '_');
+      sanitizedRelPath = sanitizedRelPath.replace(/[<>:"|?*\x00]/g, '_');
 
       const targetPath = path.resolve(DOCS_DIR, sanitizedRelPath);
       if (!targetPath.startsWith(DOCS_DIR) || !fs.existsSync(targetPath)) {
@@ -1159,7 +1180,7 @@ const server = http.createServer(async (req, res) => {
       let content = fs.readFileSync(targetPath, 'utf8');
 
       if (content.includes('STAN: ZWERYFIKOWANE FIZYCZNIE NA SPRZĘCIE')) {
-        return sendJson(200, { success: true, message: 'Ta strona jest już oznaczona jako zweryfikowana.' });
+        return sendJson(200, { success: true, message: 'Ta strona jest juz oznaczona jako zweryfikowana.' });
       }
 
       const hwText = verifiedHardware ? ` (${verifiedHardware})` : '';
@@ -1178,7 +1199,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       isApiSaving = true;
-      fs.writeFileSync(targetPath, content, 'utf8');
+      atomicWriteFile(targetPath, content, 'utf8');
       console.log(`[Wiki API] Oznaczono stronę jako zweryfikowaną: ${sanitizedRelPath}`);
 
       const buildResult = await rebuildWiki();
@@ -1205,7 +1226,7 @@ const server = http.createServer(async (req, res) => {
         if (!body.feeds || !Array.isArray(body.feeds)) {
           return sendJson(400, { error: 'Nieprawidłowy format danych. Oczekiwano tablicy feeds.' });
         }
-        fs.writeFileSync(RSS_FEEDS_FILE, JSON.stringify({ feeds: body.feeds }, null, 2), 'utf8');
+        atomicWriteFile(RSS_FEEDS_FILE, JSON.stringify({ feeds: body.feeds }, null, 2), 'utf8');
         return sendJson(200, { success: true, message: 'Konfiguracja feedów RSS została zapisana.' });
       }
     }
@@ -1309,6 +1330,7 @@ function rebuildSearchCache() {
       const fullPath = path.join(dir, file);
       const stat = fs.statSync(fullPath);
       if (stat.isDirectory()) {
+        if (file.startsWith('.')) return;
         collectFiles(fullPath);
       } else if (file.endsWith('.md')) {
         const relPath = path.relative(DOCS_DIR, fullPath).replace(/\\/g, '/');

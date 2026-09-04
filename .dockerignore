@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+.env
+.trash
+docs/.trash
+backups
+*.log
+.DS_Store
+Thumbs.db
+dist

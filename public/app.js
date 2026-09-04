@@ -8,6 +8,16 @@ let quickNotes = [];
 let showOnlyActiveDir = false;
 let monitorIntervalId = null;
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   await loadNavigation();
   await handleHashNavigation();
@@ -119,7 +129,7 @@ async function triggerGlobalSearch(query) {
   if (!query) return;
   const contentArea = document.getElementById('articleContentArea');
   const breadcrumbArea = document.getElementById('breadcrumbArea');
-  if (breadcrumbArea) breadcrumbArea.innerHTML = `Wyszukiwanie &gt; Fraz: "${query}"`;
+  if (breadcrumbArea) breadcrumbArea.innerText = `Wyszukiwanie > Fraz: "${query}"`;
 
   contentArea.innerHTML = `<p style="color:#888;">Trwa wyszukiwanie...</p>`;
 
@@ -128,25 +138,26 @@ async function triggerGlobalSearch(query) {
     const data = await res.json();
     const results = data.results || [];
 
-    let html = `<h2>Wyniki wyszukiwania dla: "${query}"</h2>`;
+    const safeQuery = escapeHtml(query);
+    let html = `<h2>Wyniki wyszukiwania dla: "${safeQuery}"</h2>`;
     html += `<p style="font-size:0.8rem; color:#aaa; margin-bottom:16px;">Znaleziono: ${results.length} dopasowań.</p>`;
 
     if (results.length === 0) {
       html += `<p style="color:#888;">Brak wyników. Spróbuj wpisać inne słowo kluczowe.</p>`;
     } else {
       html += `<div style="display:flex; flex-direction:column; gap:12px;">`;
+      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       for (const r of results) {
-        // Escapowanie snippetu
-        const cleanSnippet = r.snippet
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          // Podświetl szukaną frazę
-          .replace(new RegExp(query, 'gi'), match => `<mark style="background:var(--sw-gold); color:#000; padding:1px 3px; border-radius:2px; font-weight:bold;">${match}</mark>`);
+        const safeTitle = escapeHtml(r.title);
+        const safeRel = escapeHtml(r.relPath);
+        let cleanSnippet = escapeHtml(r.snippet);
+        try {
+          cleanSnippet = cleanSnippet.replace(new RegExp(escapedQuery, 'gi'), match => `<mark style="background:var(--sw-gold); color:#000; padding:1px 3px; border-radius:2px; font-weight:bold;">${match}</mark>`);
+        } catch (e) {}
 
         html += `<div style="background:#18181b; border:1px solid #27272a; padding:12px; border-radius:6px;">
-          <a href="#/${r.relPath}" style="color:var(--sw-gold); font-weight:bold; font-size:0.9rem; text-decoration:none;">📄 ${r.title}</a>
-          <div style="font-size:0.7rem; color:#666; margin-top:2px;">Ścieżka: ${r.relPath}</div>
+          <a href="#/${safeRel}" style="color:var(--sw-gold); font-weight:bold; font-size:0.9rem; text-decoration:none;">${safeTitle}</a>
+          <div style="font-size:0.7rem; color:#666; margin-top:2px;">Ścieżka: ${safeRel}</div>
           <p style="font-size:0.78rem; color:#bbb; margin-top:6px; font-style:italic; line-height:1.4;">...${cleanSnippet}...</p>
         </div>`;
       }
@@ -156,7 +167,7 @@ async function triggerGlobalSearch(query) {
     contentArea.innerHTML = `<div class="markdown-body">${html}</div>`;
 
   } catch (err) {
-    contentArea.innerHTML = `<p style="color:#ef4444;">Błąd wyszukiwania: ${err.message}</p>`;
+    contentArea.innerHTML = `<p style="color:#ef4444;">Błąd wyszukiwania: ${escapeHtml(err.message)}</p>`;
   }
 }
 
@@ -273,34 +284,27 @@ async function renderSidebar() {
     sidebarNav.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:2px; margin-top:6px;">
         <a href="#/kanban" class="sidebar-tile-btn ${isKanbanActive ? 'active' : ''}">
-          <span class="icon">📋</span>
           <span class="label">Tablica Kanban</span>
         </a>
         <a href="#/notes" class="sidebar-tile-btn ${isNotesActive ? 'active' : ''}">
-          <span class="icon">📝</span>
           <span class="label">Szybkie Notatki</span>
         </a>
         <a href="#/tool/passgen" class="sidebar-tile-btn ${isPassgenActive ? 'active' : ''}">
-          <span class="icon">🔑</span>
           <span class="label">Hasłomat SecOps</span>
         </a>
         <a href="#/tool/cidr" class="sidebar-tile-btn ${isCidrActive ? 'active' : ''}">
-          <span class="icon">🌐</span>
           <span class="label">Kalkulator CIDR</span>
         </a>
         <a href="#/tool/raid" class="sidebar-tile-btn ${isRaidActive ? 'active' : ''}">
-          <span class="icon">💾</span>
           <span class="label">Kalkulator RAID & ZFS</span>
         </a>
         <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}">
-          <span class="icon">📡</span>
           <span class="label">Biuletyn RSS SecOps</span>
         </a>
         <a href="#/tool/monitor" class="sidebar-tile-btn ${isMonitorActive ? 'active' : ''}">
-          <span class="label" style="padding-left: 20px;">Monitor Serwera</span>
+          <span class="label">Monitor Serwera</span>
         </a>
         <a href="#/tool/instrukcja" class="sidebar-tile-btn ${isInstrukcjaActive ? 'active' : ''}">
-          <span class="icon">📖</span>
           <span class="label">Instrukcja Obsługi</span>
         </a>
       </div>
@@ -592,18 +596,30 @@ function parseMarkdown(text) {
     return `<span style="color:#ef4444; text-decoration:underline dotted; cursor:help;" title="Artykul nie znaleziony w wiki: ${normalized}">[[${normalized}]]</span>`;
   });
 
-  const normalizedText = text.replace(/[´’‘]/g, '`');
+  const normalizedText = text.replace(/[´'']/g, '`');
   let html = '';
   try {
     if (typeof marked !== 'undefined') {
       if (typeof marked.parse === 'function') html = marked.parse(normalizedText);
       else if (typeof marked === 'function') html = marked(normalizedText);
     } else if (typeof window.markdownit !== 'undefined') {
-      const md = window.markdownit({ html: true, linkify: true });
+      const md = window.markdownit({ html: false, linkify: true });
       html = md.render(normalizedText);
     }
   } catch (e) {
-    console.warn('Błąd parsowania markdown:', e);
+    console.warn('Blad parsowania markdown:', e);
+  }
+
+  // Sanityzacja wyjscia -- usuwanie niebezpiecznych tagow i atrybutow event handler
+  if (html) {
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+    html = html.replace(/<iframe[\s\S]*?<\/iframe>/gi, '');
+    html = html.replace(/<object[\s\S]*?<\/object>/gi, '');
+    html = html.replace(/<embed[\s\S]*?>/gi, '');
+    html = html.replace(/<link[\s\S]*?>/gi, '');
+    html = html.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
+    html = html.replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '');
+    html = html.replace(/javascript\s*:/gi, '');
   }
 
   if (!html) {
@@ -802,31 +818,42 @@ function renderKanbanCards() {
           <div class="subtask-progress-bar">
             <div class="subtask-progress-fill" style="width: ${progressPercent}%;"></div>
           </div>
-          ${subtasks.map(s => `
+          ${subtasks.map(s => {
+            const safeSubTitle = escapeHtml(s.title);
+            const safeTaskId = escapeHtml(t.id);
+            const safeSubId = escapeHtml(s.id);
+            return `
             <label class="subtask-checkbox-item">
-              <input type="checkbox" ${s.done ? 'checked' : ''} onchange="toggleSubtask('${t.id}', '${s.id}')">
-              <span class="${s.done ? 'subtask-done' : ''}">${s.title}</span>
+              <input type="checkbox" ${s.done ? 'checked' : ''} onchange="toggleSubtask('${safeTaskId}', '${safeSubId}')">
+              <span class="${s.done ? 'subtask-done' : ''}">${safeSubTitle}</span>
             </label>
-          `).join('')}
+          `;}).join('')}
         </div>`;
       }
 
+      const safeCat = escapeHtml(t.category || 'SysAdmin');
+      const safePrio = escapeHtml((t.priority || 'medium').toUpperCase());
+      const safeTitle = escapeHtml(t.title);
+      const safeDesc = t.description ? `<div class="card-desc">${escapeHtml(t.description)}</div>` : '';
+      const safeDate = escapeHtml(t.createdAt || '');
+      const safeId = escapeHtml(t.id);
+
       cardsHtml += `<div class="kanban-card ${priorityClass}">
         <div class="card-head">
-          <span class="card-cat">${t.category || 'SysAdmin'}</span>
-          <span class="card-prio">${(t.priority || 'medium').toUpperCase()}</span>
+          <span class="card-cat">${safeCat}</span>
+          <span class="card-prio">${safePrio}</span>
         </div>
-        <div class="card-title">${t.title}</div>
-        ${t.description ? `<div class="card-desc">${t.description}</div>` : ''}
+        <div class="card-title">${safeTitle}</div>
+        ${safeDesc}
         ${subtasksHtml}
         <div class="card-footer">
-          <span class="card-date">${t.createdAt || ''}</span>
+          <span class="card-date">${safeDate}</span>
           <div class="card-actions">
-            <button onclick="openEditTaskModal('${t.id}')" title="Edytuj / Podzadania" style="background:#27272a; color:#f4f4f5;">✏️</button>
-            ${status !== 'todo' ? `<button onclick="moveTask('${t.id}', 'prev')" title="Cofnij">◀</button>` : ''}
+            <button onclick="openEditTaskModal('${safeId}')" title="Edytuj / Podzadania" style="background:#27272a; color:#f4f4f5; padding:2px 6px; font-size:0.7rem;">Edytuj</button>
+            ${status !== 'todo' ? `<button onclick="moveTask('${safeId}', 'prev')" title="Cofnij">&lt;</button>` : ''}
             ${status === 'in_progress' 
-              ? `<button onclick="archiveTask('${t.id}')" style="background:#10b981; color:#fff;" title="Przenieś do Zrobione / Archiwum">✓ Zrobione</button>`
-              : `<button onclick="moveTask('${t.id}', 'next')" title="Dalej">▶</button>`
+              ? `<button onclick="archiveTask('${safeId}')" style="background:#10b981; color:#fff;" title="Przenieś do Zrobione / Archiwum">Zrobione</button>`
+              : `<button onclick="moveTask('${safeId}', 'next')" title="Dalej">&gt;</button>`
             }
           </div>
         </div>
@@ -1113,12 +1140,16 @@ function renderNotesCards(notesToRender = null) {
 
   let html = '';
   for (const n of activeNotes) {
-    html += `<div class="note-card note-color-${n.color || 'gold'}">
+    const safeTitle = escapeHtml(n.title || '');
+    const safeContent = escapeHtml(n.content || '');
+    const safeColor = escapeHtml(n.color || 'gold');
+    const safeId = escapeHtml(n.id || '');
+    html += `<div class="note-card note-color-${safeColor}">
       <div class="note-head">
-        <input type="text" class="note-title-input" id="note-title-${n.id}" value="${n.title || ''}" oninput="updateNote('${n.id}', 'title', this.value)" placeholder="Tytuł notatki...">
-        <button class="note-del-btn" onclick="deleteNote('${n.id}')" title="Usuń notatkę">✕</button>
+        <input type="text" class="note-title-input" id="note-title-${safeId}" value="${safeTitle}" oninput="updateNote('${safeId}', 'title', this.value)" placeholder="Tytuł notatki...">
+        <button class="note-del-btn" onclick="deleteNote('${safeId}')" title="Usuń notatkę">✕</button>
       </div>
-      <textarea class="note-body-input" oninput="updateNote('${n.id}', 'content', this.value)" placeholder="Treść notatki...">${n.content || ''}</textarea>
+      <textarea class="note-body-input" oninput="updateNote('${safeId}', 'content', this.value)" placeholder="Treść notatki...">${safeContent}</textarea>
     </div>`;
   }
   container.innerHTML = html;
@@ -1965,29 +1996,42 @@ async function refreshRssArticles() {
     let html = '';
     for (const art of visibleArticles) {
       const pubDateFormatted = art.pubDate ? new Date(art.pubDate).toLocaleString('pl-PL') : 'Brak daty';
+      const safeTitle = escapeHtml(art.title || 'Brak tytułu');
+      const safeDesc = escapeHtml(art.description || 'Brak opisu.');
+      const safeFeedName = escapeHtml(art.feedName || 'Źródło');
+
+      let safeLink = '#';
+      try {
+        const u = new URL((art.link || '').trim());
+        if (u.protocol === 'http:' || u.protocol === 'https:') {
+          safeLink = u.href;
+        }
+      } catch (e) {}
+      const safeLinkAttr = escapeHtml(safeLink);
+
       html += `
         <div class="rss-card" style="background:#111; border:1px solid #333; padding:16px; border-radius:6px; margin-bottom:12px; transition:border-color 0.2s;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
             <span style="background:#1e293b; color:#94a3b8; font-size:0.65rem; font-weight:bold; padding:2px 6px; border-radius:4px; border:1px solid #334155;">
-              ${art.feedName || 'Źródło'}
+              ${safeFeedName}
             </span>
             <span style="font-size:0.68rem; color:#666;">
-              ${pubDateFormatted}
+              ${escapeHtml(pubDateFormatted)}
             </span>
           </div>
           <h3 style="margin-top:4px; margin-bottom:8px; font-size:0.95rem; line-height:1.3;">
-            <a href="${art.link}" target="_blank" rel="noopener noreferrer" style="color:var(--sw-gold); text-decoration:none; font-weight:bold;">
-              ${art.title}
+            <a href="${safeLinkAttr}" target="_blank" rel="noopener noreferrer" style="color:var(--sw-gold); text-decoration:none; font-weight:bold;">
+              ${safeTitle}
             </a>
           </h3>
           <p style="font-size:0.78rem; color:#ccc; margin-bottom:10px; line-height:1.4;">
-            ${art.description || 'Brak opisu.'}
+            ${safeDesc}
           </p>
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <button onclick="hideRssArticle('${art.link.replace(/'/g, "\\'")}')" style="background:none; border:none; color:#a1a1aa; cursor:pointer; font-size:0.72rem; padding:4px 0; text-decoration:underline;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#a1a1aa'">
+            <button class="rss-hide-entry-btn" data-link="${safeLinkAttr}" style="background:none; border:none; color:#a1a1aa; cursor:pointer; font-size:0.72rem; padding:4px 0; text-decoration:underline;">
               Ukryj wpis
             </button>
-            <a href="${art.link}" target="_blank" rel="noopener noreferrer" style="font-size:0.72rem; color:#3b82f6; text-decoration:none; font-weight:bold;">
+            <a href="${safeLinkAttr}" target="_blank" rel="noopener noreferrer" style="font-size:0.72rem; color:#3b82f6; text-decoration:none; font-weight:bold;">
               Przejdź do artykułu &gt;
             </a>
           </div>
@@ -1995,6 +2039,15 @@ async function refreshRssArticles() {
       `;
     }
     container.innerHTML = html;
+
+    container.querySelectorAll('.rss-hide-entry-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const link = btn.getAttribute('data-link');
+        if (link && typeof hideRssArticle === 'function') {
+          hideRssArticle(link);
+        }
+      });
+    });
 
   } catch (err) {
     container.innerHTML = `
@@ -2661,17 +2714,31 @@ function renderCommandPaletteResultsList() {
     const border = isSelected ? '1px solid #3b82f6' : '1px solid transparent';
     const color = isSelected ? 'var(--sw-gold)' : '#fff';
     
+    const safeTitle = escapeHtml(item.title);
+    const safeCat = escapeHtml(item.category);
+    const safeSubcat = escapeHtml(item.subcategory);
+    const safeRel = escapeHtml(item.relPath);
+
     html += `
-      <div onclick="selectCommandPaletteItem('${item.relPath.replace(/'/g, "\\'")}')" style="background:${bg}; border:${border}; padding:8px 12px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:background 0.1s;">
+      <div class="cp-result-item" data-rel="${safeRel}" style="background:${bg}; border:${border}; padding:8px 12px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:background 0.1s;">
         <div>
-          <span style="color:${color}; font-weight:600; font-size:0.8rem;">${item.title}</span>
-          <div style="font-size:0.65rem; color:#666; margin-top:2px;">${item.category} &gt; ${item.subcategory}</div>
+          <span style="color:${color}; font-weight:600; font-size:0.8rem;">${safeTitle}</span>
+          <div style="font-size:0.65rem; color:#666; margin-top:2px;">${safeCat} &gt; ${safeSubcat}</div>
         </div>
-        <span style="font-size:0.65rem; color:#555;">${item.relPath}</span>
+        <span style="font-size:0.65rem; color:#555;">${safeRel}</span>
       </div>
     `;
   });
   container.innerHTML = html;
+
+  container.querySelectorAll('.cp-result-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const rel = el.getAttribute('data-rel');
+      if (rel && typeof selectCommandPaletteItem === 'function') {
+        selectCommandPaletteItem(rel);
+      }
+    });
+  });
 
   if (commandPaletteSelectedIndex !== -1) {
     const selectedEl = container.children[commandPaletteSelectedIndex];

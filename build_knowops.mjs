@@ -1,17 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { generateNavigation } from './build_navigation.mjs';
 
 const docsDir = path.resolve('docs');
 const outputDir = path.resolve('dist');
 
-console.log('Starting Fast SPA Build Pipeline...');
+console.log('[SPA Build] Starting Fast SPA Build Pipeline...');
 
 // 1. FIRST: Generate navigation.json inside docs/
 try {
-  execSync('node build_navigation.mjs', { stdio: 'inherit' });
+  generateNavigation();
+  console.log('[SPA Build] Deterministic navigation.json generated successfully.');
 } catch (e) {
-  console.error('Error generating navigation.json:', e);
+  console.error('[SPA Build] Error generating navigation.json:', e);
 }
 
 if (!fs.existsSync(outputDir)) {

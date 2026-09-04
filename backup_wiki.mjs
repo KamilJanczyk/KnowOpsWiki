@@ -11,16 +11,18 @@ if (!fs.existsSync(BACKUPS_DIR)) {
 
 export function createWikiBackup() {
   const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0];
-  const backupFileName = `wiki_backup_${timestamp}.zip`;
+  const isWin = process.platform === 'win32';
+  const archiveExt = isWin ? '.zip' : '.tar.gz';
+  const backupFileName = `wiki_backup_${timestamp}${archiveExt}`;
   const backupFilePath = path.join(BACKUPS_DIR, backupFileName);
 
   console.log(`[Backup Engine] Tworzenie kopii zapasowej bazy wiedzy: ${backupFileName}...`);
 
   try {
-    if (process.platform === 'win32') {
+    if (isWin) {
       execSync(`powershell -Command "Compress-Archive -Path '${DOCS_DIR}' -DestinationPath '${backupFilePath}' -Force"`, { stdio: 'pipe' });
     } else {
-      execSync(`tar -czf "${backupFilePath.replace(/\.zip$/, '.tar.gz')}" -C "${DOCS_DIR}" .`, { stdio: 'pipe' });
+      execSync(`tar -czf "${backupFilePath}" -C "${DOCS_DIR}" .`, { stdio: 'pipe' });
     }
 
     console.log(`[Backup Engine] Kopia zapasowa utworzona pomyślnie w: ${backupFilePath}`);

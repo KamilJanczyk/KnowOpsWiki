@@ -23,3 +23,8 @@ Thumbs.db
 .env
 .env.local
 .env.production
+
+# Kompilowane i tworzone lokalnie katalogi
+dist/
+.trash/
+backups/
