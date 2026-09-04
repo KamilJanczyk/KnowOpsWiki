@@ -146,6 +146,50 @@ if (!fs.existsSync(RSS_FEEDS_FILE)) {
   fs.writeFileSync(RSS_FEEDS_FILE, JSON.stringify({ feeds: defaultRssFeeds }, null, 2), 'utf-8');
 }
 
+// Procedury i Playbooki wieloetapowe (Multi-Stage Runbooks)
+const PLAYBOOKS_FILE = path.join(DATA_DIR, 'playbooks_data.json');
+const defaultPlaybooks = [
+  {
+    id: 'pb_default_linux_deploy',
+    title: 'Wdrożenie Nowego Węzła Serwerowego Linux',
+    category: 'Infrastruktura',
+    description: 'Procedura instalacji, konfiguracji sieciowej i utwardzenia systemu Linux.',
+    createdAt: '2026-09-04',
+    stages: [
+      {
+        id: 'st_1',
+        title: 'Etap A: Rekonesans i Konfiguracja Bazowa',
+        tasks: [
+          { id: 'tsk_1_1', title: 'Weryfikacja parametrów sprzętowych (CPU, RAM, RAID)', done: false },
+          { id: 'tsk_1_2', title: 'Konfiguracja statycznej adresacji IP, DNS oraz NTP', done: false },
+          { id: 'tsk_1_3', title: 'Aktualizacja pakietów systemowych i repozytoriów', done: false }
+        ]
+      },
+      {
+        id: 'st_2',
+        title: 'Etap B: Hardening i Bezpieczeństwo (SecOps)',
+        tasks: [
+          { id: 'tsk_2_1', title: 'Konfiguracja SSH (klucze ed25519, wyłączenie logowania root)', done: false },
+          { id: 'tsk_2_2', title: 'Uruchomienie i konfiguracja zapory sieciowej (UFW / NFTables)', done: false },
+          { id: 'tsk_2_3', title: 'Wdrożenie ochrony Fail2ban oraz audytu logów auditd', done: false }
+        ]
+      },
+      {
+        id: 'st_3',
+        title: 'Etap C: Monitoring, Kopie Zapasowe i Odbiór',
+        tasks: [
+          { id: 'tsk_3_1', title: 'Instalacja i podpięcie agenta monitoringu', done: false },
+          { id: 'tsk_3_2', title: 'Konfiguracja harmonogramu kopii zapasowych i test odzyskania', done: false },
+          { id: 'tsk_3_3', title: 'Utworzenie dokumentacji as-built w KnowOpsWiki', done: false }
+        ]
+      }
+    ]
+  }
+];
+if (!fs.existsSync(PLAYBOOKS_FILE)) {
+  fs.writeFileSync(PLAYBOOKS_FILE, JSON.stringify({ playbooks: defaultPlaybooks }, null, 2), 'utf-8');
+}
+
 const activeTokens = new Map();
 const loginAttempts = new Map();
 
@@ -492,6 +536,19 @@ const server = http.createServer(async (req, res) => {
       return sendJson(200, { notes: [] });
     }
 
+    if (normPath === '/api/playbooks' && req.method === 'GET') {
+      if (fs.existsSync(PLAYBOOKS_FILE)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(PLAYBOOKS_FILE, 'utf8'));
+          return sendJson(200, data);
+        } catch (e) {
+          console.error('[Wiki API] Błąd odczytu playbooks_data.json:', e);
+        }
+      }
+      return sendJson(200, { playbooks: [] });
+    }
+
+
     if (normPath === '/api/server-stats' && req.method === 'GET') {
       if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       try {
@@ -732,6 +789,19 @@ const server = http.createServer(async (req, res) => {
       console.log(`[Wiki API] Zaktualizowano Szybkie Notatki (${body.notes.length} notatek)`);
       return sendJson(200, { success: true, message: 'Szybkie Notatki zostały zapisane.' });
     }
+
+    if (normPath === '/api/playbooks' && req.method === 'POST') {
+      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      if (!body.playbooks || !Array.isArray(body.playbooks)) {
+        return sendJson(400, { error: 'Wymagana tablica playbooks' });
+      }
+      atomicWriteFile(PLAYBOOKS_FILE, JSON.stringify({ playbooks: body.playbooks }, null, 2), 'utf8');
+      console.log(`[Wiki API] Zaktualizowano procedury Playbook (${body.playbooks.length} procedur)`);
+      return sendJson(200, { success: true, message: 'Procedury Playbook zostały zapisane.' });
+    }
+
 
     if (normPath === '/api/upload-image' && req.method === 'POST') {
       if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });

@@ -273,6 +273,7 @@ async function renderSidebar() {
     const currentHash = decodeURIComponent(window.location.hash.replace('#/', ''));
 
     const isKanbanActive = (!currentHash || currentHash === 'kanban');
+    const isPlaybooksActive = (currentHash === 'playbooks');
     const isNotesActive = (currentHash === 'notes');
     const isPassgenActive = (currentHash === 'tool/passgen');
     const isCidrActive = (currentHash === 'tool/cidr');
@@ -285,6 +286,9 @@ async function renderSidebar() {
       <div style="display:flex; flex-direction:column; gap:2px; margin-top:6px;">
         <a href="#/kanban" class="sidebar-tile-btn ${isKanbanActive ? 'active' : ''}">
           <span class="label">Tablica Kanban</span>
+        </a>
+        <a href="#/playbooks" class="sidebar-tile-btn ${isPlaybooksActive ? 'active' : ''}">
+          <span class="label">Procedury i Playbooki</span>
         </a>
         <a href="#/notes" class="sidebar-tile-btn ${isNotesActive ? 'active' : ''}">
           <span class="label">Szybkie Notatki</span>
@@ -412,6 +416,11 @@ async function handleHashNavigation() {
   if (!hash || hash === 'kanban') {
     selectCategory('kanban_board', '');
     await loadKanbanBoard();
+    return;
+  }
+  if (hash === 'playbooks') {
+    selectCategory('kanban_board', '');
+    await loadPlaybooks();
     return;
   }
   if (hash === 'notes') {
@@ -1217,6 +1226,357 @@ function saveNotesImmediately() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ notes: quickNotes })
   });
+}
+
+// ==========================================
+// Moduł Playbooków i Procedur Wieloetapowych
+// ==========================================
+let playbooksData = [];
+let playbooksSearchQuery = '';
+let playbooksCategoryFilter = 'ALL';
+
+async function loadPlaybooks() {
+  const contentArea = document.getElementById('articleContentArea');
+  const breadcrumbArea = document.getElementById('breadcrumbArea');
+  if (breadcrumbArea) breadcrumbArea.innerHTML = 'Pulpit &gt; Procedury i Playbooki';
+
+  try {
+    const res = await fetch('/api/playbooks?t=' + Date.now());
+    const data = await res.json();
+    playbooksData = data.playbooks || [];
+    renderPlaybooksView();
+  } catch (err) {
+    if (contentArea) {
+      contentArea.innerHTML = `<p style="color:#ef4444;">Błąd pobierania procedur: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+}
+
+function renderPlaybooksView() {
+  const contentArea = document.getElementById('articleContentArea');
+  if (!contentArea) return;
+
+  const categories = ['ALL', 'Infrastruktura', 'Cyberbezpieczeństwo', 'Sieci', 'Kopie Zapasowe', 'DevOps', 'Inne'];
+  const query = (playbooksSearchQuery || '').toLowerCase().trim();
+
+  let filtered = playbooksData.filter(pb => {
+    if (playbooksCategoryFilter !== 'ALL' && pb.category !== playbooksCategoryFilter) return false;
+    if (!query) return true;
+    const matchTitle = (pb.title || '').toLowerCase().includes(query);
+    const matchDesc = (pb.description || '').toLowerCase().includes(query);
+    const matchCat = (pb.category || '').toLowerCase().includes(query);
+    const matchStage = (pb.stages || []).some(st => 
+      (st.title || '').toLowerCase().includes(query) ||
+      (st.tasks || []).some(t => (t.title || '').toLowerCase().includes(query))
+    );
+    return matchTitle || matchDesc || matchCat || matchStage;
+  });
+
+  let html = `<div class="playbooks-wrapper">
+    <div class="tool-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+      <div>
+        <h2 style="color:var(--sw-gold); margin:0 0 4px 0; font-size:1.15rem;">PROCEDURY I PLAYBOOKI WIELOETAPOWE (RUNBOOKS)</h2>
+        <p style="font-size:0.75rem; color:#aaa; margin:0;">Wieloetapowe plany wdrożeń, checklisty procedur inżynierskich i śledzenie postępów etap po etapie.</p>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="text" id="playbookSearchInput" value="${escapeHtml(playbooksSearchQuery)}" oninput="filterPlaybooks(this.value)" placeholder="Szukaj procedury..." style="background:#18181b; border:1px solid #333; color:#fff; padding:6px 12px; border-radius:4px; font-size:0.75rem; width:180px;">
+        <select id="playbookCategoryFilterSelect" onchange="changePlaybookCategoryFilter(this.value)" style="background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem;">
+          ${categories.map(c => `<option value="${c}" ${playbooksCategoryFilter === c ? 'selected' : ''}>${c === 'ALL' ? 'Wszystkie kategorie' : c}</option>`).join('')}
+        </select>
+        <button class="btn-action" onclick="openAddPlaybookModal()" style="padding:6px 14px; font-size:0.78rem;">[+] Nowa Procedura</button>
+      </div>
+    </div>`;
+
+  if (filtered.length === 0) {
+    html += `<div style="background:#141416; border:1px dashed #333; border-radius:8px; padding:40px; text-align:center; color:#888; margin-top:20px;">
+      <p style="margin:0 0 10px 0; font-size:0.85rem;">Brak procedur spełniających wybrane kryteria.</p>
+      <button class="btn-action" onclick="openAddPlaybookModal()">Utwórz pierwszą procedurę</button>
+    </div>`;
+  } else {
+    filtered.forEach(pb => {
+      const stages = pb.stages || [];
+      const totalTasks = stages.reduce((acc, st) => acc + (st.tasks ? st.tasks.length : 0), 0);
+      const doneTasks = stages.reduce((acc, st) => acc + (st.tasks ? st.tasks.filter(t => t.done).length : 0), 0);
+      const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+      const isCompleted = totalTasks > 0 && doneTasks === totalTasks;
+
+      html += `<div class="playbook-card" id="playbook_card_${pb.id}">
+        <div class="playbook-header">
+          <div style="flex:1; min-width:260px;">
+            <div class="playbook-meta">
+              <span class="playbook-cat-tag">${escapeHtml(pb.category || 'Ogólne')}</span>
+              <span class="playbook-date">Utworzono: ${escapeHtml(pb.createdAt || '-')}</span>
+              ${isCompleted ? '<span style="font-size:0.65rem; background:#064e3b; color:#34d399; padding:2px 6px; border-radius:3px; font-weight:700;">[UKOŃCZONA]</span>' : ''}
+            </div>
+            <h3 class="playbook-title">${escapeHtml(pb.title)}</h3>
+            ${pb.description ? `<p class="playbook-desc">${escapeHtml(pb.description)}</p>` : ''}
+          </div>
+          <div class="playbook-actions">
+            <button class="btn-secondary" onclick="addPlaybookStagePrompt('${pb.id}')" title="Dodaj kolejny etap do procedury">[+] Dodaj Etap</button>
+            <button class="btn-secondary" onclick="resetPlaybookTasks('${pb.id}')" title="Odznacz wszystkie zadania">[Resetuj postęp]</button>
+            <button class="btn-secondary" onclick="deletePlaybook('${pb.id}')" style="border-color:#7f1d1d; color:#fca5a5;" title="Usuń procedurę">[Usuń]</button>
+          </div>
+        </div>
+
+        <div class="playbook-progress-box">
+          <div class="playbook-progress-header">
+            <span>Postęp realizacji procedury: ${doneTasks} / ${totalTasks} zadań (${percent}%)</span>
+            <span>${percent}%</span>
+          </div>
+          <div class="playbook-progress-bar">
+            <div class="playbook-progress-fill ${isCompleted ? 'completed' : ''}" style="width: ${percent}%;"></div>
+          </div>
+        </div>
+
+        <div class="playbook-stages-list">`;
+
+      stages.forEach((st) => {
+        const stageTasks = st.tasks || [];
+        const stTotal = stageTasks.length;
+        const stDone = stageTasks.filter(t => t.done).length;
+        const isStDone = stTotal > 0 && stDone === stTotal;
+
+        html += `<div class="playbook-stage-card ${isStDone ? 'all-done' : ''}">
+          <div class="playbook-stage-head">
+            <div class="playbook-stage-title-wrap">
+              <span class="playbook-stage-title">${escapeHtml(st.title)}</span>
+              <span style="font-size:0.7rem; color:#a1a1aa;">(${stDone}/${stTotal})</span>
+              <span class="playbook-stage-badge ${isStDone ? 'done' : 'in-progress'}">${isStDone ? 'UKOŃCZONY' : 'W TOKU'}</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button onclick="deletePlaybookStage('${pb.id}', '${st.id}')" class="toolbar-btn" style="color:#ef4444; border-color:#521b1b;" title="Usuń ten etap">[Usuń etap]</button>
+            </div>
+          </div>
+
+          <div class="playbook-task-list">`;
+
+        if (stageTasks.length === 0) {
+          html += `<div style="padding:10px 14px; font-size:0.75rem; color:#71717a; font-style:italic;">Brak zadań w tym etapie. Dodaj pierwsze zadanie poniżej.</div>`;
+        } else {
+          stageTasks.forEach(tsk => {
+            html += `<div class="playbook-task-item">
+              <div class="playbook-task-left">
+                <input type="checkbox" id="chk_${pb.id}_${st.id}_${tsk.id}" ${tsk.done ? 'checked' : ''} onchange="togglePlaybookTask('${pb.id}', '${st.id}', '${tsk.id}')" style="cursor:pointer; accent-color:var(--sw-gold); width:15px; height:15px;">
+                <label for="chk_${pb.id}_${st.id}_${tsk.id}" class="playbook-task-label ${tsk.done ? 'task-done' : ''}">${escapeHtml(tsk.title)}</label>
+              </div>
+              <div class="playbook-task-actions">
+                <button onclick="deletePlaybookTask('${pb.id}', '${st.id}', '${tsk.id}')" class="playbook-task-del" title="Usuń zadanie">[x]</button>
+              </div>
+            </div>`;
+          });
+        }
+
+        html += `</div>
+          <div class="playbook-add-task-row">
+            <input type="text" id="newTaskInput_${pb.id}_${st.id}" placeholder="Wpisz zadanie i wciśnij Enter..." class="playbook-add-task-input" onkeydown="if(event.key==='Enter'){ addPlaybookTaskInline('${pb.id}', '${st.id}'); }">
+            <button class="btn-action" style="padding:4px 12px; font-size:0.75rem;" onclick="addPlaybookTaskInline('${pb.id}', '${st.id}')">[+] Dodaj</button>
+          </div>
+        </div>`;
+      });
+
+      html += `</div>
+      </div>`;
+    });
+  }
+
+  html += `</div>`;
+  contentArea.innerHTML = html;
+}
+
+function filterPlaybooks(query) {
+  playbooksSearchQuery = query || '';
+  renderPlaybooksView();
+  const searchInput = document.getElementById('playbookSearchInput');
+  if (searchInput) {
+    searchInput.focus();
+    searchInput.selectionStart = searchInput.selectionEnd = searchInput.value.length;
+  }
+}
+
+function changePlaybookCategoryFilter(cat) {
+  playbooksCategoryFilter = cat || 'ALL';
+  renderPlaybooksView();
+}
+
+async function savePlaybooksImmediately() {
+  try {
+    const res = await fetch('/api/playbooks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playbooks: playbooksData })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      console.error('[Playbooks] Błąd zapisu na serwerze:', err);
+    }
+  } catch (err) {
+    console.error('[Playbooks] Błąd połączenia sieciowego:', err);
+  }
+}
+
+async function togglePlaybookTask(playbookId, stageId, taskId) {
+  const pb = playbooksData.find(p => p.id === playbookId);
+  if (!pb) return;
+  const st = (pb.stages || []).find(s => s.id === stageId);
+  if (!st) return;
+  const tsk = (st.tasks || []).find(t => t.id === taskId);
+  if (!tsk) return;
+
+  tsk.done = !tsk.done;
+  await savePlaybooksImmediately();
+  renderPlaybooksView();
+}
+
+async function addPlaybookTaskInline(playbookId, stageId) {
+  const input = document.getElementById(`newTaskInput_${playbookId}_${stageId}`);
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) return;
+
+  const pb = playbooksData.find(p => p.id === playbookId);
+  if (!pb) return;
+  const st = (pb.stages || []).find(s => s.id === stageId);
+  if (!st) return;
+
+  if (!st.tasks) st.tasks = [];
+  st.tasks.push({
+    id: 'tsk_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    title: val,
+    done: false
+  });
+
+  input.value = '';
+  await savePlaybooksImmediately();
+  renderPlaybooksView();
+}
+
+async function deletePlaybookTask(playbookId, stageId, taskId) {
+  const pb = playbooksData.find(p => p.id === playbookId);
+  if (!pb) return;
+  const st = (pb.stages || []).find(s => s.id === stageId);
+  if (!st || !st.tasks) return;
+
+  st.tasks = st.tasks.filter(t => t.id !== taskId);
+  await savePlaybooksImmediately();
+  renderPlaybooksView();
+}
+
+async function addPlaybookStagePrompt(playbookId) {
+  const pb = playbooksData.find(p => p.id === playbookId);
+  if (!pb) return;
+
+  const nextStageLetter = String.fromCharCode(65 + (pb.stages ? pb.stages.length : 0));
+  const defaultTitle = `Etap ${nextStageLetter}: Nowy Krok Procedury`;
+  const stageTitle = prompt('Podaj nazwę nowego etapu procedury:', defaultTitle);
+  if (!stageTitle || !stageTitle.trim()) return;
+
+  if (!pb.stages) pb.stages = [];
+  pb.stages.push({
+    id: 'st_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    title: stageTitle.trim(),
+    tasks: []
+  });
+
+  await savePlaybooksImmediately();
+  renderPlaybooksView();
+}
+
+async function deletePlaybookStage(playbookId, stageId) {
+  const pb = playbooksData.find(p => p.id === playbookId);
+  if (!pb) return;
+
+  if (!confirm('Czy na pewno chcesz usunąć ten etap wraz ze wszystkimi jego zadaniami?')) return;
+
+  pb.stages = (pb.stages || []).filter(s => s.id !== stageId);
+  await savePlaybooksImmediately();
+  renderPlaybooksView();
+}
+
+async function resetPlaybookTasks(playbookId) {
+  const pb = playbooksData.find(p => p.id === playbookId);
+  if (!pb) return;
+
+  if (!confirm('Czy zresetować wszystkie zadania w tej procedurze do stanu nieukończonego?')) return;
+
+  if (pb.stages) {
+    pb.stages.forEach(st => {
+      if (st.tasks) {
+        st.tasks.forEach(t => { t.done = false; });
+      }
+    });
+  }
+
+  await savePlaybooksImmediately();
+  renderPlaybooksView();
+}
+
+async function deletePlaybook(playbookId) {
+  const pb = playbooksData.find(p => p.id === playbookId);
+  if (!pb) return;
+
+  if (!confirm(`Czy na pewno chcesz bezpowrotnie usunąć procedurę "${pb.title}"?`)) return;
+
+  playbooksData = playbooksData.filter(p => p.id !== playbookId);
+  await savePlaybooksImmediately();
+  renderPlaybooksView();
+}
+
+function openAddPlaybookModal() {
+  const overlay = document.getElementById('addPlaybookModalOverlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    const titleInput = document.getElementById('playbookTitleInput');
+    if (titleInput) {
+      titleInput.value = '';
+      titleInput.focus();
+    }
+    const descInput = document.getElementById('playbookDescInput');
+    if (descInput) descInput.value = '';
+  }
+}
+
+function closeAddPlaybookModal() {
+  const overlay = document.getElementById('addPlaybookModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function submitNewPlaybook() {
+  const titleInput = document.getElementById('playbookTitleInput');
+  const catSelect = document.getElementById('playbookCategorySelect');
+  const stageInput = document.getElementById('playbookInitialStageInput');
+  const descInput = document.getElementById('playbookDescInput');
+
+  const title = titleInput ? titleInput.value.trim() : '';
+  if (!title) {
+    alert('Wprowadź tytuł procedury.');
+    return;
+  }
+
+  const category = catSelect ? catSelect.value : 'Infrastruktura';
+  const initialStageTitle = (stageInput && stageInput.value.trim()) ? stageInput.value.trim() : 'Etap A: Inicjalizacja';
+  const description = descInput ? descInput.value.trim() : '';
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const newPb = {
+    id: 'pb_' + Date.now(),
+    title: title,
+    category: category,
+    description: description,
+    createdAt: today,
+    stages: [
+      {
+        id: 'st_1',
+        title: initialStageTitle,
+        tasks: []
+      }
+    ]
+  };
+
+  playbooksData.unshift(newPb);
+  await savePlaybooksImmediately();
+  closeAddPlaybookModal();
+  renderPlaybooksView();
 }
 
 function renderPassphraseGenerator() {

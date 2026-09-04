@@ -133,3 +133,29 @@ test('ReDoS Mitygacja: Bezpieczne eskapowanie znaków specjalnych RegExp', () =>
     new RegExp(escaped, 'gi');
   });
 });
+
+test('Playbooks: Poprawność struktury i sanityzacja danych procedur wieloetapowych', () => {
+  const mockPlaybook = {
+    id: 'pb_test',
+    title: '<script>alert(1)</script>Procedura',
+    category: 'Cyberbezpieczeństwo',
+    stages: [
+      {
+        id: 'st_1',
+        title: 'Etap 1: Rekonesans',
+        tasks: [
+          { id: 'tsk_1', title: 'Zadanie <b>pogrubione</b>', done: false }
+        ]
+      }
+    ]
+  };
+
+  const safeTitle = escapeHtml(mockPlaybook.title);
+  assert.equal(safeTitle.includes('<script>'), false);
+  assert.equal(safeTitle.includes('&lt;script&gt;'), true);
+
+  const safeTaskTitle = escapeHtml(mockPlaybook.stages[0].tasks[0].title);
+  assert.equal(safeTaskTitle.includes('<b>'), false);
+  assert.equal(safeTaskTitle.includes('&lt;b&gt;'), true);
+});
+
