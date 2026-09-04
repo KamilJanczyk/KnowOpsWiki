@@ -2949,6 +2949,39 @@ async function saveCurrentArticleFromModal(silent = false) {
   }
 }
 
+function updateEditorHighlights() {
+  const textarea = document.getElementById('editorTextarea');
+  const highlights = document.getElementById('editorHighlights');
+  if (!textarea || !highlights) return;
+
+  let text = textarea.value || '';
+  if (text.endsWith('\n')) {
+    text += ' ';
+  }
+
+  // Bezpieczne kodowanie encji HTML
+  let escaped = escapeHtml(text);
+
+  // Podświetlenie formatki Markdown dla obrazów: ![alt](url)
+  escaped = escaped.replace(/(!\[[^\]\r\n]*\]\([^\)\r\n]+\))/g, '<span class="editor-img-highlight">$1</span>');
+
+  // Podświetlenie formatki HTML dla obrazów: <img ... src="..." ...>
+  escaped = escaped.replace(/(&lt;img\s+[^&>]*src=[^&>]*&gt;)/gi, '<span class="editor-img-highlight">$1</span>');
+
+  highlights.innerHTML = escaped;
+  highlights.scrollTop = textarea.scrollTop;
+  highlights.scrollLeft = textarea.scrollLeft;
+}
+
+window.syncEditorScroll = function() {
+  const textarea = document.getElementById('editorTextarea');
+  const highlights = document.getElementById('editorHighlights');
+  if (textarea && highlights) {
+    highlights.scrollTop = textarea.scrollTop;
+    highlights.scrollLeft = textarea.scrollLeft;
+  }
+};
+
 function updateEditorPreview() {
   const textarea = document.getElementById('editorTextarea');
   const preview = document.getElementById('editorPreview') || document.getElementById('editorPreviewArea');
@@ -2958,6 +2991,9 @@ function updateEditorPreview() {
       renderMermaidDiagrams(preview);
     }
   }
+
+  // Aktualizacja podświetlenia składni w edytorze
+  updateEditorHighlights();
 
   // Zapisz szkic w localStorage w locie podczas pisania
   if (textarea && currentEditingPath) {
