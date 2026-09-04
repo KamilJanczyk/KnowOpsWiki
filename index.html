@@ -357,6 +357,83 @@
     }
     .playbook-add-task-input:focus { border-color: var(--sw-gold); }
 
+    /* Kanban 3rd Section: Playbooks Grid */
+    .kanban-playbooks-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #27272a;
+    }
+    .kanban-playbooks-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .kanban-playbooks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .kanban-playbook-card {
+      background: #18181b;
+      border: 1px solid #2b2b2b;
+      border-radius: 6px;
+      padding: 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 140px;
+      transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+      position: relative;
+    }
+    .kanban-playbook-card:hover {
+      border-color: var(--sw-gold);
+      background-color: #202024;
+      transform: translateY(-2px);
+    }
+    .kanban-playbook-card.is-completed {
+      border-left: 3px solid #10b981;
+    }
+    .kpb-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .kpb-card-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #f4f4f5;
+      margin: 0 0 6px 0;
+      line-height: 1.3;
+    }
+    .kpb-card-desc {
+      font-size: 0.72rem;
+      color: #a1a1aa;
+      margin: 0 0 10px 0;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .kpb-card-meta {
+      font-size: 0.68rem;
+      color: #71717a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      border-top: 1px solid #27272a;
+      padding-top: 6px;
+    }
+    .kpb-card-progress {
+      margin-top: 8px;
+    }
+
     .toolbar-btn {
       background: #27272a; border: 1px solid #3f3f46; color: #e4e4e7;
       padding: 3px 8px; border-radius: 4px; font-size: 0.68rem; cursor: pointer;
@@ -676,7 +753,7 @@
     <div style="background:#111; border:1px solid #333; border-radius:8px; width:90%; max-width:650px; display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
       <div style="padding:14px 18px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center;">
         <h3 style="color:var(--sw-gold); font-size:1.0rem;">DODAJ NOWY ELEMENT DO WIKI</h3>
-        <button style="background:none; border:none; color:#aaa; font-size:1.2rem; cursor:pointer;" onclick="closeCreateItemModal()">✕</button>
+        <button style="background:none; border:none; color:#aaa; font-size:1.2rem; cursor:pointer;" onclick="closeCreateItemModal()">X</button>
       </div>
 
       <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
@@ -696,7 +773,7 @@
 
         <div>
           <label style="display:block; margin-bottom:6px; color:#ccc; font-size:0.78rem; font-weight:bold;">2. Wybierz sekcję nadrzędną (Kategorię / Dział):</label>
-          <select id="createItemParentSelect" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px 12px; border-radius:4px; font-size:0.82rem; outline:none;">
+          <select id="createItemFolderSelect" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px 12px; border-radius:4px; font-size:0.82rem; outline:none;">
             <!-- Dynamically populated via app.js -->
           </select>
         </div>
@@ -717,20 +794,20 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.0.6"></script>
+  <script src="/public/app.js?v=2.0.7"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
     <div class="custom-modal">
       <div class="modal-header">
         <h3>NOWE ZADANIE SYSTEMOWE</h3>
-        <button class="modal-close-btn" onclick="closeAddTaskModal()">✕</button>
+        <button class="modal-close-btn" onclick="closeAddTaskModal()">X</button>
       </div>
       <div class="modal-body">
         <div style="background:#18181b; border:1px solid #333; padding:10px; border-radius:6px; margin-bottom:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label class="modal-label" style="margin-bottom:0; color:var(--sw-gold); font-weight:bold;">📋 Wybierz Szablon Zadania (Opcjonalnie)</label>
-            <button type="button" class="btn-secondary" style="font-size:0.68rem; padding:3px 8px; cursor:pointer;" onclick="saveCurrentDraftAsTemplate()">💾 Zapamiętaj jako Szablon</button>
+            <label class="modal-label" style="margin-bottom:0; color:var(--sw-gold); font-weight:bold;">Wybierz Szablon Zadania (Opcjonalnie)</label>
+            <button type="button" class="btn-secondary" style="font-size:0.68rem; padding:3px 8px; cursor:pointer;" onclick="saveCurrentDraftAsTemplate()">Zapamiętaj jako Szablon</button>
           </div>
           <select id="taskTemplateSelect" class="modal-select" onchange="applySelectedTaskTemplate()">
             <option value="">-- Wybierz czysty formularz lub szablon --</option>
@@ -784,7 +861,7 @@
     <div class="custom-modal" style="max-width: 650px;">
       <div class="modal-header">
         <h3>ARCHIWUM ZADAŃ ZROBIONYCH</h3>
-        <button class="modal-close-btn" onclick="closeArchiveModal()">✕</button>
+        <button class="modal-close-btn" onclick="closeArchiveModal()">X</button>
       </div>
       <div class="modal-body">
         <div class="archived-list" id="archivedTasksList"></div>
@@ -798,7 +875,7 @@
     <div class="custom-modal">
       <div class="modal-header">
         <h3>IMPORTUJ DOKUMENT (PLIK / URL)</h3>
-        <button class="modal-close-btn" onclick="closeImportFileModal()">✕</button>
+        <button class="modal-close-btn" onclick="closeImportFileModal()">X</button>
       </div>
       <div class="modal-body">
         <div style="display:flex; border-bottom:1px solid #333; margin-bottom:14px; gap:10px;">
@@ -902,6 +979,50 @@
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeAddPlaybookModal()">Anuluj</button>
         <button class="btn-action" onclick="submitNewPlaybook()">Utwórz Procedurę</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Szczegółów / Realizacji Procedury (Checklist Runner) -->
+  <div id="playbookDetailModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal" style="max-width: 850px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+          <span id="pbDetailCategoryBadge" class="playbook-cat-tag">Kategoria</span>
+          <h3 id="pbDetailTitle" style="font-size: 1.05rem; color: #fff; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Tytuł Procedury</h3>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn-secondary" onclick="resetCurrentPlaybookTasks()" title="Resetuj postęp całej procedury" style="font-size: 0.72rem; padding: 4px 10px;">[Resetuj postęp]</button>
+          <button class="btn-secondary" onclick="deleteCurrentPlaybook()" style="font-size: 0.72rem; padding: 4px 10px; border-color: #7f1d1d; color: #fca5a5;" title="Usuń tę procedurę">[Usuń]</button>
+          <button class="modal-close-btn" onclick="closePlaybookDetailModal()">X</button>
+        </div>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; padding: 18px; flex: 1;">
+        <!-- Opis procedury -->
+        <p id="pbDetailDesc" style="font-size: 0.8rem; color: #a1a1aa; margin: 0 0 14px 0; line-height: 1.4; display: none;"></p>
+
+        <!-- Pasek postępu całościowego -->
+        <div class="playbook-progress-box" style="margin-bottom: 18px; background: #111; padding: 12px; border-radius: 6px; border: 1px solid #27272a;">
+          <div class="playbook-progress-header" style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #ccc; margin-bottom: 6px; font-weight: 600;">
+            <span id="pbDetailProgressText">Postęp realizacji: 0 / 0 zadań (0%)</span>
+            <span id="pbDetailProgressPercent">0%</span>
+          </div>
+          <div class="playbook-progress-bar" style="width: 100%; height: 8px; background: #27272a; border-radius: 4px; overflow: hidden;">
+            <div id="pbDetailProgressBarFill" class="playbook-progress-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Pasek akcji etapów -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <strong style="color: var(--sw-gold); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Etapy i Zadania Procedury</strong>
+          <button class="btn-action" onclick="addCurrentPlaybookStagePrompt()" style="font-size: 0.72rem; padding: 4px 10px;">[+] Dodaj Nowy Etap</button>
+        </div>
+
+        <!-- Kontener etapów -->
+        <div id="pbDetailStagesContainer" class="playbook-stages-list"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 10px 18px; background: #09090b; border-top: 1px solid #27272a;">
+        <button class="btn-secondary" onclick="closePlaybookDetailModal()">Zamknij</button>
       </div>
     </div>
   </div>
