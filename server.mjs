@@ -37,6 +37,14 @@ if (!fs.existsSync(TRASH_DIR)) {
   try { fs.mkdirSync(TRASH_DIR, { recursive: true }); } catch (e) {}
 }
 
+// Ścisła weryfikacja granic katalogu docs (ochrona przed Path Traversal i katalogami siostrzanymi)
+export function isPathInsideDocs(targetPath, baseDir = DOCS_DIR) {
+  if (!targetPath) return false;
+  const resolvedTarget = path.resolve(targetPath);
+  const resolvedBase = path.resolve(baseDir);
+  return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
+}
+
 // Atomowy zapis pliku (ochrona przed uszkodzeniem przy nagłym restarcie hosta/kontenera)
 function atomicWriteFile(filePath, data, encoding = 'utf8') {
   const dir = path.dirname(filePath);
@@ -662,7 +670,7 @@ const server = http.createServer(async (req, res) => {
       if (!relPath) return sendJson(400, { error: 'Brak parametru relPath' });
 
       const targetPath = path.resolve(DOCS_DIR, relPath);
-      if (!targetPath.startsWith(DOCS_DIR) || !fs.existsSync(targetPath)) {
+      if (!isPathInsideDocs(targetPath) || !fs.existsSync(targetPath)) {
         return sendJson(404, { error: 'Plik nie istnieje' });
       }
 
@@ -714,7 +722,7 @@ const server = http.createServer(async (req, res) => {
       if (!relativeFilePath.endsWith('.md')) relativeFilePath += '.md';
 
       const fullFilePath = path.resolve(DOCS_DIR, sanitizedCatRel, relativeFilePath);
-      if (!fullFilePath.startsWith(DOCS_DIR)) {
+      if (!isPathInsideDocs(fullFilePath)) {
         return sendJson(403, { error: 'Dostep zabroniony' });
       }
 
@@ -739,7 +747,7 @@ const server = http.createServer(async (req, res) => {
       if (!relPath) return sendJson(400, { error: 'Brak parametru relPath' });
 
       const targetPath = path.resolve(DOCS_DIR, relPath);
-      if (!targetPath.startsWith(DOCS_DIR) || !fs.existsSync(targetPath)) {
+      if (!isPathInsideDocs(targetPath) || !fs.existsSync(targetPath)) {
         return sendJson(404, { error: 'Plik nie istnieje' });
       }
 
@@ -897,7 +905,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const fullFilePath = path.resolve(DOCS_DIR, categoryRel, targetFilename);
-      if (!fullFilePath.startsWith(DOCS_DIR)) {
+      if (!isPathInsideDocs(fullFilePath)) {
         return sendJson(403, { error: 'Dostęp zabroniony: Zapis poza katalogiem docs' });
       }
 
@@ -955,7 +963,7 @@ const server = http.createServer(async (req, res) => {
       if (!sanitizedFilename.endsWith('.md')) sanitizedFilename += '.md';
 
       const fullFilePath = path.resolve(DOCS_DIR, categoryRel, sanitizedFilename);
-      if (!fullFilePath.startsWith(DOCS_DIR)) {
+      if (!isPathInsideDocs(fullFilePath)) {
         return sendJson(403, { error: 'Dostęp zabroniony' });
       }
 
@@ -1046,7 +1054,7 @@ const server = http.createServer(async (req, res) => {
       let sanitizedOld = decodedOld.replace(/[<>:"|?*\x00]/g, '_');
       const sourcePath = path.resolve(DOCS_DIR, sanitizedOld);
 
-      if (!sourcePath.startsWith(DOCS_DIR) || !fs.existsSync(sourcePath)) {
+      if (!isPathInsideDocs(sourcePath) || !fs.existsSync(sourcePath)) {
         return sendJson(404, { error: 'Plik źródłowy nie istnieje' });
       }
 
@@ -1058,7 +1066,7 @@ const server = http.createServer(async (req, res) => {
       const newRelPath = dirName === '.' ? cleanNewName : `${dirName}/${cleanNewName}`;
       const targetPath = path.resolve(DOCS_DIR, newRelPath);
 
-      if (!targetPath.startsWith(DOCS_DIR)) {
+      if (!isPathInsideDocs(targetPath)) {
         return sendJson(400, { error: 'Nieprawidłowa ścieżka docelowa' });
       }
 
@@ -1103,7 +1111,7 @@ const server = http.createServer(async (req, res) => {
       if (!sanitizedRelPath.endsWith('.md')) sanitizedRelPath += '.md';
 
       const targetPath = path.resolve(DOCS_DIR, sanitizedRelPath);
-      if (!targetPath.startsWith(DOCS_DIR)) {
+      if (!isPathInsideDocs(targetPath)) {
         return sendJson(400, { error: 'Nieprawidłowa ścieżka pliku' });
       }
 
@@ -1162,7 +1170,7 @@ const server = http.createServer(async (req, res) => {
 
       const decodedSource = decodeURIComponent(sourceRelPath);
       const sourcePath = path.resolve(DOCS_DIR, decodedSource);
-      if (!sourcePath.startsWith(DOCS_DIR) || !fs.existsSync(sourcePath)) {
+      if (!isPathInsideDocs(sourcePath) || !fs.existsSync(sourcePath)) {
         return sendJson(404, { error: 'Plik źródłowy nie istnieje lub ścieżka jest nieprawidłowa' });
       }
 
@@ -1178,7 +1186,7 @@ const server = http.createServer(async (req, res) => {
       sanitizedCat = sanitizedCat.split('/').map(part => part === '..' ? '__' : part).join('/');
 
       const targetPath = path.resolve(DOCS_DIR, sanitizedCat, sanitizedFile);
-      if (!targetPath.startsWith(DOCS_DIR)) {
+      if (!isPathInsideDocs(targetPath)) {
         return sendJson(400, { error: 'Nieprawidłowa ścieżka docelowa' });
       }
 
@@ -1243,7 +1251,7 @@ const server = http.createServer(async (req, res) => {
       sanitizedRelPath = sanitizedRelPath.replace(/[<>:"|?*\x00]/g, '_');
 
       const targetPath = path.resolve(DOCS_DIR, sanitizedRelPath);
-      if (!targetPath.startsWith(DOCS_DIR) || !fs.existsSync(targetPath)) {
+      if (!isPathInsideDocs(targetPath) || !fs.existsSync(targetPath)) {
         return sendJson(404, { error: 'Plik markdown nie istnieje' });
       }
 

@@ -41,8 +41,16 @@ function sanitizeRelativePath(categoryRel, filename, baseDocsDir) {
   if (!relativeFilePath.endsWith('.md')) relativeFilePath += '.md';
 
   const fullFilePath = path.resolve(baseDocsDir, sanitizedCatRel, relativeFilePath);
-  const isSafe = fullFilePath.startsWith(baseDocsDir);
+  const isSafe = isPathInsideDocs(fullFilePath, baseDocsDir);
   return { fullFilePath, isSafe };
+}
+
+// 3b. Ścisła weryfikacja granic katalogu (ochrona przed Path Traversal i katalogami siostrzanymi)
+function isPathInsideDocs(targetPath, baseDir = path.resolve('docs')) {
+  if (!targetPath) return false;
+  const resolvedTarget = path.resolve(targetPath);
+  const resolvedBase = path.resolve(baseDir);
+  return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
 }
 
 // 4. Centralna Funkcja Kodowania Encji HTML
@@ -111,6 +119,25 @@ test('Path Traversal: Uniemożliwienie wyjścia poza katalog bazowy docs/', () =
   assert.equal(test2.isSafe, true);
   assert.equal(test2.fullFilePath.startsWith(baseDir), true);
   assert.equal(test2.fullFilePath.includes('..'), false);
+});
+
+test('Path Traversal: Ścisła weryfikacja granic katalogu docs/ oraz blokowanie katalogów siostrzanych', () => {
+  const baseDir = path.resolve('docs');
+
+  // Bezpieczne ścieżki wewnątrz docs
+  assert.equal(isPathInsideDocs(path.join(baseDir, 'test.md'), baseDir), true);
+  assert.equal(isPathInsideDocs(path.join(baseDir, 'sub', 'doc.md'), baseDir), true);
+  assert.equal(isPathInsideDocs(baseDir, baseDir), true);
+
+  // Próby wyjścia w górę (traversal)
+  assert.equal(isPathInsideDocs(path.resolve(baseDir, '../server.mjs'), baseDir), false);
+  assert.equal(isPathInsideDocs(path.resolve(baseDir, '../../etc/passwd'), baseDir), false);
+
+  // Próba ataku przez katalog siostrzany o wspólnej nazwie początkowej (np. docs_secret, docs-private)
+  const siblingDir = baseDir + '_secret';
+  const siblingFile = path.join(siblingDir, 'passwords.txt');
+  assert.equal(siblingFile.startsWith(baseDir), true); // Podatny check startsWith zwróciłby true
+  assert.equal(isPathInsideDocs(siblingFile, baseDir), false); // Utwardzona weryfikacja isPathInsideDocs bezpiecznie blokuje dostęp
 });
 
 test('XSS Sanitization: Poprawne kodowanie encji HTML', () => {

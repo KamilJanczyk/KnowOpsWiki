@@ -191,7 +191,7 @@ function renderTopCategories(categories) {
       html += `<li class="top-cat-item ${isActive ? 'active' : ''}">
         <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
           <span>${cat.title}</span>
-          <span class="arrow">▼</span>
+          <span class="arrow">v</span>
         </a>
         <div class="top-dropdown-menu">
           ${subcategories.map(sub => {
@@ -204,7 +204,7 @@ function renderTopCategories(categories) {
             
             return `
               <a href="${subHref}" class="top-dropdown-item font-semibold" onclick="selectCategory('${cat.id}', '${sub.id}')" style="display: flex; align-items: center; gap: 6px;">
-                📁 ${sub.title}
+                [Dział] ${sub.title}
               </a>
             `;
           }).join('')}
@@ -236,7 +236,7 @@ window.toggleSidebarDir = function(relPath) {
     const header = el.previousElementSibling;
     const arrow = header ? header.querySelector('.dir-arrow') : null;
     if (arrow) {
-      arrow.innerText = isCollapsed ? '▼' : '▶';
+      arrow.innerText = isCollapsed ? 'v' : '>';
     }
     expandedDirs[relPath] = isCollapsed;
     saveExpandedDirs();
@@ -346,8 +346,8 @@ async function renderSidebar() {
         const isExpanded = expandedDirs[item.relPath] || false;
         const dirId = 'dir-' + item.relPath.replace(/[^a-zA-Z0-9]/g, '-');
         subHtml += `<li class="topic-group-header" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: var(--sw-gold); margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📁 ${item.title}</span>
-          <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 6px; flex-shrink: 0;">${isExpanded ? '▼' : '▶'}</span>
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">[Dział] ${item.title}</span>
+          <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 6px; flex-shrink: 0;">${isExpanded ? 'v' : '>'}</span>
         </li>`;
         subHtml += `<div id="${dirId}" style="display: ${isExpanded ? 'block' : 'none'};">`;
         subHtml += renderTree(item.items, depth + 1);
@@ -608,12 +608,14 @@ function parseMarkdown(text) {
   const normalizedText = text.replace(/[´'']/g, '`');
   let html = '';
   try {
-    if (typeof marked !== 'undefined') {
+    if (typeof window.markdownit !== 'undefined') {
+      if (!window._markdownItInstance) {
+        window._markdownItInstance = window.markdownit({ html: false, linkify: true, breaks: true });
+      }
+      html = window._markdownItInstance.render(normalizedText);
+    } else if (typeof marked !== 'undefined') {
       if (typeof marked.parse === 'function') html = marked.parse(normalizedText);
       else if (typeof marked === 'function') html = marked(normalizedText);
-    } else if (typeof window.markdownit !== 'undefined') {
-      const md = window.markdownit({ html: false, linkify: true });
-      html = md.render(normalizedText);
     }
   } catch (e) {
     console.warn('Blad parsowania markdown:', e);
@@ -994,7 +996,7 @@ function renderModalSubtasks() {
   modalDraftSubtasks.forEach((sub, idx) => {
     html += `<div class="modal-subtask-item">
       <span>${sub.title}</span>
-      <button type="button" class="note-del-btn" onclick="removeSubtaskFromModal(${idx})">✕</button>
+      <button type="button" class="note-del-btn" onclick="removeSubtaskFromModal(${idx})">X</button>
     </div>`;
   });
   container.innerHTML = html;
@@ -1070,12 +1072,12 @@ function openArchiveModal() {
     for (const t of archived) {
       html += `<div class="archived-item">
         <div>
-          <div class="archived-title">✓ ${t.title}</div>
+          <div class="archived-title">[OK] ${t.title}</div>
           <div class="archived-meta">${t.category || 'SysAdmin'} | ${t.createdAt || ''} ${t.description ? ' - ' + t.description : ''}</div>
         </div>
         <div style="display:flex; gap:8px;">
           <button class="btn-secondary" onclick="restoreTask('${t.id}')">Przywróć</button>
-          <button class="note-del-btn" onclick="deleteTaskPermanently('${t.id}')" title="Usuń trwale">✕</button>
+          <button class="note-del-btn" onclick="deleteTaskPermanently('${t.id}')" title="Usuń trwale">X</button>
         </div>
       </div>`;
     }
@@ -1184,7 +1186,7 @@ function renderNotesCards(notesToRender = null) {
     html += `<div class="note-card note-color-${safeColor}">
       <div class="note-head">
         <input type="text" class="note-title-input" id="note-title-${safeId}" value="${safeTitle}" oninput="updateNote('${safeId}', 'title', this.value)" placeholder="Tytuł notatki...">
-        <button class="note-del-btn" onclick="deleteNote('${safeId}')" title="Usuń notatkę">✕</button>
+        <button class="note-del-btn" onclick="deleteNote('${safeId}')" title="Usuń notatkę">X</button>
       </div>
       <textarea class="note-body-input" oninput="updateNote('${safeId}', 'content', this.value)" placeholder="Treść notatki...">${safeContent}</textarea>
     </div>`;
@@ -2641,7 +2643,7 @@ function buildRecursiveFolderOptions(items, prefix = '&nbsp;&nbsp;&nbsp;&nbsp;')
   let html = '';
   for (const item of (items || [])) {
     if (item.type === 'directory') {
-      html += `<option value="${item.relPath}">${prefix}📂 ${item.title}</option>`;
+      html += `<option value="${item.relPath}">${prefix}[Folder] ${item.title}</option>`;
       if (item.items && item.items.length > 0) {
         html += buildRecursiveFolderOptions(item.items, prefix + '&nbsp;&nbsp;&nbsp;&nbsp;');
       }
@@ -2669,9 +2671,9 @@ window.openMovePageModal = function() {
     let optionsHtml = '';
     for (const cat of navigationData.categories) {
       if (cat.id === 'kanban_board') continue;
-      optionsHtml += `<option value="${cat.id}">📁 [KATEGORIA GŁÓWNA] ${cat.title}</option>`;
+      optionsHtml += `<option value="${cat.id}">[KATEGORIA GŁÓWNA] ${cat.title}</option>`;
       for (const sub of (cat.subcategories || [])) {
-        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;📂 ${sub.title}</option>`;
+        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
         if (sub.items && sub.items.length > 0) {
           optionsHtml += buildRecursiveFolderOptions(sub.items, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
         }
@@ -2744,9 +2746,9 @@ function openCreateItemModal(presetParentPath = null) {
     let optionsHtml = '';
     for (const cat of navigationData.categories) {
       if (cat.id === 'kanban_board') continue;
-      optionsHtml += `<option value="${cat.id}">📁 [KATEGORIA GŁÓWNA] ${cat.title}</option>`;
+      optionsHtml += `<option value="${cat.id}">[KATEGORIA GŁÓWNA] ${cat.title}</option>`;
       for (const sub of (cat.subcategories || [])) {
-        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;📂 ${sub.title}</option>`;
+        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
         if (sub.items && sub.items.length > 0) {
           optionsHtml += buildRecursiveFolderOptions(sub.items, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
         }
@@ -2868,12 +2870,12 @@ function populateImportFolders() {
     html += `<option value="${cat.id}">[Główny] ${cat.title}</option>`;
     if (cat.subcategories) {
       for (const sub of cat.subcategories) {
-        html += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;📂 ${sub.title}</option>`;
+        html += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
         if (sub.items) {
           function addSubfolders(itemsList, prefix = '&nbsp;&nbsp;&nbsp;&nbsp;') {
             for (const item of itemsList) {
               if (item.type === 'directory') {
-                html += `<option value="${item.relPath}">${prefix}📂 ${item.title}</option>`;
+                html += `<option value="${item.relPath}">${prefix}[Folder] ${item.title}</option>`;
                 if (item.items) {
                   addSubfolders(item.items, prefix + '&nbsp;&nbsp;&nbsp;&nbsp;');
                 }

@@ -18,17 +18,17 @@ const args = process.argv.slice(2);
 
 if (args.length === 0) {
   console.log(`
-📄 Szybkie dodawanie nowej strony z poziomu SSH / Konsoli
+Szybkie dodawanie nowej strony z poziomu SSH / Konsoli
 -------------------------------------------------------
-Użycie:
+Uzycie:
   node add_page.mjs "<Nazwa_Strony>"
   node add_page.mjs "<Kategoria>" "<Temat>" "<Nazwa_Strony>"
 
-Przykłady:
-  node add_page.mjs "Nowa Ściąga Linux"
+Przyklady:
+  node add_page.mjs "Nowa Sciaga Linux"
   node add_page.mjs "Infrastruktura Systemowa" "Linux" "Zaawansowane Uprawnienia ACL"
 
-Dostępne kategorie:
+Dostepne kategorie:
 ${categories.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}
 `);
   process.exit(0);
@@ -53,8 +53,9 @@ if (args.length === 1) {
 const cleanTopic = topicDir.trim().replace(/[<>:"|?*\x00\/\\]/g, '_').replace(/\s+/g, '_').replace(/\.\./g, '__');
 const cleanFileName = pageTitle.trim().replace(/[<>:"|?*\x00\/\\]/g, '').replace(/\s+/g, '_') + '.md';
 const targetDir = path.join(docsDir, categoryDir, cleanTopic);
-if (!path.resolve(targetDir).startsWith(docsDir)) {
-  console.error('❌ Nieprawidłowa ścieżka docelowa katalogu!');
+const resolvedTargetDir = path.resolve(targetDir);
+if (resolvedTargetDir !== docsDir && !resolvedTargetDir.startsWith(docsDir + path.sep)) {
+  console.error('[BLAD] Nieprawidlowa sciezka docelowa katalogu!');
   process.exit(1);
 }
 
@@ -71,26 +72,26 @@ const defaultTemplate = `# ${pageTitle.trim()}
 
 ## 1. Wprowadzenie
 
-Wpisz tutaj treść dokumentacji...
+Wpisz tutaj tresc dokumentacji...
 
 ---
 
 ## 2. Instrukcja krok po kroku
 
 \`\`\`bash
-# Przykładowe polecenie
+# Przykladowe polecenie
 echo "Hello World"
 \`\`\`
 `;
 
 fs.writeFileSync(targetPath, defaultTemplate, 'utf8');
-console.log(`✅ Pomyślnie utworzono plik Markdown: ${targetPath}`);
-console.log(`⏳ Uruchamianie kompilatora bazy wiedzy...`);
+console.log(`Pomyslnie utworzono plik Markdown: ${targetPath}`);
+console.log(`Uruchamianie kompilatora bazy wiedzy...`);
 
 try {
   const out = execSync('node build_knowops.mjs', { cwd: process.cwd(), encoding: 'utf8' });
   console.log(out.trim());
-  console.log(`🎉 Strona gotowa i opublikowana!`);
+  console.log(`Strona gotowa i opublikowana.`);
 } catch (e) {
-  console.error(`❌ Błąd kompilacji:`, e.message);
+  console.error(`[BLAD] Blad kompilacji:`, e.message);
 }
