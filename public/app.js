@@ -272,8 +272,7 @@ async function renderSidebar() {
     if (sidebarTitle) sidebarTitle.innerText = 'PULPIT';
     const currentHash = decodeURIComponent(window.location.hash.replace('#/', ''));
 
-    const isKanbanActive = (!currentHash || currentHash === 'kanban');
-    const isPlaybooksActive = (currentHash === 'playbooks');
+    const isKanbanActive = (!currentHash || currentHash === 'kanban' || currentHash === 'playbooks');
     const isNotesActive = (currentHash === 'notes');
     const isPassgenActive = (currentHash === 'tool/passgen');
     const isCidrActive = (currentHash === 'tool/cidr');
@@ -286,9 +285,6 @@ async function renderSidebar() {
       <div style="display:flex; flex-direction:column; gap:2px; margin-top:6px;">
         <a href="#/kanban" class="sidebar-tile-btn ${isKanbanActive ? 'active' : ''}">
           <span class="label">Tablica Kanban</span>
-        </a>
-        <a href="#/playbooks" class="sidebar-tile-btn ${isPlaybooksActive ? 'active' : ''}">
-          <span class="label">Procedury i Playbooki</span>
         </a>
         <a href="#/notes" class="sidebar-tile-btn ${isNotesActive ? 'active' : ''}">
           <span class="label">Szybkie Notatki</span>
