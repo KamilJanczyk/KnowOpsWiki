@@ -20,8 +20,11 @@ process.on('unhandledRejection', (reason) => {
 let searchCache = [];
 
 const PORT = process.env.API_PORT || 9000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || null;
-if (!ADMIN_PASSWORD) { console.warn('[SECURITY WARNING] ADMIN_PASSWORD nie jest zdefiniowany w środowisku!'); }
+const rawAdminPassword = (process.env.ADMIN_PASSWORD || '').trim();
+const ADMIN_PASSWORD = rawAdminPassword.length > 0 ? rawAdminPassword : null;
+if (!ADMIN_PASSWORD) {
+  console.log('[Wiki API] Tryb Single-User aktywny (brak ADMIN_PASSWORD w środowisku - autoryzacja wyłączona)');
+}
 const DOCS_DIR = path.resolve('docs');
 const DOCS_EXAMPLE_DIR = path.resolve('docs.example');
 if (!fs.existsSync(DOCS_DIR) || fs.readdirSync(DOCS_DIR).length === 0) {

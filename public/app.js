@@ -117,13 +117,16 @@ async function triggerRescan() {
       await renderSidebar();
       alert('Skanowanie bazy wiedzy zakończone pomyślnie.');
     } else {
-      alert('Błąd podczas skanowania bazy wiedzy.');
+      const data = await res.json().catch(() => ({}));
+      const msg = data.error || `Kod błędu ${res.status}`;
+      alert('Błąd podczas skanowania bazy wiedzy: ' + msg);
     }
   } catch (err) {
     console.error('Błąd triggerRescan:', err);
     alert('Błąd połączenia z serwerem: ' + err.message);
   }
 }
+window.triggerRescan = triggerRescan;
 
 async function triggerGlobalSearch(query) {
   if (!query) return;
