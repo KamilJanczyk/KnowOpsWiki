@@ -2673,7 +2673,8 @@ window.openMovePageModal = function() {
       if (cat.id === 'kanban_board') continue;
       optionsHtml += `<option value="${cat.id}">[KATEGORIA GŁÓWNA] ${cat.title}</option>`;
       for (const sub of (cat.subcategories || [])) {
-        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
+        if (sub.id === 'glowne') continue;
+        optionsHtml += `<option value="${sub.relPath}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
         if (sub.items && sub.items.length > 0) {
           optionsHtml += buildRecursiveFolderOptions(sub.items, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
         }
@@ -2737,18 +2738,24 @@ window.openCreateItemModalForCurrentFolder = function() {
   openCreateItemModal(parentPath);
 };
 
-function openCreateItemModal(presetParentPath = null) {
+window.openCreateItemModal = async function(presetParentPath = null) {
   const modal = document.getElementById('createItemModal');
-  const parentSelect = document.getElementById('createItemParentSelect');
+  const parentSelect = document.getElementById('createItemParentSelect') || document.getElementById('createItemFolderSelect');
   if (!modal) return;
+
+  if (!navigationData || !navigationData.categories || navigationData.categories.length === 0) {
+    await loadNavigation();
+  }
 
   if (navigationData && navigationData.categories && parentSelect) {
     let optionsHtml = '';
+    optionsHtml += '<option value="__ROOT__">[NOWA KATEGORIA GŁÓWNA - Górny pasek menu]</option>';
     for (const cat of navigationData.categories) {
       if (cat.id === 'kanban_board') continue;
       optionsHtml += `<option value="${cat.id}">[KATEGORIA GŁÓWNA] ${cat.title}</option>`;
       for (const sub of (cat.subcategories || [])) {
-        optionsHtml += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
+        if (sub.id === 'glowne') continue;
+        optionsHtml += `<option value="${sub.relPath}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
         if (sub.items && sub.items.length > 0) {
           optionsHtml += buildRecursiveFolderOptions(sub.items, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
         }
@@ -2758,37 +2765,68 @@ function openCreateItemModal(presetParentPath = null) {
 
     if (presetParentPath) {
       parentSelect.value = presetParentPath;
+    } else if (currentCategory && currentCategory !== 'kanban_board') {
+      const preferred = currentSubcategory ? `${currentCategory}/${currentSubcategory}` : currentCategory;
+      const hasOption = Array.from(parentSelect.options).some(o => o.value === preferred);
+      if (hasOption) {
+        parentSelect.value = preferred;
+      } else {
+        const hasCat = Array.from(parentSelect.options).some(o => o.value === currentCategory);
+        if (hasCat) {
+          parentSelect.value = currentCategory;
+        }
+      }
+    } else {
+      const firstReal = Array.from(parentSelect.options).find(o => o.value && o.value !== '__ROOT__');
+      if (firstReal) {
+        parentSelect.value = firstReal.value;
+      }
     }
   }
 
   const nameInput = document.getElementById('createItemNameInput');
   if (nameInput) nameInput.value = '';
+  toggleCreateItemType();
   modal.style.display = 'flex';
-}
+};
 
-function closeCreateItemModal() {
+window.closeCreateItemModal = function() {
   const modal = document.getElementById('createItemModal');
   if (modal) modal.style.display = 'none';
-}
+};
 
-function toggleCreateItemType() {
-  const isDoc = document.querySelector('input[name="itemType"]:checked').value === 'doc';
+window.toggleCreateItemType = function() {
+  const typeRadio = document.querySelector('input[name="itemType"]:checked');
+  const isDoc = typeRadio ? typeRadio.value === 'doc' : true;
   const nameLabel = document.getElementById('createItemNameLabel');
+  const parentLabel = document.getElementById('createItemParentLabel');
+  const nameInput = document.getElementById('createItemNameInput');
   if (nameLabel) {
     nameLabel.innerText = isDoc ? '3. Nazwa nowego dokumentu (tytuł):' : '3. Nazwa nowego działu (folderu):';
   }
-}
+  if (parentLabel) {
+    parentLabel.innerText = isDoc ? '2. Wybierz sekcję nadrzędną (Kategorię / Dział):' : '2. Wybierz sekcję nadrzędną (lub nową kategorię główną):';
+  }
+  if (nameInput) {
+    nameInput.placeholder = isDoc ? 'np. Podstawy_OSPF' : 'np. Klastry_HA';
+  }
+};
 
-async function submitCreateItemForm() {
+window.submitCreateItemForm = async function() {
   const typeRadio = document.querySelector('input[name="itemType"]:checked');
   const isDoc = typeRadio ? typeRadio.value === 'doc' : true;
-  const parentSelect = document.getElementById('createItemParentSelect');
+  const parentSelect = document.getElementById('createItemParentSelect') || document.getElementById('createItemFolderSelect');
   const parentPath = parentSelect ? parentSelect.value : '';
   const nameInput = document.getElementById('createItemNameInput');
   const rawName = nameInput ? nameInput.value.trim() : '';
 
   if (!parentPath) {
     alert('Proszę wybrać sekcję nadrzędną.');
+    return;
+  }
+
+  if (isDoc && parentPath === '__ROOT__') {
+    alert('Dokument musi znajdować się w kategorii lub dziale. Aby utworzyć nową kategorię główną na pasku nawigacji, wybierz opcję "Nowy Dział".');
     return;
   }
 
@@ -2802,9 +2840,9 @@ async function submitCreateItemForm() {
 
   if (isDoc) {
     if (!cleanName.endsWith('.md')) cleanName += '.md';
-    relPath = `${parentPath}/${cleanName}`;
+    relPath = (parentPath === '__ROOT__') ? cleanName : `${parentPath}/${cleanName}`;
   } else {
-    relPath = `${parentPath}/${cleanName}/01_Instrukcja.md`;
+    relPath = (parentPath === '__ROOT__') ? `${cleanName}/01_Instrukcja.md` : `${parentPath}/${cleanName}/01_Instrukcja.md`;
   }
 
   const titleText = rawName.replace(/_/g, ' ');
@@ -2858,7 +2896,7 @@ async function submitCreateItemForm() {
   } catch (err) {
     alert('Błąd połączenia z serwerem: ' + err.message);
   }
-}
+};
 
 function populateImportFolders() {
   const select = document.getElementById('importFolderSelect');
@@ -2870,7 +2908,8 @@ function populateImportFolders() {
     html += `<option value="${cat.id}">[Główny] ${cat.title}</option>`;
     if (cat.subcategories) {
       for (const sub of cat.subcategories) {
-        html += `<option value="${cat.id}/${sub.id}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
+        if (sub.id === 'glowne') continue;
+        html += `<option value="${sub.relPath}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
         if (sub.items) {
           function addSubfolders(itemsList, prefix = '&nbsp;&nbsp;&nbsp;&nbsp;') {
             for (const item of itemsList) {
