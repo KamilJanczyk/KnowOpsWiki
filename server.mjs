@@ -697,7 +697,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/rescan' && (req.method === 'POST' || req.method === 'GET')) {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       console.log('[Wiki API] Ręczne odświeżenie i skanowanie bazy wiedzy...');
       const rescanResult = await rebuildWiki();
       rebuildSearchCache();
