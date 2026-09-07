@@ -245,15 +245,7 @@ function generateToken() {
 }
 
 function verifyAuth(req) {
-  if (!ADMIN_PASSWORD) return true; // Tryb single-user bez hasla w env (LAN/CF Zero Trust)
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token || token.length !== 64 || !activeTokens.has(token)) return false;
-  const createdAt = activeTokens.get(token);
-  if (Date.now() - createdAt > 24 * 60 * 60 * 1000) { // 24h Expiry
-    activeTokens.delete(token);
-    return false;
-  }
+  // Wariant B: Tryb Single-User / bezhaslowy (brak blokad autoryzacji tokenowej)
   return true;
 }
 
@@ -522,7 +514,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath.includes('task-templates') && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const body = await getBody();
       if (!body.templates || !Array.isArray(body.templates)) {
         return sendJson(400, { error: 'Wymagana tablica templates' });
@@ -561,7 +552,6 @@ const server = http.createServer(async (req, res) => {
 
 
     if (normPath === '/api/server-stats' && req.method === 'GET') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       try {
         const startCpuTimes = os.cpus().map(cpu => cpu.times);
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -704,7 +694,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/create-page' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { categoryRel, filename, content } = body;
@@ -742,7 +731,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/delete-page' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { relPath } = body;
@@ -779,7 +767,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/kanban' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const body = await getBody();
       if (!body.tasks || !Array.isArray(body.tasks)) {
         return sendJson(400, { error: 'Wymagana tablica tasks' });
@@ -790,7 +777,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/quick-notes' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const body = await getBody();
       if (!body.notes || !Array.isArray(body.notes)) {
         return sendJson(400, { error: 'Wymagana tablica notes' });
@@ -801,7 +787,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/playbooks' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       if (!body.playbooks || !Array.isArray(body.playbooks)) {
@@ -814,7 +799,6 @@ const server = http.createServer(async (req, res) => {
 
 
     if (normPath === '/api/upload-image' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { filename, base64Data } = body;
@@ -883,7 +867,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/import-file' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { categoryRel, filename, content } = body;
@@ -933,7 +916,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/scrape-url' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { url, categoryRel, filename } = body;
@@ -1043,7 +1025,6 @@ const server = http.createServer(async (req, res) => {
 
     
     if (normPath === '/api/rename-file' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { oldPath, newName } = body;
@@ -1097,7 +1078,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/save-page' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { relPath, content } = body;
@@ -1161,7 +1141,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/move-page' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { sourceRelPath, targetCategoryRel, targetFilename } = body;
@@ -1239,7 +1218,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/verify-page' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       if (!checkMutatingRateLimit(req, res)) return;
       const body = await getBody();
       const { relPath, verifiedHardware } = body;
@@ -1296,12 +1274,10 @@ const server = http.createServer(async (req, res) => {
     // Endpointy dla RSS [dodane]
     if (normPath === '/api/rss-feeds') {
       if (req.method === 'GET') {
-        if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
         const data = fs.readFileSync(RSS_FEEDS_FILE, 'utf8');
         return sendJson(200, JSON.parse(data));
       }
       if (req.method === 'POST') {
-        if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
         const body = await getBody();
         if (!body.feeds || !Array.isArray(body.feeds)) {
           return sendJson(400, { error: 'Nieprawidłowy format danych. Oczekiwano tablicy feeds.' });
@@ -1312,7 +1288,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/rss-articles' && req.method === 'GET') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
       const feedId = parsedUrl.searchParams.get('feedId');
       
@@ -1380,7 +1355,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/create-backup' && req.method === 'POST') {
-      if (!verifyAuth(req)) return sendJson(401, { error: 'Wymagane logowanie' });
       const backupRes = createWikiBackup();
       if (backupRes.success) {
         return sendJson(200, { success: true, message: `Utworzono kopię zapasową: ${backupRes.filename}`, backup: backupRes });
