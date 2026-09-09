@@ -454,50 +454,288 @@
     .markdown-alert-tip { border-left-color: #10b981; background-color: rgba(16, 185, 129, 0.08); }
     .markdown-alert-tip .markdown-alert-title { color: #10b981; }
 
-    /* ===== TRYB DRUKU / PDF [dodane: punkt 9] ===== */
+    /* ===== TRYB DRUKU / PDF (Format A4 Portrait) ===== */
+    @page {
+      size: A4 portrait;
+      margin: 12mm 15mm 15mm 15mm;
+    }
+
     @media print {
-      /* Ukryj elementy interfejsu - sidebary, header, pasek akcji artykulu */
+      /* Reset widoku globalnego oraz usuniecie ograniczenia min-width: 1200px */
+      html, body {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #111111 !important;
+        font-size: 11pt !important;
+        line-height: 1.5 !important;
+      }
+
+      /* Ukryj elementy nawigacyjne, panele boczne, przyciski akcji, modale i toasty */
       .header,
       .left-topics-box,
       .right-kanban-sidebar,
-      .left-sidebar-tools                    { display: none !important; }
-      /* Pasek akcji z przyciskami oraz chlebek */
+      .left-sidebar-tools,
       .breadcrumb-nav,
-      #articleContentArea > div:first-child  { display: none !important; }
+      .copy-code-btn,
+      .custom-modal-overlay,
+      #articleEditorModal,
+      #toastContainer,
+      .article-action-header,
+      #articleContentArea > .article-action-header,
+      #articleContentArea > div:first-child {
+        display: none !important;
+      }
 
-      /* Layout pelna szerokosc */
-      .layout-container                      { display: block !important; }
-      .main-content                          { padding: 0 !important; }
-      .content-inner-container               { max-width: 100% !important; }
+      /* Pelna szerokosc i auto-wysokosc dla kontenerow bez wymuszania scrollbarow */
+      .layout-container {
+        display: block !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
 
-      /* Reset tla i kolorow na biale/czarne */
-      body, html, .main-content,
-      .content-inner-container,
-      .markdown-body                         { background: #ffffff !important; color: #000000 !important; }
-      .markdown-body p, .markdown-body li    { color: #000000 !important; }
-      .markdown-body h1                      { color: #000000 !important; border-color: #ccc !important; }
-      .markdown-body h2, .markdown-body h3   { color: #111111 !important; }
-      .markdown-body pre                     { background: #f4f4f4 !important; border: 1px solid #ccc !important; page-break-inside: avoid; }
-      .markdown-body pre code                { background: none !important; color: #000000 !important; }
-      .markdown-body code                    { background: #f0f0f0 !important; color: #c7254e !important; }
-      .markdown-body table th                { background: #e8e8e8 !important; color: #000000 !important; }
-      .markdown-body table td                { color: #000000 !important; border-color: #ccc !important; }
-      .markdown-body a                       { color: #1a56db !important; }
-      .markdown-body img                     { border: 1px solid #ccc !important; max-width: 100% !important; }
+      .main-content {
+        display: block !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+      }
 
-      /* Alerty w druku */
-      .markdown-body .markdown-alert { background: #fdfdfd !important; border: 1px solid #ccc !important; border-left: 4px solid #333 !important; }
-      .markdown-body .markdown-alert-note { border-left-color: #3b82f6 !important; }
-      .markdown-body .markdown-alert-warning { border-left-color: #f59e0b !important; }
-      .markdown-body .markdown-alert-caution { border-left-color: #ef4444 !important; }
-      .markdown-body .markdown-alert-important { border-left-color: #a855f7 !important; }
-      .markdown-body .markdown-alert-tip { border-left-color: #10b981 !important; }
-      .markdown-body .markdown-alert-body { color: #000000 !important; }
+      .content-inner-container {
+        display: block !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
 
-      /* Zapobiegaj lamania naglowkow miedzy stronami */
-      .markdown-body h1, .markdown-body h2,
-      .markdown-body h3                      { page-break-after: avoid; }
-      .markdown-body pre, .markdown-body table { page-break-inside: avoid; }
+      .markdown-body {
+        display: block !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: #ffffff !important;
+        color: #111111 !important;
+        overflow: visible !important;
+      }
+
+      /* Typografia dokumentu dla formatu A4 */
+      .markdown-body h1 {
+        font-size: 18pt !important;
+        color: #000000 !important;
+        border-bottom: 2px solid #333333 !important;
+        margin-top: 0 !important;
+        margin-bottom: 12pt !important;
+        padding-bottom: 6pt !important;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .markdown-body h2 {
+        font-size: 14pt !important;
+        color: #111111 !important;
+        border-bottom: 1px solid #cccccc !important;
+        margin-top: 16pt !important;
+        margin-bottom: 8pt !important;
+        padding-bottom: 4pt !important;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .markdown-body h3 {
+        font-size: 12pt !important;
+        color: #222222 !important;
+        margin-top: 12pt !important;
+        margin-bottom: 6pt !important;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .markdown-body h4,
+      .markdown-body h5,
+      .markdown-body h6 {
+        font-size: 11pt !important;
+        color: #333333 !important;
+        margin-top: 10pt !important;
+        margin-bottom: 4pt !important;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .markdown-body p,
+      .markdown-body li {
+        font-size: 10.5pt !important;
+        line-height: 1.5 !important;
+        color: #111111 !important;
+      }
+
+      .markdown-body ul,
+      .markdown-body ol {
+        margin-bottom: 10pt !important;
+        padding-left: 20pt !important;
+      }
+
+      .markdown-body li {
+        margin-bottom: 4pt !important;
+      }
+
+      /* Bloki kodu z automatycznym zawijaniem wierszy dla formatu A4 */
+      .markdown-body pre {
+        background: #f7f7f8 !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 4px !important;
+        padding: 8pt 10pt !important;
+        margin-bottom: 10pt !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        overflow: visible !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .markdown-body pre code {
+        background: transparent !important;
+        color: #1f2937 !important;
+        font-family: Consolas, "Courier New", Courier, monospace !important;
+        font-size: 9pt !important;
+        line-height: 1.4 !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+      }
+
+      .markdown-body code {
+        background: #f3f4f6 !important;
+        color: #b91c1c !important;
+        border: 1px solid #e5e7eb !important;
+        padding: 1pt 3pt !important;
+        border-radius: 3px !important;
+        font-family: Consolas, "Courier New", Courier, monospace !important;
+        font-size: 9.5pt !important;
+        word-break: break-word !important;
+      }
+
+      /* Tabele dopasowane do szerokosci strony A4 */
+      .markdown-body table {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse !important;
+        margin-bottom: 12pt !important;
+        font-size: 9.5pt !important;
+        page-break-inside: auto;
+        table-layout: auto !important;
+      }
+
+      .markdown-body tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .markdown-body th {
+        background: #f3f4f6 !important;
+        color: #111827 !important;
+        font-weight: 700 !important;
+        border: 1px solid #d1d5db !important;
+        padding: 6pt 8pt !important;
+        text-align: left !important;
+      }
+
+      .markdown-body td {
+        border: 1px solid #e5e7eb !important;
+        color: #1f2937 !important;
+        padding: 5pt 8pt !important;
+        word-break: break-word !important;
+      }
+
+      /* Obrazy i diagramy */
+      .markdown-body img {
+        max-width: 100% !important;
+        height: auto !important;
+        border: 1px solid #e5e7eb !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .markdown-body svg {
+        max-width: 100% !important;
+        height: auto !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .mermaid-diagram-container {
+        max-width: 100% !important;
+        overflow: visible !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      /* Bloki wyroznien / Alerty */
+      .markdown-body .markdown-alert {
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        border-left: 4pt solid #3b82f6 !important;
+        padding: 8pt 12pt !important;
+        margin-bottom: 10pt !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .markdown-body .markdown-alert-note {
+        border-left-color: #2563eb !important;
+      }
+
+      .markdown-body .markdown-alert-warning {
+        border-left-color: #d97706 !important;
+      }
+
+      .markdown-body .markdown-alert-caution {
+        border-left-color: #dc2626 !important;
+      }
+
+      .markdown-body .markdown-alert-important {
+        border-left-color: #7c3aed !important;
+      }
+
+      .markdown-body .markdown-alert-tip {
+        border-left-color: #059669 !important;
+      }
+
+      .markdown-body .markdown-alert-title {
+        font-weight: 700 !important;
+        font-size: 10pt !important;
+        margin-bottom: 3pt !important;
+      }
+
+      .markdown-body .markdown-alert-body {
+        color: #111111 !important;
+        font-size: 10pt !important;
+      }
+
+      /* Linki */
+      .markdown-body a {
+        color: #1d4ed8 !important;
+        text-decoration: underline !important;
+      }
     }
   
     /* Dedykowane suwaki dla kazdej kolumny (pojawiaja sie automatycznie w razie potrzeby) */
