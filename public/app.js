@@ -5,7 +5,6 @@ let navigationData = null;
 // Shared States
 let kanbanTasks = [];
 let quickNotes = [];
-let showOnlyActiveDir = false;
 let monitorIntervalId = null;
 
 function escapeHtml(str) {
@@ -368,44 +367,15 @@ async function renderSidebar() {
   let html = '';
   let itemsToRender = targetSub.items || [];
 
-  // Wyznaczenie aktywnego katalogu na podstawie hasha
-  let activeDirRelPath = null;
-  if (hashParts.length > 2) {
-    activeDirRelPath = hashParts.slice(0, -1).join('/');
-  }
-
-  const hasMatchingDir = activeDirRelPath && (targetSub.items || []).some(item => item.type === 'directory' && item.relPath === activeDirRelPath);
-
-  let focusToggleHtml = '';
-  if (hasMatchingDir) {
-    if (showOnlyActiveDir) {
-      itemsToRender = (targetSub.items || []).filter(item => item.type !== 'directory' || item.relPath === activeDirRelPath);
-      expandedDirs[activeDirRelPath] = true;
-      focusToggleHtml = `<li style="list-style:none; margin-bottom:8px; padding:0 8px;">
-        <button class="toolbar-btn" style="width:100%; text-align:center; background:#1e1b4b; border-color:#312e81; color:#c7d2fe;" onclick="window.toggleSidebarFocus(false)">Pokaż wszystkie działy</button>
-      </li>`;
-    } else {
-      focusToggleHtml = `<li style="list-style:none; margin-bottom:8px; padding:0 8px;">
-        <button class="toolbar-btn" style="width:100%; text-align:center;" onclick="window.toggleSidebarFocus(true)">Włącz widok skupienia</button>
-      </li>`;
-    }
-  }
-
   if (itemsToRender && itemsToRender.length > 0) {
-    html = focusToggleHtml + renderTree(itemsToRender, 0);
+    html = renderTree(itemsToRender, 0);
   } else {
     html = renderTree((targetSub.files || []).map(f => ({ type: 'file', title: f.title, relPath: f.relPath })), 0);
   }
   sidebarNav.innerHTML = html;
 }
 
-window.toggleSidebarFocus = function(val) {
-  showOnlyActiveDir = val;
-  renderSidebar();
-};
-
 async function handleHashNavigation() {
-  showOnlyActiveDir = false;
   if (monitorIntervalId) {
     clearInterval(monitorIntervalId);
     monitorIntervalId = null;
