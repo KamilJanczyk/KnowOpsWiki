@@ -364,7 +364,9 @@ async function renderSidebar() {
       if (a.type !== b.type) {
         return a.type === 'file' ? -1 : 1;
       }
-      return (a.title || a.relPath || '').localeCompare(b.title || b.relPath || '', 'pl', { numeric: true });
+      const nameA = a.relPath ? a.relPath.split('/').pop() : (a.title || '');
+      const nameB = b.relPath ? b.relPath.split('/').pop() : (b.title || '');
+      return nameA.localeCompare(nameB, 'pl', { numeric: true });
     });
   }
 

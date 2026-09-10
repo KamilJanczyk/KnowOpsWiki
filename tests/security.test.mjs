@@ -186,13 +186,13 @@ test('Playbooks: Poprawność struktury i sanityzacja danych procedur wieloetapo
   assert.equal(safeTaskTitle.includes('&lt;b&gt;'), true);
 });
 
-test('Nawigacja: Sortowanie dwuetapowe (pliki .md zawsze przed podfolderami, natural sort po nazwie)', () => {
+test('Nawigacja: Sortowanie dwuetapowe (pliki .md zawsze przed podfolderami, numery 01, 02, 03 zachowane)', () => {
   const mockItems = [
-    { type: 'directory', title: '02_Konfiguracja_Klastra', relPath: '04_Proxmox/02_Konfiguracja_Klastra' },
-    { type: 'file', title: '03_Podsumowanie', relPath: '04_Proxmox/03_Podsumowanie.md' },
-    { type: 'directory', title: '01_Instalacja_Wezlow', relPath: '04_Proxmox/01_Instalacja_Wezlow' },
-    { type: 'file', title: '01_Wstep_Teoretyczny', relPath: '04_Proxmox/01_Wstep_Teoretyczny.md' },
-    { type: 'file', title: '02_Wymagania_Sprzetowe', relPath: '04_Proxmox/02_Wymagania_Sprzetowe.md' }
+    { type: 'directory', title: 'Konfiguracja Klastra', relPath: '04_Proxmox/02_Konfiguracja_Klastra' },
+    { type: 'file', title: 'Podsumowanie', relPath: '04_Proxmox/05_Podsumowanie.md' },
+    { type: 'directory', title: 'Instalacja Wezlow', relPath: '04_Proxmox/01_Instalacja_Wezlow' },
+    { type: 'file', title: 'Wstep Teoretyczny', relPath: '04_Proxmox/01_Wstep_Teoretyczny.md' },
+    { type: 'file', title: 'Wymagania Sprzetowe', relPath: '04_Proxmox/03_Wymagania_Sprzetowe.md' }
   ];
 
   function sortItemsFilesFirst(list) {
@@ -200,25 +200,27 @@ test('Nawigacja: Sortowanie dwuetapowe (pliki .md zawsze przed podfolderami, nat
       if (a.type !== b.type) {
         return a.type === 'file' ? -1 : 1;
       }
-      return (a.title || a.relPath || '').localeCompare(b.title || b.relPath || '', 'pl', { numeric: true });
+      const nameA = a.relPath ? a.relPath.split('/').pop() : (a.title || '');
+      const nameB = b.relPath ? b.relPath.split('/').pop() : (b.title || '');
+      return nameA.localeCompare(nameB, 'pl', { numeric: true });
     });
   }
 
   const sorted = sortItemsFilesFirst(mockItems);
 
-  // Pierwsze 3 elementy to pliki w porządku 01, 02, 03
+  // Pliki Markdown na początku, ściśle według numeracji fizycznej 01, 03, 05
   assert.equal(sorted[0].type, 'file');
-  assert.equal(sorted[0].title, '01_Wstep_Teoretyczny');
+  assert.equal(sorted[0].relPath, '04_Proxmox/01_Wstep_Teoretyczny.md');
   assert.equal(sorted[1].type, 'file');
-  assert.equal(sorted[1].title, '02_Wymagania_Sprzetowe');
+  assert.equal(sorted[1].relPath, '04_Proxmox/03_Wymagania_Sprzetowe.md');
   assert.equal(sorted[2].type, 'file');
-  assert.equal(sorted[2].title, '03_Podsumowanie');
+  assert.equal(sorted[2].relPath, '04_Proxmox/05_Podsumowanie.md');
 
-  // Kolejne 2 elementy to podfoldery w porządku 01, 02
+  // Podfoldery na końcu, również ściśle według numeracji 01, 02
   assert.equal(sorted[3].type, 'directory');
-  assert.equal(sorted[3].title, '01_Instalacja_Wezlow');
+  assert.equal(sorted[3].relPath, '04_Proxmox/01_Instalacja_Wezlow');
   assert.equal(sorted[4].type, 'directory');
-  assert.equal(sorted[4].title, '02_Konfiguracja_Klastra');
+  assert.equal(sorted[4].relPath, '04_Proxmox/02_Konfiguracja_Klastra');
 });
 
 test('Folder Deletion Security: Ochrona przed usunięciem docs/, .trash i Path Traversal', () => {
