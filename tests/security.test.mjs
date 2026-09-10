@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import fs from 'node:fs';
+import os from 'node:os';
+import { extractMarkdownTags } from '../build_navigation.mjs';
+import { exportWikiZip } from '../backup_wiki.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
 function isValidImageMagicBytes(buf, ext) {
@@ -347,6 +351,117 @@ test('Folder Moving Security: Ochrona przed cyklami (folder do podfolderu), Path
   assert.equal(validMove.targetPath, path.join(docsBase, '01_Sec', '01_Katalog'));
 });
 
+test('Tagi Frontmatter: Ekstrakcja i normalizacja tagów YAML z plików Markdown', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'knowops-tags-test-'));
 
+  try {
+    const file1 = path.join(tmpDir, 'file1.md');
+    fs.writeFileSync(file1, `---
+title: SOC Alerting
+tags: [CyberSec, "incident-response", SIEM]
+---
+# Treść artykułu
+`);
 
+    const file2 = path.join(tmpDir, 'file2.md');
+    fs.writeFileSync(file2, `---
+title: Linux Hardening
+tags:
+  - Linux
+  - CIS-Benchmark
+  - DevSecOps
+---
+# Hardening
+`);
 
+    const file3 = path.join(tmpDir, 'file3.md');
+    fs.writeFileSync(file3, `---
+title: Proxmox Setup
+tags: proxmox, virtualisation, homelab
+---
+# Proxmox VE
+`);
+
+    const file4 = path.join(tmpDir, 'file4.md');
+    fs.writeFileSync(file4, `# Zwykły dokument bez frontmattera`);
+
+    const tags1 = extractMarkdownTags(file1);
+    assert.deepEqual(tags1.sort(), ['cybersec', 'incident-response', 'siem']);
+
+    const tags2 = extractMarkdownTags(file2);
+    assert.deepEqual(tags2.sort(), ['cis-benchmark', 'devsecops', 'linux']);
+
+    const tags3 = extractMarkdownTags(file3);
+    assert.deepEqual(tags3.sort(), ['homelab', 'proxmox', 'virtualisation']);
+
+    const tags4 = extractMarkdownTags(file4);
+    assert.deepEqual(tags4, []);
+
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('Orphaned Images Security: Wykrywanie osieroconych grafik i mitygacja Path Traversal przy usuwaniu', () => {
+  const imagesBase = path.resolve('public', 'images');
+
+  // 1. Ekstrakcja referencji do obrazów z Markdown
+  const sampleMd = `
+  # Testowy dokument
+  Oto diagram architektury: ![Architektura](/public/images/arch_v1.png)
+  Oto zrzut ekranu: ![Screen](screen_shot.jpg)
+  Oraz znacznik HTML: <img src="icons/badge.svg" alt="badge">
+  Plik niebędący grafiką: [Dokument](manual.pdf)
+  `;
+
+  const matches = sampleMd.match(/[\w\-./\\]+\.(?:png|jpe?g|gif|webp|svg)/gi) || [];
+  const referenced = new Set(matches.map(m => path.basename(m.replace(/\\/g, '/'))));
+
+  assert.equal(referenced.has('arch_v1.png'), true);
+  assert.equal(referenced.has('screen_shot.jpg'), true);
+  assert.equal(referenced.has('badge.svg'), true);
+  assert.equal(referenced.has('manual.pdf'), false);
+
+  // 2. Walidator bezpieczeństwa usuwania osieroconych plików
+  function validateOrphanedImageDeletion(rawName, baseDir) {
+    if (typeof rawName !== 'string') return { valid: false, error: 'Błędny typ danych' };
+    const sanitized = path.basename(rawName).trim();
+    if (!sanitized || sanitized === '.' || sanitized === '..' || sanitized.includes('\0')) {
+      return { valid: false, error: 'Niebezpieczna nazwa' };
+    }
+    const resolvedPath = path.resolve(baseDir, sanitized);
+    if (!isPathInsideDocs(resolvedPath, baseDir)) {
+      return { valid: false, error: 'Próba wyjścia poza katalog' };
+    }
+    return { valid: true, sanitized, resolvedPath };
+  }
+
+  // Próby ataku Path Traversal
+  assert.equal(validateOrphanedImageDeletion('../../../etc/shadow', imagesBase).valid, true);
+  assert.equal(validateOrphanedImageDeletion('../../../etc/shadow', imagesBase).sanitized, 'shadow');
+  assert.equal(validateOrphanedImageDeletion('..', imagesBase).valid, false);
+  assert.equal(validateOrphanedImageDeletion('.', imagesBase).valid, false);
+  assert.equal(validateOrphanedImageDeletion('img\0.png', imagesBase).valid, false);
+
+  // Prawidłowa grafika
+  const validCheck = validateOrphanedImageDeletion('orphaned_diagram.png', imagesBase);
+  assert.equal(validCheck.valid, true);
+  assert.equal(validCheck.resolvedPath, path.join(imagesBase, 'orphaned_diagram.png'));
+});
+
+test('Backup ZIP Engine: Weryfikacja integralności archiwizacji bazy wiedzy', () => {
+  const result = exportWikiZip();
+  assert.equal(result.success, true);
+  assert.equal(typeof result.filename, 'string');
+  assert.equal(result.filename.startsWith('knowops_wiki_backup_'), true);
+  assert.equal(result.filename.endsWith('.zip'), true);
+  assert.equal(fs.existsSync(result.path), true);
+
+  const stat = fs.statSync(result.path);
+  assert.equal(stat.size > 0, true);
+
+  // Sprzątanie po teście jednostkowym
+  try {
+    fs.unlinkSync(result.path);
+  } catch (e) {}
+});

@@ -19,6 +19,52 @@ function cleanTitle(name) {
   return title.trim();
 }
 
+export function extractMarkdownTags(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return [];
+    const content = fs.readFileSync(filePath, 'utf8');
+    const tags = new Set();
+
+    if (content.startsWith('---')) {
+      const parts = content.split('---');
+      if (parts.length >= 3) {
+        const frontmatter = parts[1];
+        // Format tablicowy inline: tags: [cybersec, linux, nginx]
+        const inlineMatch = frontmatter.match(/tags:\s*\[(.*?)\]/i);
+        if (inlineMatch && inlineMatch[1]) {
+          inlineMatch[1].split(',')
+            .map(t => t.trim().replace(/^['"]|['"]$/g, ''))
+            .filter(Boolean)
+            .forEach(t => tags.add(t.toLowerCase()));
+        }
+        // Format listy pionowej:
+        // tags:
+        //   - cybersec
+        //   - linux
+        const listMatch = frontmatter.match(/tags:\s*\n((?:\s*-\s*.+\n?)+)/i);
+        if (listMatch && listMatch[1]) {
+          const lines = listMatch[1].split('\n');
+          for (const l of lines) {
+            const m = l.match(/^\s*-\s*['"]?([^'"#\n]+)['"]?/);
+            if (m && m[1]) tags.add(m[1].trim().toLowerCase());
+          }
+        }
+        // Format po przecinku: tags: cybersec, linux
+        const commaMatch = frontmatter.match(/tags:\s*([^\n\[]+)/i);
+        if (commaMatch && commaMatch[1] && !commaMatch[1].trim().startsWith('-')) {
+          commaMatch[1].split(',')
+            .map(t => t.trim().replace(/^['"]|['"]$/g, ''))
+            .filter(Boolean)
+            .forEach(t => tags.add(t.toLowerCase()));
+        }
+      }
+    }
+    return Array.from(tags).sort();
+  } catch (e) {
+    return [];
+  }
+}
+
 function scanSubcategoryFiles(subPath, baseRel) {
   const files = [];
   function recurse(currentPath, currentRel) {
@@ -39,7 +85,8 @@ function scanSubcategoryFiles(subPath, baseRel) {
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         files.push({
           title: cleanTitle(entry.name),
-          relPath: rel
+          relPath: rel,
+          tags: extractMarkdownTags(full)
         });
       }
     }
@@ -75,7 +122,8 @@ function scanDirectoryRecursive(dirPath, baseRel) {
       fileItems.push({
         type: 'file',
         title: cleanTitle(entry.name),
-        relPath: rel
+        relPath: rel,
+        tags: extractMarkdownTags(full)
       });
     }
   }
@@ -117,10 +165,14 @@ export function generateNavigation() {
       // Dodanie również pojedynczych plików Markdown znajdujących się bezpośrednio w kategorii głównej
       const directFiles = fs.readdirSync(catPath, { withFileTypes: true })
         .filter(f => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('.'))
-        .map(f => ({
-          title: cleanTitle(f.name),
-          relPath: path.posix.join(catDir.name, f.name)
-        }));
+        .map(f => {
+          const fullPath = path.join(catPath, f.name);
+          return {
+            title: cleanTitle(f.name),
+            relPath: path.posix.join(catDir.name, f.name),
+            tags: extractMarkdownTags(fullPath)
+          };
+        });
 
       if (directFiles.length > 0) {
         subcategories.unshift({
@@ -128,7 +180,7 @@ export function generateNavigation() {
           title: 'Ogólne',
           relPath: catDir.name,
           files: directFiles,
-          items: directFiles.map(f => ({ type: 'file', title: f.title, relPath: f.relPath }))
+          items: directFiles.map(f => ({ type: 'file', title: f.title, relPath: f.relPath, tags: f.tags }))
         });
       }
 
@@ -140,7 +192,42 @@ export function generateNavigation() {
     }
   }
 
-  const navigationData = { categories: availableCategories };
+  // Agregacja globalnej listy tagów z liczbą wystąpień
+  const tagCountMap = {};
+  function collectItemTags(items) {
+    if (!items || !Array.isArray(items)) return;
+    for (const it of items) {
+      if (it.type === 'file' && Array.isArray(it.tags)) {
+        for (const t of it.tags) {
+          tagCountMap[t] = (tagCountMap[t] || 0) + 1;
+        }
+      } else if (it.type === 'directory' && it.items) {
+        collectItemTags(it.items);
+      }
+    }
+  }
+
+  for (const cat of availableCategories) {
+    for (const sub of (cat.subcategories || [])) {
+      if (sub.items) collectItemTags(sub.items);
+      else if (sub.files) {
+        for (const f of sub.files) {
+          if (Array.isArray(f.tags)) {
+            for (const t of f.tags) {
+              tagCountMap[t] = (tagCountMap[t] || 0) + 1;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const allTags = Object.keys(tagCountMap).sort().map(t => ({
+    tag: t,
+    count: tagCountMap[t]
+  }));
+
+  const navigationData = { categories: availableCategories, allTags };
   const navJsonPath = path.join(docsDir, 'navigation.json');
   const tmpPath = `${navJsonPath}.tmp.${Date.now()}`;
   fs.writeFileSync(tmpPath, JSON.stringify(navigationData, null, 2), 'utf-8');

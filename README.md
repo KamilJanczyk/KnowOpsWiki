@@ -94,9 +94,12 @@ docs/
 2. **Diagramy i schematy wektorowe (Mermaid.js):**
    - Automatyczne renderowanie schematów blokowych, wykresów Gantta, diagramów sekwencji, klas, stanów oraz wykresów Git z bloków `mermaid`.
 
-3. **Zarządzanie dokumentacją i nawigacją:**
-   - **Przenoszenie myszką (Drag & Drop):** Przeciąganie dokumentów `.md` bezpośrednio w drzewie nawigacyjnym lewego menu na docelowe katalogi.
-   - **Obsługa wielopoziomowych podkatalogów:** Wsparcie dla dowolnie zagnieżdżonych struktur podkatalogów (1., 2., 3., N-ty poziom).
+3. **Zarządzanie dokumentacją, folderami i nawigacją:**
+   - **Dwuetapowe deterministyczne sortowanie numeryczne:** Pełne zachowanie kolejności według fizycznych prefiksów numerycznych (`01`, `02`, `03`...) pobieranych ze ścieżek fizycznych (`relPath`). W każdym folderze pliki Markdown prezentowane są zawsze na początku (w kolejności numerycznej/alfabetycznej), a podkatalogi pod nimi (również w ścisłym porządku numerycznym), przy zachowaniu oczyszczonych, czytelnych tytułów w interfejsie.
+   - **Bezpieczne usuwanie całych katalogów i podfolderów:** Możliwość usunięcia dowolnego działu lub zagnieżdżonego podfolderu z poziomu drzewa nawigacyjnego lub nagłówka. Dedykowane okno modalne dynamicznie kalkuluje i wyświetla liczbę zawartych plików oraz podkatalogów. Usunięte katalogi są bezpiecznie zabezpieczane w koszu systemowym (`docs/.trash/`) z sygnaturą czasową.
+   - **Bezpieczne przenoszenie folderów i działów (GUI & Drag and Drop):** Zaawansowane okno modalne z wyszukiwarką/filtrem lokalizacji docelowych w czasie rzeczywistym oraz pełna obsługa przeciągania myszą (Drag & Drop) dla katalogów. Architektura zawiera rygorystyczną walidację antycykliczną (blokada przeniesienia folderu do samego siebie lub do któregokolwiek z jego podfolderów potomnych) oraz detekcję kolizji nazw (`409 Conflict`).
+   - **Przenoszenie pojedynczych dokumentów (Modal & Drag and Drop):** Przeciąganie dokumentów `.md` w drzewie bocznym oraz modal z wyszukiwarką podpowiedzi istniejących folderów i możliwością utworzenia nowej ścieżki w locie.
+   - **Obsługa wielopoziomowych podkatalogów:** Pełne wsparcie dla dowolnie zagnieżdżonych struktur podkatalogów (1., 2., 3., N-ty poziom).
    - **Stały pasek akcji artykułu (Sticky Action Header):** Belka nagłówkowa ze ścieżką pliku, datą ostatniej modyfikacji oraz przyciskami szybkiej edycji, dodawania podstrony i przenoszenia dokumentu. Pozycjonowanie lepkie (`position: sticky; top: 0;`) sprawia, że pasek pozostaje stale zakotwiczony na górze okna podczas przewijania długich procedur.
    - **Zoptymalizowany tryb druku i eksportu A4 / PDF:** Dedykowany arkusz stylów `@media print` wraz z dyrektywą `@page { size: A4 portrait; margin: 12mm 15mm; }`. Gwarantuje idealne dopasowanie w skali 100% ("Rozmiar rzeczywisty") bez obcinania prawej krawędzi, automatyczne zawijanie wierszy w kodzie (`pre`), dopasowanie tabel, ochronę przed łamaniem nagłówków między stronami oraz ukrywanie elementów interfejsu.
 
@@ -130,6 +133,21 @@ docs/
     - Kalkulator macierzy dyskowych RAID (RAID 0, 1, 5, 6, 10) z analizą pojemności użytecznej i odporności na awarie.
     - Monitor zasobów systemowych hosta (CPU, RAM, Dysk, Uptime) odczytywany w czasie rzeczywistym z poziomu kontenera.
     - Agregator i czytnik biuletynów bezpieczeństwa oraz kanałów RSS CyberSec.
+
+11. **Eksport pełnej kopii zapasowej do archiwum ZIP (`/api/export-wiki-zip`):**
+    - Możliwość natychmiastowego wygenerowania i pobrania pełnej kopii zapasowej bazy wiedzy bezpośrednio z lewego paska narzędziowego GUI (przycisk "Kopia ZIP").
+    - Archiwum kompresuje katalogi dokumentacji (`docs/`), baz danych JSON (`data/`) oraz zasobów graficznych (`public/images/`), z automatycznym wykluczeniem kosza systemowego (`docs/.trash/`).
+    - Strumieniowe przesyłanie archiwum z automatycznym usuwaniem pliku tymczasowego po zakończeniu transmisji eliminuje ryzyko zapełnienia przestrzeni dyskowej serwera.
+
+12. **System kategoryzacji tagami (YAML Frontmatter):**
+    - Pełne wsparcie dla metadanych dokumentów za pośrednictwem nagłówka Frontmatter w formacie tablicowym `tags: [cybersec, linux, nginx]`, pionowej listy YAML (`- tag`) lub rozdzielanych przecinkami wartości.
+    - Automatyczne wyciąganie unikalnych tagów i ich prezentacja w postaci estetycznych pigułek (`#tag`) bezpośrednio pod nagłówkiem czytanego dokumentu.
+    - Chmura tagów w lewym menu nawigacyjnym z licznikiem wystąpień oraz pełna integracja z wyszukiwarką pełnotekstową (błyskawiczne filtrowanie po wpisaniu lub kliknięciu frazy `#tag`).
+
+13. **Menedżer czyszczenia osieroconych grafik (`/api/orphaned-images`, `/api/delete-orphaned-images`):**
+    - Zautomatyzowany skaner analizujący odwołania do plików graficznych we wszystkich dokumentach Markdown w katalogu `docs/` i porównujący je z zawartością `public/images/`.
+    - Dedykowane okno modalne z podglądem miniaturek osieroconych plików, kalkulatorem zajmowanego miejsca i opcjami masowego zaznaczania.
+    - Zabezpieczenie przed bezpowrotną utratą danych: usuwane grafiki są bezpiecznie archiwizowane w koszu systemowym (`docs/.trash/orphaned_images/`) z unikalnym znacznikiem czasu.
 
 ---
 
@@ -165,7 +183,13 @@ Zestaw testów weryfikuje kluczowe mechanizmy bezpieczeństwa aplikacji:
 - Ochronę Path Traversal i granice katalogu `docs/`,
 - Poprawność kodowania encji HTML (Sanityzacja XSS),
 - Eskapowanie znaków specjalnych RegExp (Mitygacja ReDoS),
-- Poprawność struktury i sanityzacji procedur Playbooków.
+- Poprawność struktury i sanityzacji procedur Playbooków,
+- Dwuetapowe sortowanie dwupoziomowe (pliki Markdown przed podkatalogami z zachowaniem prefiksów numerycznych 01, 02, 03...),
+- Bezpieczeństwo usuwania folderów (ochrona korzenia `docs/`, kosza `.trash/` i blokada Path Traversal),
+- Bezpieczeństwo przenoszenia folderów (ochrona przed cyklami i samozagnieżdżeniem, ochrona przed kolizjami i ucieczką ze ścieżki),
+- Ekstrakcję i normalizację tagów YAML Frontmatter (warianty inline, lista pionowa, rozdzielanie przecinkami),
+- Wykrywanie osieroconych grafik i mitygację Path Traversal przy usuwaniu zasobów mediów,
+- Weryfikację integralności silnika eksportu archiwum ZIP bazy wiedzy (`exportWikiZip`).
 
 ---
 
@@ -206,7 +230,13 @@ Aplikacja będzie dostępna pod adresem: `http://localhost:8085` (lub port skonf
 ## Oznaczenie zmian i audyt dokumentacji (Audit Trail)
 
 Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełnej zgodności ze stanem faktycznym kodu aplikacji:
+- Wprowadzono opis mechanizmu bezpiecznego usuwania całych działów i podfolderów (`/api/delete-folder`) z zabezpieczeniem w koszu `.trash`.
+- Wprowadzono opis bezpiecznego przenoszenia całych folderów przez GUI i Drag & Drop (`/api/move-folder`) z walidacją antycykliczną i wyszukiwarką docelową.
+- Zaktualizowano zasady dwuetapowego, deterministycznego sortowania elementów lewego menu z priorytetem prefiksów numerycznych (`01`, `02`, `03`...).
+- Wdrożono dokumentację eksportu pełnej kopii zapasowej do archiwum ZIP (`/api/export-wiki-zip`) z poziomu paska narzędzi.
+- Wdrożono dokumentację obsługi tagów YAML Frontmatter, pigułek tagów pod artykułami, chmury tagów i wyszukiwarki z filtrem `#tag`.
+- Wdrożono dokumentację menedżera czyszczenia osieroconych grafik (`/api/orphaned-images`, `/api/delete-orphaned-images`) z zabezpieczeniem w koszu systemowym.
 - Uzupełniono specyfikację stałego paska akcji dokumentu (Sticky Action Header) w pozycjonowaniu CSS.
 - Wprowadzono szczegółowy opis zoptymalizowanego mechanizmu wydruku i generowania PDF w standardzie formatu A4.
 - Zaktualizowano opis procedur operacyjnych (Playbooks SOP), szybkich notatek oraz weryfikacji binarnej Magic Bytes.
-- Uzupełniono wykaz testów jednostkowych oraz parametry bezpieczeństwa izolacji sieciowej kontenerów.
+- Rozszerzono pakiet testów jednostkowych do 14 testów automatycznych weryfikujących mechanizmy bezpieczeństwa, integralności, tagów i archiwizacji.

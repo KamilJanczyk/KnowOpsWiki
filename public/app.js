@@ -102,11 +102,41 @@ async function loadNavigation() {
     if (data) {
       navigationData = data;
       renderTopCategories(data.categories || []);
+      renderSidebarTagCloud(data.allTags || []);
     }
   } catch (err) {
     console.error('Błąd ładowania nawigacji:', err);
   }
 }
+
+function renderSidebarTagCloud(tags) {
+  const container = document.getElementById('sidebarTagCloud');
+  if (!container) return;
+  if (!tags || tags.length === 0) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = 'flex';
+  container.innerHTML = tags.slice(0, 15).map(t => 
+    `<span class="sidebar-tag-item" onclick="window.filterByTag('${escapeHtml(t.tag)}')">#${escapeHtml(t.tag)} (${t.count})</span>`
+  ).join('');
+}
+
+window.filterByTag = function(tag) {
+  const searchInput = document.getElementById('globalSearchInput');
+  if (searchInput) {
+    searchInput.value = `#${tag}`;
+    triggerGlobalSearch(`#${tag}`);
+  }
+};
+
+window.downloadWikiZip = function() {
+  if (!confirm('Czy chcesz wygenerować i pobrać pełną kopię zapasową bazy wiedzy w formacie ZIP (dokumenty, zadania, grafiki)?')) {
+    return;
+  }
+  window.location.href = '/api/export-wiki-zip';
+};
 
 async function triggerRescan() {
   try {
@@ -157,10 +187,18 @@ async function triggerGlobalSearch(query) {
           cleanSnippet = cleanSnippet.replace(new RegExp(escapedQuery, 'gi'), match => `<mark style="background:var(--sw-gold); color:#000; padding:1px 3px; border-radius:2px; font-weight:bold;">${match}</mark>`);
         } catch (e) {}
 
+        let tagsHtml = '';
+        if (r.tags && Array.isArray(r.tags) && r.tags.length > 0) {
+          tagsHtml = `<div style="display:flex; gap:4px; margin-top:6px; flex-wrap:wrap;">` +
+            r.tags.map(t => `<span class="tag-pill" onclick="window.filterByTag('${escapeHtml(t)}')">#${escapeHtml(t)}</span>`).join('') +
+            `</div>`;
+        }
+
         html += `<div style="background:#18181b; border:1px solid #27272a; padding:12px; border-radius:6px;">
           <a href="#/${safeRel}" style="color:var(--sw-gold); font-weight:bold; font-size:0.9rem; text-decoration:none;">${safeTitle}</a>
           <div style="font-size:0.7rem; color:#666; margin-top:2px;">Ścieżka: ${safeRel}</div>
           <p style="font-size:0.78rem; color:#bbb; margin-top:6px; font-style:italic; line-height:1.4;">...${cleanSnippet}...</p>
+          ${tagsHtml}
         </div>`;
       }
       html += `</div>`;
@@ -885,7 +923,43 @@ async function loadArticle(articlePath) {
         <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
       </div>
     </div>`;
-    contentArea.innerHTML = actionHeaderHtml + `<div class="markdown-body">${parseMarkdown(markdownText)}</div>`;
+
+    function findNavFile(rel) {
+      if (!navigationData || !navigationData.categories) return null;
+      function search(items) {
+        for (const it of items) {
+          if (it.type === 'file' && it.relPath === rel) return it;
+          if (it.type === 'directory' && it.items) {
+            const f = search(it.items);
+            if (f) return f;
+          }
+        }
+        return null;
+      }
+      for (const cat of navigationData.categories) {
+        for (const sub of (cat.subcategories || [])) {
+          if (sub.items) {
+            const f = search(sub.items);
+            if (f) return f;
+          }
+          if (sub.files) {
+            const f = sub.files.find(file => file.relPath === rel);
+            if (f) return f;
+          }
+        }
+      }
+      return null;
+    }
+
+    const navFile = findNavFile(articlePath);
+    let tagsHtml = '';
+    if (navFile && Array.isArray(navFile.tags) && navFile.tags.length > 0) {
+      tagsHtml = `<div class="article-tags-bar">` +
+        navFile.tags.map(t => `<span class="tag-pill" onclick="window.filterByTag('${escapeHtml(t)}')">#${escapeHtml(t)}</span>`).join('') +
+        `</div>`;
+    }
+
+    contentArea.innerHTML = actionHeaderHtml + tagsHtml + `<div class="markdown-body">${parseMarkdown(markdownText)}</div>`;
     renderMermaidDiagrams();
     addCopyButtons();
 
@@ -4364,5 +4438,111 @@ window.submitMoveFolder = async function() {
     await loadNavigation();
   } catch (err) {
     alert(`Błąd podczas przenoszenia folderu: ${err.message}`);
+  }
+};
+
+// ================= CZYSZCZENIE OSIEROCONYCH GRAFIK ================= //
+
+window.openOrphanedImagesModal = async function() {
+  const overlay = document.getElementById('orphanedImagesModalOverlay');
+  const listEl = document.getElementById('orphanedImagesList');
+  const countDisplay = document.getElementById('orphanedCountDisplay');
+  const sizeDisplay = document.getElementById('orphanedSizeDisplay');
+  const deleteBtn = document.getElementById('btnDeleteSelectedOrphaned');
+
+  if (!overlay || !listEl) return;
+  overlay.style.display = 'flex';
+  listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Trwa skanowanie bazy wiedzy w poszukiwaniu nieużywanych grafik...</div>';
+  if (countDisplay) countDisplay.textContent = '...';
+  if (sizeDisplay) sizeDisplay.textContent = '...';
+  if (deleteBtn) deleteBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/orphaned-images?t=' + Date.now());
+    if (!res.ok) throw new Error(`Błąd serwera: ${res.status}`);
+    const data = await res.json();
+
+    const count = data.count || 0;
+    const totalMb = ((data.totalBytes || 0) / 1024 / 1024).toFixed(2);
+    if (countDisplay) countDisplay.textContent = count;
+    if (sizeDisplay) sizeDisplay.textContent = `${totalMb} MB`;
+
+    if (count === 0) {
+      listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#10b981; font-size:0.85rem;">Brak osieroconych grafik w public/images/. Wszystkie grafiki są używane w dokumentacji.</div>';
+      if (deleteBtn) deleteBtn.disabled = true;
+      return;
+    }
+
+    if (deleteBtn) deleteBtn.disabled = false;
+    let html = '';
+    for (const img of data.orphaned) {
+      const safeName = escapeHtml(img.filename);
+      const safeUrl = escapeHtml(img.url);
+      const sizeKb = (img.size / 1024).toFixed(1);
+      const dateStr = img.mtime ? new Date(img.mtime).toLocaleString('pl-PL') : 'Brak daty';
+
+      html += `<div class="orphaned-img-card">
+        <input type="checkbox" class="orphaned-img-checkbox" value="${safeName}" style="cursor:pointer; width:16px; height:16px;">
+        <img src="${safeUrl}" alt="${safeName}" class="orphaned-img-thumb" loading="lazy" onerror="this.style.display='none'">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:0.75rem; font-weight:600; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${safeName}">${safeName}</div>
+          <div style="font-size:0.68rem; color:#888; margin-top:2px;">Rozmiar: <span style="color:#ddd;">${sizeKb} KB</span> | Zmodyfikowano: <span style="color:#aaa;">${dateStr}</span></div>
+        </div>
+      </div>`;
+    }
+    listEl.innerHTML = html;
+  } catch (err) {
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Błąd pobierania listy grafik: ${escapeHtml(err.message)}</div>`;
+  }
+};
+
+window.closeOrphanedImagesModal = function() {
+  const overlay = document.getElementById('orphanedImagesModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.toggleSelectAllOrphaned = function(checked) {
+  const checkboxes = document.querySelectorAll('#orphanedImagesList .orphaned-img-checkbox');
+  checkboxes.forEach(cb => { cb.checked = !!checked; });
+};
+
+window.submitDeleteOrphanedImages = async function() {
+  const checkboxes = document.querySelectorAll('#orphanedImagesList .orphaned-img-checkbox:checked');
+  const filenames = Array.from(checkboxes).map(cb => cb.value);
+
+  if (filenames.length === 0) {
+    alert('Proszę zaznaczyć co najmniej jedną grafikę do usunięcia.');
+    return;
+  }
+
+  if (!confirm(`Czy na pewno chcesz przenieść ${filenames.length} zaznaczonych grafik do kosza systemowego (.trash)?`)) {
+    return;
+  }
+
+  const deleteBtn = document.getElementById('btnDeleteSelectedOrphaned');
+  const originalText = deleteBtn ? deleteBtn.textContent : '';
+  if (deleteBtn) {
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = 'Przenoszenie do kosza...';
+  }
+
+  try {
+    const res = await fetch('/api/delete-orphaned-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filenames })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Błąd serwera');
+
+    alert(result.message || `Przeniesiono ${filenames.length} grafik do kosza.`);
+    await window.openOrphanedImagesModal();
+  } catch (err) {
+    alert(`Błąd podczas usuwania grafik: ${err.message}`);
+  } finally {
+    if (deleteBtn) {
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = originalText;
+    }
   }
 };

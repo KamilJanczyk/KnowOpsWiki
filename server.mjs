@@ -4,8 +4,8 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import os from 'node:os';
-import { createWikiBackup } from './backup_wiki.mjs';
-import { generateNavigation } from './build_navigation.mjs';
+import { createWikiBackup, exportWikiZip } from './backup_wiki.mjs';
+import { generateNavigation, extractMarkdownTags } from './build_navigation.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -60,6 +60,65 @@ function atomicWriteFile(filePath, data, encoding = 'utf8') {
 }
 const DIST_DIR = path.resolve('dist');
 const IMAGES_DIR = path.join(path.resolve('public'), 'images');
+if (!fs.existsSync(IMAGES_DIR)) {
+  try { fs.mkdirSync(IMAGES_DIR, { recursive: true }); } catch (e) {}
+}
+
+export function getReferencedImages() {
+  const referenced = new Set();
+  function scanDocs(dir) {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name.toLowerCase() === '.trash') continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanDocs(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        try {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const matches = content.match(/[\w\-./\\]+\.(?:png|jpe?g|gif|webp|svg)/gi);
+          if (matches) {
+            for (const m of matches) {
+              const filename = path.basename(m.replace(/\\/g, '/'));
+              referenced.add(filename);
+            }
+          }
+        } catch (e) {}
+      }
+    }
+  }
+  scanDocs(DOCS_DIR);
+  return referenced;
+}
+
+export function getOrphanedImagesList() {
+  const referenced = getReferencedImages();
+  const orphaned = [];
+  let totalBytes = 0;
+
+  if (fs.existsSync(IMAGES_DIR)) {
+    const files = fs.readdirSync(IMAGES_DIR, { withFileTypes: true });
+    for (const file of files) {
+      if (!file.isFile() || file.name.startsWith('.')) continue;
+      if (!referenced.has(file.name)) {
+        const fullPath = path.join(IMAGES_DIR, file.name);
+        try {
+          const stat = fs.statSync(fullPath);
+          totalBytes += stat.size;
+          orphaned.push({
+            filename: file.name,
+            size: stat.size,
+            mtime: stat.mtime.toISOString(),
+            url: `/public/images/${file.name}`
+          });
+        } catch (e) {}
+      }
+    }
+  }
+  return { orphaned, totalBytes, count: orphaned.length };
+}
+
 const DATA_DIR = path.resolve('data');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -629,11 +688,16 @@ const server = http.createServer(async (req, res) => {
       const searchTokens = query.toLowerCase().split(/\s+/).filter(Boolean);
 
       searchCache.forEach(item => {
-        // Wszystkie słowa muszą pasować w tytule LUB w treści
         const titleLower = item.title.toLowerCase();
-        const allTokensMatch = searchTokens.every(token => 
-          item.contentLower.includes(token) || titleLower.includes(token)
-        );
+        const allTokensMatch = searchTokens.every(token => {
+          if (token.startsWith('#')) {
+            const cleanTag = token.slice(1).toLowerCase();
+            return item.tags && item.tags.some(t => t.toLowerCase() === cleanTag);
+          }
+          return item.contentLower.includes(token) || 
+                 titleLower.includes(token) || 
+                 (item.tags && item.tags.some(t => t.toLowerCase().includes(token)));
+        });
 
         if (allTokensMatch) {
           let snippet = '';
@@ -650,7 +714,8 @@ const server = http.createServer(async (req, res) => {
           results.push({
             relPath: item.relPath,
             title: item.title,
-            snippet: snippet.trim()
+            snippet: snippet.trim(),
+            tags: item.tags || []
           });
         }
       });
@@ -1549,6 +1614,85 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (normPath === '/api/export-wiki-zip' && req.method === 'GET') {
+      try {
+        const zipRes = exportWikiZip();
+        if (!zipRes || !zipRes.success || !fs.existsSync(zipRes.path)) {
+          return sendJson(500, { error: 'Nie udało się wygenerować archiwum kopii zapasowej ZIP.' });
+        }
+        const stat = fs.statSync(zipRes.path);
+        res.writeHead(200, {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="${zipRes.filename}"`,
+          'Content-Length': stat.size
+        });
+        const stream = fs.createReadStream(zipRes.path);
+        stream.pipe(res);
+        stream.on('close', () => {
+          try { fs.unlinkSync(zipRes.path); } catch (e) {}
+        });
+        return;
+      } catch (err) {
+        console.error('[Wiki API] Błąd eksportu archiwum ZIP:', err);
+        return sendJson(500, { error: `Błąd podczas eksportu archiwum ZIP: ${err.message}` });
+      }
+    }
+
+    if (normPath === '/api/orphaned-images' && req.method === 'GET') {
+      const data = getOrphanedImagesList();
+      return sendJson(200, data);
+    }
+
+    if (normPath === '/api/delete-orphaned-images' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { filenames } = body;
+      if (!Array.isArray(filenames) || filenames.length === 0) {
+        return sendJson(400, { error: 'Wymagana tablica nazw plików do usunięcia (filenames)' });
+      }
+
+      const trashImagesDir = path.join(TRASH_DIR, 'orphaned_images');
+      if (!fs.existsSync(trashImagesDir)) {
+        fs.mkdirSync(trashImagesDir, { recursive: true });
+      }
+
+      let deletedCount = 0;
+      let freedBytes = 0;
+
+      for (const rawName of filenames) {
+        if (typeof rawName !== 'string') continue;
+        const sanitized = path.basename(rawName).trim();
+        if (!sanitized || sanitized === '.' || sanitized === '..' || sanitized.includes('\0')) continue;
+
+        const filePath = path.resolve(IMAGES_DIR, sanitized);
+        if (!isPathInsideDocs(filePath, IMAGES_DIR) || !fs.existsSync(filePath)) continue;
+
+        const stat = fs.statSync(filePath);
+        freedBytes += stat.size;
+
+        const trashDest = path.join(trashImagesDir, `${Date.now()}_${sanitized}`);
+        try {
+          fs.renameSync(filePath, trashDest);
+          deletedCount++;
+        } catch (err) {
+          try {
+            fs.cpSync(filePath, trashDest);
+            fs.unlinkSync(filePath);
+            deletedCount++;
+          } catch (e) {
+            console.error('[Wiki API] Błąd zabezpieczania osieroconej grafiki w koszu:', e);
+          }
+        }
+      }
+
+      return sendJson(200, {
+        success: true,
+        message: `Zabezpieczono w koszu ${deletedCount} osieroconych grafik (odzyskane: ${(freedBytes / 1024 / 1024).toFixed(2)} MB).`,
+        deletedCount,
+        freedBytes
+      });
+    }
+
     sendJson(404, { error: 'Endpoint nie istnieje' });
 
   } catch (err) {
@@ -1594,11 +1738,13 @@ function rebuildSearchCache() {
       try {
         const content = fs.readFileSync(item.fullPath, 'utf8');
         const title = item.file.replace('.md', '').replace(/_/g, ' ');
+        const tags = extractMarkdownTags(item.fullPath);
         newCache.push({
           relPath: item.relPath,
           title,
           content,
-          contentLower: content.toLowerCase()
+          contentLower: content.toLowerCase(),
+          tags
         });
       } catch (e) {}
     }

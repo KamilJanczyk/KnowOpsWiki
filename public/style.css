@@ -956,3 +956,84 @@
       outline: 1px dashed rgba(56, 189, 248, 0.6);
       border-radius: 2px;
     }
+
+    /* Style dla etykiet i tagów */
+    .article-tags-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 2px 0;
+    }
+    .tag-pill {
+      display: inline-flex;
+      align-items: center;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #93c5fd;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      font-family: monospace;
+      text-decoration: none;
+    }
+    .tag-pill:hover {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #60a5fa;
+      transform: translateY(-1px);
+    }
+    .sidebar-tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 6px 0;
+      border-top: 1px solid #222;
+      margin-top: 4px;
+    }
+    .sidebar-tag-item {
+      font-size: 0.64rem;
+      color: #888;
+      background: #141416;
+      border: 1px solid #27272a;
+      padding: 1px 6px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: monospace;
+      transition: all 0.12s ease;
+    }
+    .sidebar-tag-item:hover, .sidebar-tag-item.active {
+      background: var(--sw-gold);
+      color: #000000;
+      border-color: var(--sw-gold);
+      font-weight: bold;
+    }
+
+    /* Style dla modułu czyszczenia osieroconych grafik */
+    .orphaned-img-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #141416;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 8px 10px;
+      transition: border-color 0.15s ease;
+    }
+    .orphaned-img-card:hover {
+      border-color: #3f3f46;
+    }
+    .orphaned-img-thumb {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: #000;
+      flex-shrink: 0;
+    }

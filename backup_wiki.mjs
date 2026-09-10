@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 
 const DOCS_DIR = path.resolve('docs');
 const BACKUPS_DIR = path.resolve('backups');
@@ -56,6 +56,52 @@ export function createWikiBackup() {
       error: err.message
     };
   }
+}
+
+export function exportWikiZip() {
+  const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0];
+  const zipFileName = `knowops_wiki_backup_${timestamp}.zip`;
+  const zipFilePath = path.join(BACKUPS_DIR, zipFileName);
+  const isWin = process.platform === 'win32';
+
+  if (!fs.existsSync(BACKUPS_DIR)) {
+    fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  }
+
+  const docsPath = path.resolve('docs');
+  const dataPath = path.resolve('data');
+  const imagesPath = path.resolve('public', 'images');
+
+  if (!fs.existsSync(docsPath)) fs.mkdirSync(docsPath, { recursive: true });
+  if (!fs.existsSync(dataPath)) fs.mkdirSync(dataPath, { recursive: true });
+  if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath, { recursive: true });
+
+  if (isWin) {
+    execFileSync('powershell', [
+      '-NoProfile',
+      '-Command',
+      `Compress-Archive -Path '${docsPath}', '${dataPath}', '${imagesPath}' -DestinationPath '${zipFilePath}' -Force`
+    ], { stdio: 'pipe' });
+  } else {
+    execFileSync('zip', [
+      '-r',
+      '-q',
+      zipFilePath,
+      'docs',
+      'data',
+      'public/images',
+      '-x',
+      'docs/.trash/*',
+      'docs/.trash'
+    ], { stdio: 'pipe' });
+  }
+
+  return {
+    success: true,
+    filename: zipFileName,
+    path: zipFilePath,
+    timestamp
+  };
 }
 
 // Allow direct script execution: node backup_wiki.mjs
