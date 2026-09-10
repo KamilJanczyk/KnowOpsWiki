@@ -346,9 +346,20 @@ async function renderSidebar() {
     expandedDirs[pathAcc] = true;
   }
 
+  function sortItemsFilesFirst(list) {
+    if (!list || !Array.isArray(list)) return [];
+    return [...list].sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'file' ? -1 : 1;
+      }
+      return (a.title || a.relPath || '').localeCompare(b.title || b.relPath || '', 'pl', { numeric: true });
+    });
+  }
+
   function renderTree(items, depth = 0) {
     let subHtml = '';
-    for (const item of (items || [])) {
+    const sortedItems = sortItemsFilesFirst(items);
+    for (const item of sortedItems) {
       const indent = depth * 12;
       if (item.type === 'directory') {
         const isExpanded = expandedDirs[item.relPath] || false;

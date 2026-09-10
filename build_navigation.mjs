@@ -50,7 +50,8 @@ function scanSubcategoryFiles(subPath, baseRel) {
 
 function scanDirectoryRecursive(dirPath, baseRel) {
   if (!fs.existsSync(dirPath)) return [];
-  const items = [];
+  const fileItems = [];
+  const dirItems = [];
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   entries.sort((a, b) => a.name.localeCompare(b.name, 'pl', { numeric: true }));
 
@@ -64,21 +65,22 @@ function scanDirectoryRecursive(dirPath, baseRel) {
 
     if (entry.isDirectory()) {
       const subItems = scanDirectoryRecursive(full, rel);
-      items.push({
+      dirItems.push({
         type: 'directory',
         title: cleanTitle(entry.name),
         relPath: rel,
         items: subItems
       });
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
-      items.push({
+      fileItems.push({
         type: 'file',
         title: cleanTitle(entry.name),
         relPath: rel
       });
     }
   }
-  return items;
+  // Pliki Markdown (.md) zawsze na początku, a podkatalogi na końcu
+  return [...fileItems, ...dirItems];
 }
 
 export function generateNavigation() {
