@@ -766,6 +766,78 @@ const server = http.createServer(async (req, res) => {
       return sendJson(200, { success: true, message: 'Artykuł został usunięty.' });
     }
 
+    if (normPath === '/api/delete-folder' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { relPath } = body;
+      if (!relPath || typeof relPath !== 'string') {
+        return sendJson(400, { error: 'Brak parametru relPath' });
+      }
+
+      const decodedRel = decodeURIComponent(relPath).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+      const parts = decodedRel.split('/').map(p => p.trim()).filter(Boolean);
+
+      if (parts.length === 0 || parts.some(p => p === '..' || p === '.' || p.includes('\0'))) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka katalogu' });
+      }
+
+      const targetPath = path.resolve(DOCS_DIR, ...parts);
+      const docsBase = path.resolve(DOCS_DIR);
+      const trashBase = path.resolve(TRASH_DIR);
+
+      if (!isPathInsideDocs(targetPath, docsBase)) {
+        return sendJson(403, { error: 'Dostęp zablokowany: ścieżka poza katalogiem dokumentacji' });
+      }
+
+      if (targetPath === docsBase) {
+        return sendJson(403, { error: 'Niedozwolona operacja: nie można usunąć katalogu głównego bazy wiedzy' });
+      }
+
+      if (targetPath === trashBase || targetPath.startsWith(trashBase + path.sep)) {
+        return sendJson(403, { error: 'Niedozwolona operacja: nie można usunąć katalogu kosza systemowego' });
+      }
+
+      if (!fs.existsSync(targetPath)) {
+        return sendJson(404, { error: 'Katalog nie istnieje' });
+      }
+
+      const stat = fs.statSync(targetPath);
+      if (!stat.isDirectory()) {
+        return sendJson(400, { error: 'Wskazana ścieżka nie jest katalogiem' });
+      }
+
+      const folderBaseName = path.basename(targetPath);
+      const trashFolderName = `${Date.now()}_DIR_${folderBaseName}`;
+      const destinationTrashPath = path.join(TRASH_DIR, trashFolderName);
+
+      isApiSaving = true;
+      try {
+        fs.renameSync(targetPath, destinationTrashPath);
+        console.log(`[Wiki API] Przeniesiono cały katalog do kosza (.trash): ${decodedRel} -> ${trashFolderName}`);
+      } catch (renameErr) {
+        console.warn(`[Wiki API] renameSync folderu nie powiodło się, próba cpSync i rmSync: ${renameErr.message}`);
+        try {
+          fs.cpSync(targetPath, destinationTrashPath, { recursive: true });
+          fs.rmSync(targetPath, { recursive: true, force: true });
+          console.log(`[Wiki API] Skopiowano do kosza i usunięto katalog: ${decodedRel}`);
+        } catch (rmErr) {
+          isApiSaving = false;
+          console.error('[Wiki API] Błąd podczas usuwania katalogu:', rmErr);
+          return sendJson(500, { error: `Błąd uprawnień lub operacji na plikach: ${rmErr.message}` });
+        }
+      }
+
+      await rebuildWiki();
+      rebuildSearchCache();
+      setTimeout(() => { isApiSaving = false; }, 1500);
+
+      return sendJson(200, {
+        success: true,
+        message: `Katalog ${folderBaseName} został pomyślnie usunięty (zabezpieczony w koszu).`,
+        deletedRelPath: decodedRel
+      });
+    }
+
     if (normPath === '/api/kanban' && req.method === 'POST') {
       const body = await getBody();
       if (!body.tasks || !Array.isArray(body.tasks)) {

@@ -322,6 +322,7 @@ async function renderSidebar() {
     currentSubcategory = targetSub.id;
   }
 
+  const btnDeleteDept = document.getElementById('btnDeleteCurrentDept');
   if (sidebarTitle) {
     sidebarTitle.innerText = (targetSub ? targetSub.title : cat.title).toUpperCase();
     if (targetSub && targetSub.relPath) {
@@ -329,6 +330,17 @@ async function renderSidebar() {
       sidebarTitle.setAttribute('ondragleave', 'window.handleSidebarDragLeave(event)');
       sidebarTitle.setAttribute('ondrop', `window.handleSidebarDrop(event, '${targetSub.relPath}')`);
       sidebarTitle.setAttribute('title', `Katalog główny działu: ${targetSub.title} (możesz upuścić plik tutaj)`);
+    }
+  }
+  if (btnDeleteDept) {
+    if (targetSub && targetSub.relPath && targetSub.id !== 'glowne') {
+      btnDeleteDept.style.display = 'inline-block';
+      btnDeleteDept.onclick = (e) => {
+        e.stopPropagation();
+        window.openDeleteFolderModal(targetSub.relPath, targetSub.title);
+      };
+    } else {
+      btnDeleteDept.style.display = 'none';
     }
   }
 
@@ -366,7 +378,10 @@ async function renderSidebar() {
         const dirId = 'dir-' + item.relPath.replace(/[^a-zA-Z0-9]/g, '-');
         subHtml += `<li class="topic-group-header" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: var(--sw-gold); margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">[Dział] ${item.title}</span>
-          <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 6px; flex-shrink: 0;">${isExpanded ? 'v' : '>'}</span>
+          <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+            <button type="button" class="btn-delete-folder-tree" title="Usuń ten folder i jego zawartość" onclick="event.stopPropagation(); window.openDeleteFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">×</button>
+            <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 2px;">${isExpanded ? 'v' : '>'}</span>
+          </div>
         </li>`;
         subHtml += `<div id="${dirId}" style="display: ${isExpanded ? 'block' : 'none'};">`;
         subHtml += renderTree(item.items, depth + 1);
@@ -3964,3 +3979,116 @@ window.openEditorModal = openEditorModal;
 window.closeEditorModal = closeEditorModal;
 window.saveCurrentArticleFromModal = saveCurrentArticleFromModal;
 window.updateEditorPreview = updateEditorPreview;
+
+
+// ================= MODUŁ USUWANIA FOLDERÓW / DZIAŁÓW ================= //
+
+function getFolderStats(relPath) {
+  let fileCount = 0;
+  let dirCount = 0;
+
+  function countRecursive(items) {
+    for (const it of (items || [])) {
+      if (it.type === 'directory') {
+        dirCount++;
+        countRecursive(it.items);
+      } else if (it.type === 'file') {
+        fileCount++;
+      }
+    }
+  }
+
+  if (navigationData && navigationData.categories) {
+    for (const cat of navigationData.categories) {
+      if (cat.id === relPath) {
+        for (const sub of (cat.subcategories || [])) {
+          if (sub.id !== 'glowne') dirCount++;
+          countRecursive(sub.items || []);
+        }
+        return { fileCount, dirCount };
+      }
+      for (const sub of (cat.subcategories || [])) {
+        if (sub.relPath === relPath) {
+          countRecursive(sub.items || []);
+          return { fileCount, dirCount };
+        }
+        function searchNested(items) {
+          for (const it of (items || [])) {
+            if (it.relPath === relPath && it.type === 'directory') {
+              countRecursive(it.items || []);
+              return true;
+            }
+            if (it.type === 'directory' && searchNested(it.items)) {
+              return true;
+            }
+          }
+          return false;
+        }
+        if (searchNested(sub.items || [])) {
+          return { fileCount, dirCount };
+        }
+      }
+    }
+  }
+
+  return { fileCount, dirCount };
+}
+
+window.openDeleteFolderModal = function(relPath, folderTitle) {
+  const modal = document.getElementById('deleteFolderModalOverlay');
+  const titleDisplay = document.getElementById('deleteFolderTitleDisplay');
+  const pathDisplay = document.getElementById('deleteFolderPathDisplay');
+  const targetRelInput = document.getElementById('deleteFolderTargetRel');
+  const filesCountSpan = document.getElementById('deleteFolderFilesCount');
+  const dirsCountSpan = document.getElementById('deleteFolderDirsCount');
+
+  if (!modal || !targetRelInput) return;
+
+  targetRelInput.value = relPath;
+  if (titleDisplay) titleDisplay.innerText = folderTitle || relPath;
+  if (pathDisplay) pathDisplay.innerText = relPath;
+
+  const stats = getFolderStats(relPath);
+  if (filesCountSpan) filesCountSpan.innerText = stats.fileCount;
+  if (dirsCountSpan) dirsCountSpan.innerText = stats.dirCount;
+
+  modal.style.display = 'flex';
+};
+
+window.closeDeleteFolderModal = function() {
+  const modal = document.getElementById('deleteFolderModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
+
+window.submitDeleteFolder = async function() {
+  const relPathInput = document.getElementById('deleteFolderTargetRel');
+  const relPath = relPathInput ? relPathInput.value.trim() : '';
+
+  if (!relPath) {
+    alert('Brak wskazanej ścieżki katalogu do usunięcia.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/delete-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relPath })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
+
+    window.closeDeleteFolderModal();
+    alert(data.message || 'Katalog został pomyślnie usunięty.');
+
+    const currentHash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
+    if (currentHash === relPath || currentHash.startsWith(relPath + '/')) {
+      window.location.hash = '#/kanban';
+    }
+
+    await loadNavigation();
+  } catch (err) {
+    alert(`Błąd podczas usuwania katalogu: ${err.message}`);
+  }
+};

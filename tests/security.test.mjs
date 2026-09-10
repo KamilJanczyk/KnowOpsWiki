@@ -221,4 +221,52 @@ test('Nawigacja: Sortowanie dwuetapowe (pliki .md zawsze przed podfolderami, nat
   assert.equal(sorted[4].title, '02_Konfiguracja_Klastra');
 });
 
+test('Folder Deletion Security: Ochrona przed usunięciem docs/, .trash i Path Traversal', () => {
+  const docsBase = path.resolve('docs');
+  const trashBase = path.join(docsBase, '.trash');
+
+  function validateFolderDeletionPath(relPath) {
+    if (!relPath || typeof relPath !== 'string') return { valid: false, error: 'Brak parametru' };
+    const decodedRel = decodeURIComponent(relPath).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const parts = decodedRel.split('/').map(p => p.trim()).filter(Boolean);
+
+    if (parts.length === 0 || parts.some(p => p === '..' || p === '.' || p.includes('\0'))) {
+      return { valid: false, error: 'Nieprawidłowa ścieżka' };
+    }
+
+    const targetPath = path.resolve(docsBase, ...parts);
+    if (!isPathInsideDocs(targetPath, docsBase)) {
+      return { valid: false, error: 'Ścieżka poza docs' };
+    }
+    if (targetPath === docsBase) {
+      return { valid: false, error: 'Nie można usunąć katalogu głównego' };
+    }
+    if (targetPath === trashBase || targetPath.startsWith(trashBase + path.sep)) {
+      return { valid: false, error: 'Nie można usunąć kosza systemowego' };
+    }
+
+    return { valid: true, targetPath };
+  }
+
+  // Próby zniszczenia korzenia bazy wiedzy
+  assert.equal(validateFolderDeletionPath('').valid, false);
+  assert.equal(validateFolderDeletionPath('.').valid, false);
+  assert.equal(validateFolderDeletionPath('/').valid, false);
+  assert.equal(validateFolderDeletionPath('..').valid, false);
+
+  // Próby wyjścia Path Traversal
+  assert.equal(validateFolderDeletionPath('../../etc').valid, false);
+  assert.equal(validateFolderDeletionPath('01_Sec/../../../var').valid, false);
+
+  // Próba usunięcia kosza
+  assert.equal(validateFolderDeletionPath('.trash').valid, false);
+  assert.equal(validateFolderDeletionPath('.trash/subdir').valid, false);
+
+  // Prawidłowy folder do usunięcia
+  const validRes = validateFolderDeletionPath('04_Proxmox/01_Proxmox_VE/99_Studium_przypadku');
+  assert.equal(validRes.valid, true);
+  assert.equal(validRes.targetPath.startsWith(docsBase), true);
+});
+
+
 

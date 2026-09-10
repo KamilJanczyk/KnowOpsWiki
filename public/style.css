@@ -154,6 +154,32 @@
       cursor: grabbing;
     }
 
+    /* Przycisk usuwania folderu w lewym drzewku */
+    .btn-delete-folder-tree {
+      background: none;
+      border: none;
+      color: #71717a;
+      font-size: 0.85rem;
+      font-weight: bold;
+      padding: 0 4px;
+      border-radius: 3px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+      line-height: 1;
+    }
+    .topic-group-header:hover .btn-delete-folder-tree {
+      opacity: 1;
+    }
+    .btn-delete-folder-tree:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.2);
+    }
+    .btn-delete-current-dept:hover {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: #ef4444 !important;
+    }
+
     /* Style selektora folderow w oknie przenoszenia */
     .move-folder-item {
       display: flex;
