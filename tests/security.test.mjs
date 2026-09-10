@@ -270,5 +270,83 @@ test('Folder Deletion Security: Ochrona przed usunięciem docs/, .trash i Path T
   assert.equal(validRes.targetPath.startsWith(docsBase), true);
 });
 
+test('Folder Moving Security: Ochrona przed cyklami (folder do podfolderu), Path Traversal i ucieczką z docs/', () => {
+  const docsBase = path.resolve('docs');
+  const trashBase = path.join(docsBase, '.trash');
+
+  function validateFolderMove(sourceRel, targetParentRel, newFolderName) {
+    if (!sourceRel || typeof sourceRel !== 'string') return { valid: false, error: 'Brak sourceRel' };
+    const decodedSource = decodeURIComponent(sourceRel).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const sourceParts = decodedSource.split('/').map(p => p.trim()).filter(Boolean);
+
+    if (sourceParts.length === 0 || sourceParts.some(p => p === '..' || p === '.' || p.includes('\0') || /[<>:"|?*]/.test(p))) {
+      return { valid: false, error: 'Nieprawidłowa ścieżka źródłowa' };
+    }
+
+    const sourcePath = path.resolve(docsBase, ...sourceParts);
+    if (!isPathInsideDocs(sourcePath, docsBase)) return { valid: false, error: 'Źródło poza docs' };
+    if (sourcePath === docsBase) return { valid: false, error: 'Nie można przenieść głównego katalogu' };
+    if (sourcePath === trashBase || sourcePath.startsWith(trashBase + path.sep)) {
+      return { valid: false, error: 'Nie można manipulować koszem' };
+    }
+
+    const decodedTargetParent = (targetParentRel ? decodeURIComponent(targetParentRel) : '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    let targetParentParts = [];
+    if (decodedTargetParent.length > 0) {
+      targetParentParts = decodedTargetParent.split('/').map(p => p.trim()).filter(Boolean);
+      if (targetParentParts.some(p => p === '..' || p === '.' || p.includes('\0') || /[<>:"|?*]/.test(p))) {
+        return { valid: false, error: 'Nieprawidłowy cel nadrzędny' };
+      }
+    }
+
+    const targetParentPath = path.resolve(docsBase, ...targetParentParts);
+    if (!isPathInsideDocs(targetParentPath, docsBase)) return { valid: false, error: 'Cel poza docs' };
+    if (targetParentPath === trashBase || targetParentPath.startsWith(trashBase + path.sep)) {
+      return { valid: false, error: 'Cel w koszu' };
+    }
+
+    let finalFolderName = (newFolderName && typeof newFolderName === 'string' ? decodeURIComponent(newFolderName) : '').trim();
+    finalFolderName = finalFolderName.replace(/[<>:"|?*\x00/\\]/g, '_').trim();
+    if (!finalFolderName || finalFolderName === '.' || finalFolderName === '..') {
+      finalFolderName = path.basename(sourcePath);
+    }
+
+    const targetPath = path.resolve(targetParentPath, finalFolderName);
+    if (!isPathInsideDocs(targetPath, docsBase)) return { valid: false, error: 'Ścieżka końcowa poza docs' };
+
+    // Anti-cycle
+    if (targetPath === sourcePath || targetPath.startsWith(sourcePath + path.sep) || targetParentPath === sourcePath || targetParentPath.startsWith(sourcePath + path.sep)) {
+      return { valid: false, error: 'Próba przeniesienia do samego siebie lub podkatalogu' };
+    }
+
+    // Brak zmiany
+    if (sourcePath === targetPath) return { valid: false, error: 'Brak zmiany lokalizacji' };
+
+    return { valid: true, sourcePath, targetPath };
+  }
+
+  // Próby cykli / samozagnieżdżenia
+  assert.equal(validateFolderMove('01_Sec/01_SOC', '01_Sec/01_SOC').valid, false);
+  assert.equal(validateFolderMove('01_Sec/01_SOC', '01_Sec/01_SOC/subfolder').valid, false);
+  assert.equal(validateFolderMove('01_Sec/01_SOC', '01_Sec/01_SOC/sub1/sub2').valid, false);
+
+  // Próby wyjścia Path Traversal
+  assert.equal(validateFolderMove('../../etc', '01_Sec').valid, false);
+  assert.equal(validateFolderMove('01_Sec', '../../etc').valid, false);
+  assert.equal(validateFolderMove('01_Sec/../../../var', '01_Sec').valid, false);
+
+  // Próby manipulacji korzeniem i koszem
+  assert.equal(validateFolderMove('', '01_Sec').valid, false);
+  assert.equal(validateFolderMove('.', '01_Sec').valid, false);
+  assert.equal(validateFolderMove('.trash', '01_Sec').valid, false);
+  assert.equal(validateFolderMove('01_Sec/01_SOC', '.trash').valid, false);
+
+  // Prawidłowe przeniesienie
+  const validMove = validateFolderMove('04_Procedury/01_Katalog', '01_Sec', '01_Katalog');
+  assert.equal(validMove.valid, true);
+  assert.equal(validMove.targetPath, path.join(docsBase, '01_Sec', '01_Katalog'));
+});
+
+
 
 

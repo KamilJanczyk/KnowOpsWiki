@@ -323,13 +323,25 @@ async function renderSidebar() {
   }
 
   const btnDeleteDept = document.getElementById('btnDeleteCurrentDept');
+  const btnMoveDept = document.getElementById('btnMoveCurrentDept');
   if (sidebarTitle) {
     sidebarTitle.innerText = (targetSub ? targetSub.title : cat.title).toUpperCase();
     if (targetSub && targetSub.relPath) {
       sidebarTitle.setAttribute('ondragover', 'window.handleSidebarDragOver(event)');
       sidebarTitle.setAttribute('ondragleave', 'window.handleSidebarDragLeave(event)');
       sidebarTitle.setAttribute('ondrop', `window.handleSidebarDrop(event, '${targetSub.relPath}')`);
-      sidebarTitle.setAttribute('title', `Katalog główny działu: ${targetSub.title} (możesz upuścić plik tutaj)`);
+      sidebarTitle.setAttribute('title', `Katalog główny działu: ${targetSub.title} (możesz upuścić plik lub folder tutaj)`);
+    }
+  }
+  if (btnMoveDept) {
+    if (targetSub && targetSub.relPath && targetSub.id !== 'glowne') {
+      btnMoveDept.style.display = 'inline-block';
+      btnMoveDept.onclick = (e) => {
+        e.stopPropagation();
+        window.openMoveFolderModal(targetSub.relPath, targetSub.title);
+      };
+    } else {
+      btnMoveDept.style.display = 'none';
     }
   }
   if (btnDeleteDept) {
@@ -378,9 +390,10 @@ async function renderSidebar() {
       if (item.type === 'directory') {
         const isExpanded = expandedDirs[item.relPath] || false;
         const dirId = 'dir-' + item.relPath.replace(/[^a-zA-Z0-9]/g, '-');
-        subHtml += `<li class="topic-group-header" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: var(--sw-gold); margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
+        subHtml += `<li class="topic-group-header" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: var(--sw-gold); margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'directory')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">[Dział] ${item.title}</span>
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+            <button type="button" class="btn-move-folder-tree" title="Przenieś ten folder" onclick="event.stopPropagation(); window.openMoveFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">P</button>
             <button type="button" class="btn-delete-folder-tree" title="Usuń ten folder i jego zawartość" onclick="event.stopPropagation(); window.openDeleteFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">×</button>
             <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 2px;">${isExpanded ? 'v' : '>'}</span>
           </div>
@@ -390,7 +403,7 @@ async function renderSidebar() {
         subHtml += `</div>`;
       } else {
         const isFileActive = (currentHash === item.relPath);
-        subHtml += `<li class="topic-item ${isFileActive ? 'active' : ''}" style="padding-left: ${indent + 8}px;" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}')">
+        subHtml += `<li class="topic-item ${isFileActive ? 'active' : ''}" style="padding-left: ${indent + 8}px;" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'file')">
           <a href="#/${item.relPath}">${item.title}</a>
         </li>`;
       }
@@ -413,12 +426,15 @@ async function renderSidebar() {
 // ================= DRAG & DROP W LEWYM MENU I GÓRNYCH DZIAŁACH ================= //
 
 window.sidebarDraggedPath = '';
+window.sidebarDraggedType = 'file';
 
-window.handleSidebarDragStart = function(event, relPath) {
+window.handleSidebarDragStart = function(event, relPath, type = 'file') {
   window.sidebarDraggedPath = relPath;
+  window.sidebarDraggedType = type;
   if (event.dataTransfer) {
     event.dataTransfer.setData('text/plain', relPath);
     event.dataTransfer.setData('application/x-knowops-path', relPath);
+    event.dataTransfer.setData('application/x-knowops-type', type);
     event.dataTransfer.effectAllowed = 'move';
   }
 };
@@ -452,7 +468,53 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
   }
 
   const sourceRelPath = (event.dataTransfer && event.dataTransfer.getData('text/plain')) || window.sidebarDraggedPath;
+  const draggedType = (event.dataTransfer && event.dataTransfer.getData('application/x-knowops-type')) || window.sidebarDraggedType || 'file';
   if (!sourceRelPath || !targetDirRelPath) return;
+
+  if (draggedType === 'directory') {
+    if (targetDirRelPath === sourceRelPath || targetDirRelPath.startsWith(sourceRelPath + '/')) {
+      alert('Niedozwolona operacja: nie można przenieść folderu do samego siebie ani do jego podfolderu.');
+      return;
+    }
+    const currentFolder = sourceRelPath.includes('/') ? sourceRelPath.substring(0, sourceRelPath.lastIndexOf('/')) : '';
+    if (currentFolder === targetDirRelPath) {
+      alert('Folder znajduje się już w tym dziale.');
+      return;
+    }
+    const folderName = sourceRelPath.split('/').pop();
+    if (!confirm(`Czy na pewno chcesz przenieść cały folder "${folderName}" do lokalizacji docelowej: "${targetDirRelPath}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/move-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceRelPath: sourceRelPath,
+          targetParentRelPath: targetDirRelPath,
+          newFolderName: folderName
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
+
+      // Aktualizacja adresu URL, jeśli aktywny dokument był wewnątrz przeniesionego folderu
+      const currentHash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
+      if (currentHash.startsWith(sourceRelPath + '/')) {
+        const newDocRel = currentHash.replace(sourceRelPath, data.relPath);
+        window.location.hash = `#/${newDocRel}`;
+      }
+
+      expandedDirs[data.relPath] = true;
+      await loadNavigation();
+      alert(`Folder "${folderName}" został pomyślnie przeniesiony do "${targetDirRelPath}".`);
+    } catch (err) {
+      alert(`Błąd podczas przenoszenia folderu: ${err.message}`);
+    }
+    return;
+  }
 
   const currentFolder = sourceRelPath.includes('/') ? sourceRelPath.substring(0, sourceRelPath.lastIndexOf('/')) : '';
   if (currentFolder === targetDirRelPath) {
@@ -4092,5 +4154,215 @@ window.submitDeleteFolder = async function() {
     await loadNavigation();
   } catch (err) {
     alert(`Błąd podczas usuwania katalogu: ${err.message}`);
+  }
+};
+
+// ================= PRZENOSZENIE CAŁEGO KATALOGU / DZIAŁU ================= //
+
+let moveFolderAllTargets = [];
+
+function collectValidMoveFolderTargets(sourceRelPath) {
+  const targets = [];
+  targets.push({
+    relPath: '',
+    title: '[Katalog Główny Bazy Wiedzy]',
+    breadcrumb: 'Baza Wiedzy (Poziom Główny)'
+  });
+
+  if (!navigationData || !navigationData.categories) return targets;
+
+  function recurseItems(items, parentBreadcrumb) {
+    if (!items || !Array.isArray(items)) return;
+    for (const it of items) {
+      if (it.type === 'directory') {
+        if (it.relPath === sourceRelPath || it.relPath.startsWith(sourceRelPath + '/')) {
+          continue;
+        }
+        const bCrumb = parentBreadcrumb ? `${parentBreadcrumb} > ${it.title}` : it.title;
+        targets.push({
+          relPath: it.relPath,
+          title: it.title,
+          breadcrumb: bCrumb
+        });
+        recurseItems(it.items, bCrumb);
+      }
+    }
+  }
+
+  for (const cat of navigationData.categories) {
+    if (cat.id === 'kanban_board') continue;
+    if (cat.id === sourceRelPath || cat.id.startsWith(sourceRelPath + '/')) {
+      continue;
+    }
+    targets.push({
+      relPath: cat.id,
+      title: cat.title,
+      breadcrumb: cat.title
+    });
+
+    for (const sub of (cat.subcategories || [])) {
+      if (sub.id === 'glowne') continue;
+      if (sub.relPath === sourceRelPath || sub.relPath.startsWith(sourceRelPath + '/')) {
+        continue;
+      }
+      const bCrumb = `${cat.title} > ${sub.title}`;
+      targets.push({
+        relPath: sub.relPath,
+        title: sub.title,
+        breadcrumb: bCrumb
+      });
+      recurseItems(sub.items, bCrumb);
+    }
+  }
+
+  return targets;
+}
+
+window.renderMoveFolderTargetList = function(targets, selectedRel = '') {
+  const listContainer = document.getElementById('moveFolderTargetList');
+  const countSpan = document.getElementById('moveFolderTargetCount');
+  if (!listContainer) return;
+
+  if (countSpan) {
+    countSpan.innerText = `${targets.length} lokalizacji`;
+  }
+
+  if (targets.length === 0) {
+    listContainer.innerHTML = '<div style="padding:12px; text-align:center; color:#666; font-size:0.75rem;">Brak dostępnych folderów docelowych</div>';
+    return;
+  }
+
+  let html = '';
+  for (const t of targets) {
+    const isSelected = (t.relPath === selectedRel);
+    const selectedClass = isSelected ? 'move-folder-item selected' : 'move-folder-item';
+    html += `<div class="${selectedClass}" data-rel="${escapeHtml(t.relPath)}" onclick="window.selectMoveFolderTarget('${escapeHtml(t.relPath)}')">
+      <div style="min-width:0; overflow:hidden;">
+        <div style="font-weight:600; color:${isSelected ? 'var(--sw-gold)' : '#ffffff'}; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          ${escapeHtml(t.title)}
+        </div>
+        <div style="font-size:0.65rem; color:#888; font-family:monospace; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+          ${escapeHtml(t.breadcrumb || t.relPath || '/')}
+        </div>
+      </div>
+      <div style="font-size:0.65rem; color:#555; font-family:monospace; margin-left:8px; flex-shrink:0;">
+        ${escapeHtml(t.relPath || '/')}
+      </div>
+    </div>`;
+  }
+  listContainer.innerHTML = html;
+};
+
+window.onMoveFolderTargetInput = function(query) {
+  const currentVal = (query || '').trim().toLowerCase();
+  const inputEl = document.getElementById('moveFolderTargetInput');
+  const selectedRel = inputEl ? inputEl.value.trim() : '';
+
+  if (!currentVal) {
+    window.renderMoveFolderTargetList(moveFolderAllTargets, selectedRel);
+    return;
+  }
+  const filtered = moveFolderAllTargets.filter(t =>
+    t.title.toLowerCase().includes(currentVal) ||
+    (t.breadcrumb && t.breadcrumb.toLowerCase().includes(currentVal)) ||
+    t.relPath.toLowerCase().includes(currentVal)
+  );
+  window.renderMoveFolderTargetList(filtered, selectedRel);
+};
+
+window.selectMoveFolderTarget = function(relPath) {
+  const targetInput = document.getElementById('moveFolderTargetInput');
+  if (targetInput) targetInput.value = relPath;
+
+  const items = document.querySelectorAll('#moveFolderTargetList .move-folder-item');
+  items.forEach(el => {
+    if (el.getAttribute('data-rel') === relPath) {
+      el.classList.add('selected');
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } else {
+      el.classList.remove('selected');
+    }
+  });
+};
+
+window.openMoveFolderModal = function(sourceRelPath, folderTitle) {
+  const modal = document.getElementById('moveFolderModalOverlay');
+  const currentPathInput = document.getElementById('moveFolderCurrentPath');
+  const targetInput = document.getElementById('moveFolderTargetInput');
+  const nameInput = document.getElementById('moveFolderNameInput');
+
+  if (!modal || !currentPathInput) return;
+
+  currentPathInput.value = sourceRelPath;
+  const folderBaseName = sourceRelPath.split('/').pop();
+  if (nameInput) nameInput.value = folderBaseName;
+
+  const currentParent = sourceRelPath.includes('/') ? sourceRelPath.substring(0, sourceRelPath.lastIndexOf('/')) : '';
+  if (targetInput) targetInput.value = currentParent;
+
+  moveFolderAllTargets = collectValidMoveFolderTargets(sourceRelPath);
+  window.renderMoveFolderTargetList(moveFolderAllTargets, currentParent);
+
+  modal.style.display = 'flex';
+};
+
+window.closeMoveFolderModal = function() {
+  const modal = document.getElementById('moveFolderModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
+
+window.submitMoveFolder = async function() {
+  const currentPathInput = document.getElementById('moveFolderCurrentPath');
+  const targetInput = document.getElementById('moveFolderTargetInput');
+  const nameInput = document.getElementById('moveFolderNameInput');
+
+  const sourceRelPath = currentPathInput ? currentPathInput.value.trim() : '';
+  const targetParentRelPath = targetInput ? targetInput.value.trim() : '';
+  const newFolderName = nameInput ? nameInput.value.trim() : '';
+
+  if (!sourceRelPath) {
+    alert('Brak wskazanej ścieżki folderu źródłowego.');
+    return;
+  }
+
+  if (targetParentRelPath === sourceRelPath || targetParentRelPath.startsWith(sourceRelPath + '/')) {
+    alert('Niedozwolona operacja: nie można przenieść katalogu do samego siebie ani do jego podfolderu.');
+    return;
+  }
+
+  const currentParent = sourceRelPath.includes('/') ? sourceRelPath.substring(0, sourceRelPath.lastIndexOf('/')) : '';
+  const originalName = sourceRelPath.split('/').pop();
+  if (currentParent === targetParentRelPath && (!newFolderName || newFolderName === originalName)) {
+    alert('Folder znajduje się już w tej lokalizacji z tą samą nazwą.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/move-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceRelPath,
+        targetParentRelPath,
+        newFolderName: newFolderName || originalName
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
+
+    window.closeMoveFolderModal();
+    alert(data.message || 'Folder został pomyślnie przeniesiony.');
+
+    const currentHash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
+    if (currentHash.startsWith(sourceRelPath + '/')) {
+      const newDocRel = currentHash.replace(sourceRelPath, data.relPath);
+      window.location.hash = `#/${newDocRel}`;
+    }
+
+    expandedDirs[data.relPath] = true;
+    await loadNavigation();
+  } catch (err) {
+    alert(`Błąd podczas przenoszenia folderu: ${err.message}`);
   }
 };

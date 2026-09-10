@@ -838,6 +838,120 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (normPath === '/api/move-folder' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { sourceRelPath, targetParentRelPath, newFolderName } = body;
+
+      if (!sourceRelPath || typeof sourceRelPath !== 'string') {
+        return sendJson(400, { error: 'Wymagany parametr sourceRelPath' });
+      }
+
+      const decodedSource = decodeURIComponent(sourceRelPath).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+      const sourceParts = decodedSource.split('/').map(p => p.trim()).filter(Boolean);
+
+      if (sourceParts.length === 0 || sourceParts.some(p => p === '..' || p === '.' || p.includes('\0') || /[<>:"|?*]/.test(p))) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka źródłowa folderu' });
+      }
+
+      const docsBase = path.resolve(DOCS_DIR);
+      const trashBase = path.resolve(TRASH_DIR);
+      const sourcePath = path.resolve(DOCS_DIR, ...sourceParts);
+
+      if (!isPathInsideDocs(sourcePath, docsBase)) {
+        return sendJson(403, { error: 'Dostęp zablokowany: ścieżka źródłowa poza katalogiem bazy wiedzy' });
+      }
+      if (sourcePath === docsBase) {
+        return sendJson(403, { error: 'Niedozwolona operacja: nie można przenieść katalogu głównego bazy wiedzy' });
+      }
+      if (sourcePath === trashBase || sourcePath.startsWith(trashBase + path.sep)) {
+        return sendJson(403, { error: 'Niedozwolona operacja: nie można manipulować koszem systemowym' });
+      }
+      if (!fs.existsSync(sourcePath)) {
+        return sendJson(404, { error: 'Folder źródłowy nie istnieje' });
+      }
+      const sourceStat = fs.statSync(sourcePath);
+      if (!sourceStat.isDirectory()) {
+        return sendJson(400, { error: 'Wskazana ścieżka źródłowa nie jest katalogiem' });
+      }
+
+      // Weryfikacja katalogu docelowego nadrzędnego (targetParentRelPath moze byc puste dla korzenia docs/)
+      const decodedTargetParent = (targetParentRelPath ? decodeURIComponent(targetParentRelPath) : '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+      let targetParentParts = [];
+      if (decodedTargetParent.length > 0) {
+        targetParentParts = decodedTargetParent.split('/').map(p => p.trim()).filter(Boolean);
+        if (targetParentParts.some(p => p === '..' || p === '.' || p.includes('\0') || /[<>:"|?*]/.test(p))) {
+          return sendJson(400, { error: 'Nieprawidłowa ścieżka katalogu docelowego' });
+        }
+      }
+
+      const targetParentPath = path.resolve(DOCS_DIR, ...targetParentParts);
+      if (!isPathInsideDocs(targetParentPath, docsBase)) {
+        return sendJson(403, { error: 'Dostęp zablokowany: katalog docelowy poza bazą wiedzy' });
+      }
+      if (targetParentPath === trashBase || targetParentPath.startsWith(trashBase + path.sep)) {
+        return sendJson(403, { error: 'Niedozwolona operacja: nie można przenosić do kosza tą metodą' });
+      }
+      if (!fs.existsSync(targetParentPath) || !fs.statSync(targetParentPath).isDirectory()) {
+        return sendJson(404, { error: 'Katalog docelowy nie istnieje' });
+      }
+
+      // Nazwa docelowa folderu
+      let finalFolderName = (newFolderName && typeof newFolderName === 'string' ? decodeURIComponent(newFolderName) : '').trim();
+      finalFolderName = finalFolderName.replace(/[<>:"|?*\x00/\\]/g, '_').trim();
+      if (!finalFolderName || finalFolderName === '.' || finalFolderName === '..') {
+        finalFolderName = path.basename(sourcePath);
+      }
+
+      const targetPath = path.resolve(targetParentPath, finalFolderName);
+      if (!isPathInsideDocs(targetPath, docsBase)) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka końcowa folderu' });
+      }
+
+      // Blokada cykli / samozagnieżdżenia
+      if (targetPath === sourcePath || targetPath.startsWith(sourcePath + path.sep) || targetParentPath === sourcePath || targetParentPath.startsWith(sourcePath + path.sep)) {
+        return sendJson(400, { error: 'Niedozwolona operacja: nie można przenieść katalogu do samego siebie ani do jego podkatalogu.' });
+      }
+
+      // Blokada braku zmiany
+      if (sourcePath === targetPath) {
+        return sendJson(400, { error: 'Folder znajduje się już w wybranej lokalizacji z tą samą nazwą.' });
+      }
+
+      // Ochrona przed kolizją / nadpisaniem
+      if (fs.existsSync(targetPath)) {
+        return sendJson(409, { error: 'Katalog o podanej nazwie już istnieje w lokalizacji docelowej.' });
+      }
+
+      isApiSaving = true;
+      try {
+        fs.renameSync(sourcePath, targetPath);
+        console.log(`[Wiki API] Przeniesiono folder: ${decodedSource} -> ${path.relative(DOCS_DIR, targetPath)}`);
+      } catch (renameErr) {
+        console.warn(`[Wiki API] renameSync folderu nie powiodło się, próba cpSync i rmSync: ${renameErr.message}`);
+        try {
+          fs.cpSync(sourcePath, targetPath, { recursive: true });
+          fs.rmSync(sourcePath, { recursive: true, force: true });
+          console.log(`[Wiki API] Skopiowano i usunięto źródłowy folder: ${decodedSource}`);
+        } catch (copyErr) {
+          isApiSaving = false;
+          console.error('[Wiki API] Błąd podczas przenoszenia katalogu:', copyErr);
+          return sendJson(500, { error: `Błąd operacji na plikach: ${copyErr.message}` });
+        }
+      }
+
+      await rebuildWiki();
+      rebuildSearchCache();
+      setTimeout(() => { isApiSaving = false; }, 1500);
+
+      const finalRelPath = path.relative(DOCS_DIR, targetPath).replace(/\\/g, '/');
+      return sendJson(200, {
+        success: true,
+        message: `Folder "${finalFolderName}" został pomyślnie przeniesiony.`,
+        relPath: finalRelPath
+      });
+    }
+
     if (normPath === '/api/kanban' && req.method === 'POST') {
       const body = await getBody();
       if (!body.tasks || !Array.isArray(body.tasks)) {
