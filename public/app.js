@@ -2625,11 +2625,94 @@ function buildRecursiveFolderOptions(items, prefix = '&nbsp;&nbsp;&nbsp;&nbsp;')
   return html;
 }
 
+let movePageAllFolders = [];
+
+function collectMoveFoldersRecursive(items, parentBreadcrumb = '', depth = 1) {
+  let list = [];
+  for (const item of (items || [])) {
+    if (item.type === 'directory') {
+      const bCrumb = parentBreadcrumb ? `${parentBreadcrumb} > ${item.title}` : item.title;
+      list.push({
+        relPath: item.relPath,
+        title: item.title,
+        breadcrumb: bCrumb,
+        type: depth === 1 ? 'Dział' : 'Folder',
+        depth: depth
+      });
+      if (item.items && item.items.length > 0) {
+        list = list.concat(collectMoveFoldersRecursive(item.items, bCrumb, depth + 1));
+      }
+    }
+  }
+  return list;
+}
+
+window.renderMovePageFolderList = function(folders, selectedRelPath = '') {
+  const listContainer = document.getElementById('movePageFolderList');
+  if (!listContainer) return;
+
+  if (!folders || folders.length === 0) {
+    listContainer.innerHTML = `<div style="padding:16px; text-align:center; color:#71717a; font-size:0.75rem;">Brak pasujących folderów dla wpisanej frazy.</div>`;
+    return;
+  }
+
+  let html = '';
+  for (const f of folders) {
+    const isSelected = (f.relPath === selectedRelPath);
+    const badgeColor = f.type === 'Kategoria' ? '#3b82f6' : (f.type === 'Dział' ? 'var(--sw-gold)' : '#a1a1aa');
+    const badgeBg = f.type === 'Kategoria' ? 'rgba(59,130,246,0.15)' : (f.type === 'Dział' ? 'rgba(250,204,21,0.15)' : 'rgba(255,255,255,0.06)');
+    const selectedClass = isSelected ? 'move-folder-item selected' : 'move-folder-item';
+
+    html += `<div class="${selectedClass}" data-rel="${escapeHtml(f.relPath)}" onclick="window.selectMovePageFolder('${f.relPath}')">
+      <div style="display:flex; align-items:center; gap:8px; overflow:hidden; min-width:0;">
+        <span style="font-size:0.65rem; font-weight:700; color:${badgeColor}; background:${badgeBg}; padding:2px 6px; border-radius:3px; flex-shrink:0;">[${f.type}]</span>
+        <span style="color:#ffffff; font-weight:600; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${escapeHtml(f.breadcrumb)}</span>
+      </div>
+      <span style="font-size:0.65rem; color:#71717a; font-family:monospace; margin-left:8px; flex-shrink:0;">${escapeHtml(f.relPath)}</span>
+    </div>`;
+  }
+
+  listContainer.innerHTML = html;
+};
+
+window.filterMovePageFolders = function(query) {
+  const q = (query || '').trim().toLowerCase();
+  const selectedRelPath = document.getElementById('movePageTargetSelect')?.value || '';
+  if (!q) {
+    window.renderMovePageFolderList(movePageAllFolders, selectedRelPath);
+    return;
+  }
+  const filtered = movePageAllFolders.filter(f => 
+    (f.title && f.title.toLowerCase().includes(q)) || 
+    (f.breadcrumb && f.breadcrumb.toLowerCase().includes(q)) || 
+    (f.relPath && f.relPath.toLowerCase().includes(q))
+  );
+  window.renderMovePageFolderList(filtered, selectedRelPath);
+};
+
+window.selectMovePageFolder = function(relPath) {
+  const targetSelect = document.getElementById('movePageTargetSelect');
+  const displaySpan = document.getElementById('movePageSelectedPathDisplay');
+  if (targetSelect) targetSelect.value = relPath;
+  if (displaySpan) displaySpan.innerText = relPath || '[Nie wybrano]';
+
+  const items = document.querySelectorAll('#movePageFolderList .move-folder-item');
+  items.forEach(el => {
+    if (el.getAttribute('data-rel') === relPath) {
+      el.classList.add('selected');
+    } else {
+      el.classList.remove('selected');
+    }
+  });
+};
+
 window.openMovePageModal = function() {
   const modal = document.getElementById('movePageModalOverlay');
   const parentSelect = document.getElementById('movePageTargetSelect');
   const nameInput = document.getElementById('movePageNameInput');
   const currentPathInput = document.getElementById('movePageCurrentPath');
+  const searchInput = document.getElementById('movePageFolderSearch');
+  const displaySpan = document.getElementById('movePageSelectedPathDisplay');
   
   if (!modal || !parentSelect || !nameInput || !currentPathInput) return;
 
@@ -2640,21 +2723,55 @@ window.openMovePageModal = function() {
   const filename = lastSlash !== -1 ? currentPath.substring(lastSlash + 1) : currentPath;
   nameInput.value = filename;
 
+  if (searchInput) searchInput.value = '';
+
+  movePageAllFolders = [];
+  let optionsHtml = '';
+
   if (navigationData && navigationData.categories) {
-    let optionsHtml = '';
     for (const cat of navigationData.categories) {
       if (cat.id === 'kanban_board') continue;
+      movePageAllFolders.push({
+        relPath: cat.id,
+        title: cat.title,
+        breadcrumb: cat.title,
+        type: 'Kategoria',
+        depth: 0
+      });
       optionsHtml += `<option value="${cat.id}">[KATEGORIA GŁÓWNA] ${cat.title}</option>`;
+
       for (const sub of (cat.subcategories || [])) {
         if (sub.id === 'glowne') continue;
+        movePageAllFolders.push({
+          relPath: sub.relPath,
+          title: sub.title,
+          breadcrumb: `${cat.title} > ${sub.title}`,
+          type: 'Dział',
+          depth: 1
+        });
         optionsHtml += `<option value="${sub.relPath}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
+
         if (sub.items && sub.items.length > 0) {
+          const subRecursive = collectMoveFoldersRecursive(sub.items, `${cat.title} > ${sub.title}`, 2);
+          movePageAllFolders = movePageAllFolders.concat(subRecursive);
           optionsHtml += buildRecursiveFolderOptions(sub.items, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
         }
       }
     }
     parentSelect.innerHTML = optionsHtml;
   }
+
+  let initialTarget = '';
+  if (lastSlash !== -1) {
+    initialTarget = currentPath.substring(0, lastSlash);
+  } else if (movePageAllFolders.length > 0) {
+    initialTarget = movePageAllFolders[0].relPath;
+  }
+
+  parentSelect.value = initialTarget;
+  if (displaySpan) displaySpan.innerText = initialTarget || '[Wybierz folder z listy powyżej]';
+
+  window.renderMovePageFolderList(movePageAllFolders, initialTarget);
 
   modal.style.display = 'flex';
 };
@@ -2670,7 +2787,7 @@ window.submitMovePage = async function() {
   const targetFilename = document.getElementById('movePageNameInput').value.trim();
 
   if (!sourceRelPath || !targetCategoryRel || !targetFilename) {
-    alert('Wszystkie pola są wymagane.');
+    alert('Wszystkie pola są wymagane. Proszę wskazać folder docelowy.');
     return;
   }
 
@@ -2687,13 +2804,13 @@ window.submitMovePage = async function() {
     closeMovePageModal();
     alert('Dokument został pomyślnie przeniesiony.');
     
+    expandedDirs[targetCategoryRel] = true;
     await loadNavigation();
     window.location.hash = `#/${data.relPath}`;
   } catch (err) {
     alert(`Błąd podczas przenoszenia pliku: ${err.message}`);
   }
 };
-
 
 // ================= CREATE ITEM MODAL ================= //
 

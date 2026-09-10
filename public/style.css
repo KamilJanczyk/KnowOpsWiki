@@ -137,6 +137,43 @@
     .content-inner-container { max-width: 1250px; width: 100%; display: flex; flex-direction: column; }
     .breadcrumb-nav { font-size: 0.72rem; color: #888888; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #222; }
 
+    /* Style przeciagania dokumentow w lewym menu (Drag & Drop) */
+    .sidebar-drag-over {
+      background-color: rgba(250, 204, 21, 0.22) !important;
+      outline: 2px dashed var(--sw-gold) !important;
+      outline-offset: -2px;
+      border-radius: 4px;
+      transform: translateX(3px);
+    }
+    .topic-item[draggable="true"] {
+      cursor: grab;
+    }
+    .topic-item[draggable="true"]:active {
+      cursor: grabbing;
+    }
+
+    /* Style selektora folderow w oknie przenoszenia */
+    .move-folder-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.12s ease;
+      background: #141416;
+      border: 1px solid #27272a;
+    }
+    .move-folder-item:hover {
+      background: #1f1f24 !important;
+      border-color: #3f3f46 !important;
+    }
+    .move-folder-item.selected {
+      background: #1e1b12 !important;
+      border-color: var(--sw-gold) !important;
+    }
+
     /* Belka akcji dokumentu (naglowek ze sciezka, data i przyciskami - pozycjonowanie stale/lepkie) */
     .article-action-header {
       position: sticky;
