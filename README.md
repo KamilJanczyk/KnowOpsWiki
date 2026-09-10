@@ -36,8 +36,8 @@ Projekt oraz kod źródłowy aplikacji zostały stworzone i zaimplementowane prz
 Aplikacja została zaprojektowana w oparciu o architekturę izolacji i trwałości danych. Zmienne dane użytkownika są montowane jako woluminy z dysku hosta w `docker-compose.yml`:
 
 - **`./docs`** -> Montowany pod `/usr/share/nginx/html/docs` (Nginx) oraz `/app/docs` (API). Przechowuje strukturę i pliki dokumentacji Markdown. Środowisko automatycznie inicjalizuje ten katalog z szablonu `./docs.example` przy pierwszym uruchomieniu, a właściwy plik `./docs` jest wykluczony w `.gitignore` dla ochrony produkcyjnej dokumentacji.
-- **`./data`** -> Montowany pod `/app/data`. Przechowuje bazy zadań Kanban (`kanban_data.json`), notatki (`quick_notes.json`) oraz szablony zadań (`task_templates.json`).
-- **`./public/images`** -> Montowany pod `/usr/share/nginx/html/public/images` oraz `/app/public/images`. Przechowuje przesłane i wklejone obrazy.
+- **`./data`** -> Montowany pod `/app/data`. Przechowuje bazy zadań Kanban (`kanban_data.json`), procedur operacyjnych (`playbooks_data.json`), notatek (`quick_notes.json`) oraz szablonów zadań (`task_templates.json`).
+- **`./public/images`** -> Montowany pod `/usr/share/nginx/html/public/images` oraz `/app/public/images`. Przechowuje przesłane i wklejone obrazy po rygorystycznej walidacji binarnej.
 
 Dzięki tej strukturze rekompilacja obrazów Docker (`docker compose up -d --build`) oraz restarty kontenerów nigdy nie naruszają ani nie usuwają treści wprowadzonych przez użytkownika.
 
@@ -87,39 +87,85 @@ docs/
 ## Główne funkcjonalności
 
 1. **Wbudowany edytor Markdown z podglądem na żywo:**
-   - Pełne wsparcie dla formatowania tekstu, tabel, bloków kodu i składni Markdown.
-   - Pasek narzędzi z szybkimi wzorcami oraz automatyczną walidacją i zapisem.
+   - Pełne wsparcie dla formatowania tekstu, tabel, bloków kodu i składni Markdown (`markdown-it`).
+   - Pasek narzędzi z szybkimi wzorcami formatowania, wstawianiem tabel i diagramów.
+   - Nakładka podświetlania składni w polu edycji (`Highlight Overlay`) z automatyczną walidacją i zapisem.
 
 2. **Diagramy i schematy wektorowe (Mermaid.js):**
-   - Automatyczne renderowanie schematów blokowych, wykresów Gantta, diagramów sekwencji, klas, stanów oraz struktur Active Directory z bloków `mermaid`.
+   - Automatyczne renderowanie schematów blokowych, wykresów Gantta, diagramów sekwencji, klas, stanów oraz wykresów Git z bloków `mermaid`.
 
 3. **Zarządzanie dokumentacją i nawigacją:**
    - **Przenoszenie myszką (Drag & Drop):** Przeciąganie dokumentów `.md` bezpośrednio w drzewie nawigacyjnym lewego menu na docelowe katalogi.
    - **Obsługa wielopoziomowych podkatalogów:** Wsparcie dla dowolnie zagnieżdżonych struktur podkatalogów (1., 2., 3., N-ty poziom).
-   - **Dedykowany tryb druku / PDF:** Czyste generowanie dokumentów do druku lub plików PDF bez paneli nawigacyjnych.
+   - **Stały pasek akcji artykułu (Sticky Action Header):** Belka nagłówkowa ze ścieżką pliku, datą ostatniej modyfikacji oraz przyciskami szybkiej edycji, dodawania podstrony i przenoszenia dokumentu. Pozycjonowanie lepkie (`position: sticky; top: 0;`) sprawia, że pasek pozostaje stale zakotwiczony na górze okna podczas przewijania długich procedur.
+   - **Zoptymalizowany tryb druku i eksportu A4 / PDF:** Dedykowany arkusz stylów `@media print` wraz z dyrektywą `@page { size: A4 portrait; margin: 12mm 15mm; }`. Gwarantuje idealne dopasowanie w skali 100% ("Rozmiar rzeczywisty") bez obcinania prawej krawędzi, automatyczne zawijanie wierszy w kodzie (`pre`), dopasowanie tabel, ochronę przed łamaniem nagłówków między stronami oraz ukrywanie elementów interfejsu.
 
-4. **Wgrywanie mediów i grafiki (`Ctrl + V` / Drop):**
-   - Bezpośrednie wklejanie zrzutów ekranu ze schowka oraz przeciąganie grafik na pole edytora z automatyczną weryfikacją rozszerzeń i limitu rozmiaru (5 MB).
+4. **Bezpieczne wgrywanie mediów i weryfikacja binarna (Magic Bytes):**
+   - Bezpośrednie wklejanie zrzutów ekranu ze schowka (`Ctrl + V`) oraz przeciąganie grafik na pole edytora (Drag & Drop).
+   - Ochrona oparta na weryfikacji nagłówków binarnych (Magic Bytes): dopuszczane są wyłącznie rzeczywiste pliki graficzne (PNG, JPEG, GIF, WebP). Blokowane są wszelkie próby podszywania się pod grafikę (np. pliki wykonywalne, skrypty z podwójnym rozszerzeniem). Limit rozmiaru: 5 MB.
 
-5. **Tablica Kanban i szablony zadań:**
-   - Zarządzanie zadaniami z podpodziałem na checklisty, priorytetyzację (High -> Medium -> Low), automatyczną archiwizacją oraz bazą szablonów wielorazowych zadań administracyjnych.
+5. **Podświetlanie składni kodu i szybkie kopiowanie:**
+   - Integracja z biblioteką `Highlight.js` dla bloków kodu w widoku artykułu.
+   - Przycisk "Kopiuj" pojawiający się po najechaniu na dowolny blok kodu, z dynamicznym potwierdzeniem skopiowania do schowka.
 
-6. **Wbudowane narzędzia administracyjne:**
-   - Generator bezpiecznych haseł i fraz passphrase.
-   - Kalkulator podsieci IP (CIDR) oraz kalkulator macierzy RAID.
-   - Monitor zasobów i statusu serwera hosta (CPU, RAM, Dysk, Uptime na którym uruchomiony jest kontener) oraz czytnik biuletynów bezpieczeństwa RSS.
+6. **Wyszukiwarka pełnotekstowa:**
+   - Szybkie przeszukiwanie całej bazy wiedzy z poziomu paska narzędziowego.
+   - Wyniki z podświetlaniem poszukiwanej frazy (`mark`) i bezpośrednimi linkami do dokumentów.
+
+7. **Tablica Kanban i szablony zadań administracyjnych:**
+   - Wizualne zarządzanie zadaniami technicznymi w kolumnach (Do zrobienia, W trakcie, Do weryfikacji, Zrobione).
+   - Podział zadań na checklisty (subtaski), trzystopniowa priorytetyzacja (Wysoki, Średni, Niski), archiwizacja zadań.
+   - Baza gotowych szablonów zadań systemowych (Wdrożenie VM, Audyt serwera Linux, Konfiguracja tunelu VPN, Analiza incydentu SOC).
+
+8. **Wieloetapowe procedury operacyjne (Playbooks SOP):**
+   - Dedykowany moduł interaktywnych procedur krok po kroku.
+   - Postęp procedury w czasie rzeczywistym z checklistami, opisem technicznym i zapisem stanu w `data/playbooks_data.json`.
+
+9. **Podręczne notatki (Quick Notes):**
+   - Tablica szybkich notatek technicznych w `data/quick_notes.json` do błyskawicznego zapisywania poleceń, adresów IP i wycinków konfiguracji.
+
+10. **Wbudowane narzędzia inżynierskie:**
+    - Generator bezpiecznych haseł i losowych fraz passphrase o wysokiej entropii.
+    - Kalkulator podsieci IP (CIDR) z wyliczaniem maski, adresu sieci, broadcastu i puli hostów.
+    - Kalkulator macierzy dyskowych RAID (RAID 0, 1, 5, 6, 10) z analizą pojemności użytecznej i odporności na awarie.
+    - Monitor zasobów systemowych hosta (CPU, RAM, Dysk, Uptime) odczytywany w czasie rzeczywistym z poziomu kontenera.
+    - Agregator i czytnik biuletynów bezpieczeństwa oraz kanałów RSS CyberSec.
 
 ---
 
 ## Bezpieczeństwo i hardening (SecOps)
 
-Aplikacja posiada zaimplementowane producenckie mechanizmy ochrony i bezpieczeństwa:
+Aplikacja została zaprojektowana zgodnie z najnowocześniejszymi wytycznymi bezpieczeństwa systemowego i sieciowego:
 
-- **Nieuprzywilejowany kontener (`USER node` - UID 1000):** Kontener API Node.js działa na wyizolowanym koncie nieuprzywilejowanym z UID 1000, dopasowanym do uprawnień właściciela na serwerze Linux.
-- **Dynamiczny Rate-Limiter API:** Ochrona przed atakami typu Brute-Force na logowanie (max 5 prób / 60s) oraz obostrzenie operacji modyfikacji danych (max 30 żądań POST / 60s per IP).
-- **Ochrona przed Path Traversal i SSRF:** Rygorystyczna walidacja ścieżek `DOCS_DIR` oraz blokada zapytań skrapera do podsieci prywatnych (`127.0.0.1`, `localhost`, `192.168.x.x`, `10.x.x.x`).
-- **Autoryzacja i nagłówki HTTP:** Tokeny z 24h okresem ważności, limity czasu procesów potomnych oraz nagłówki `Content-Security-Policy` w serwerze Nginx.
-- **Weryfikacja zdrowia (Healthcheck):** Kontenery wyposażone w automatyczny monitoring HTTP healthcheck.
+- **Izolacja sieciowa kontenerów:** Serwis API Node.js nasłuchuje na porcie 9000 wyłącznie wewnątrz prywatnej sieci Docker (`knowops-internal`). Port 9000 nie jest mapowany na hosta — cały ruch z zewnątrz przechodzi przez Nginx działający jako Reverse Proxy.
+- **Nieuprzywilejowany użytkownik (`USER node` - UID 1000):** Proces API działa w kontenerze z uprawnieniami nieuprzywilejowanymi, z flagą `no-new-privileges:true`.
+- **Ścisła ochrona przed Path Traversal:** Funkcja `isPathInsideDocs` rygorystycznie weryfikuje granice katalogu bazowego `docs/`, blokując wyjście poza dozwolony obszar oraz próby odwołań do katalogów siostrzanych.
+- **Mitygacja SSRF (Server-Side Request Forgery):** Wbudowana blokada zapytań skrapera i czytnika do adresów pętli zwrotnej (`127.0.0.1`, `localhost`), sieci prywatnych RFC 1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) oraz adresów metadanych dostawców chmurowych (`169.254.169.254`).
+- **Weryfikacja nagłówków binarnych (Magic Bytes):** Rzeczywista inspekcja pierwszych bajtów każdego przesyłanego pliku graficznego zapobiegająca wgrywaniu powłok sieciowych (Web Shell) ukrytych pod rozszerzeniami `.png`/`.jpg`.
+- **Dynamiczny Rate-Limiter:** Ochrona przed atakami siłowymi na endpointy autoryzacyjne (max 5 prób na minutę) oraz ograniczenie operacji zapisu i modyfikacji plików (max 30 żądań POST na minutę per IP).
+- **Sanityzacja XSS i mitygacja ReDoS:** Eskapowanie znaków niebezpiecznych w parsowaniu oraz zabezpieczenie wyrażeń regularnych przed atakami blokującymi pętlę zdarzeń Node.js (Catastrophic Backtracking).
+- **Atomowy zapis plików:** Funkcja `atomicWriteFile` gwarantuje spójność plików konfiguracyjnych i dokumentacji w przypadku nagłego restartu lub odcięcia zasilania.
+- **Utwardzone nagłówki HTTP (Nginx):** Restrykcyjne polityki `Content-Security-Policy`, `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` oraz `Strict-Transport-Security`.
+- **Weryfikacja stanu (Healthcheck):** Cykliczne monitorowanie poprawności działania procesów wewnątrz kontenerów.
+
+---
+
+## Zapewnienie jakości i testy jednostkowe
+
+Projekt posiada zintegrowany zestaw automatycznych testów jednostkowych Node.js Test Runner:
+
+```bash
+npm test
+```
+
+Zestaw testów weryfikuje kluczowe mechanizmy bezpieczeństwa aplikacji:
+- Prawidłowe rozpoznawanie Magic Bytes dla PNG, JPEG, GIF, WebP,
+- Skuteczne blokowanie fałszywych plików z podmienionym rozszerzeniem,
+- Blokadę SSRF dla adresów prywatnych, lokalnych i chmurowych,
+- Ochronę Path Traversal i granice katalogu `docs/`,
+- Poprawność kodowania encji HTML (Sanityzacja XSS),
+- Eskapowanie znaków specjalnych RegExp (Mitygacja ReDoS),
+- Poprawność struktury i sanityzacji procedur Playbooków.
 
 ---
 
@@ -154,3 +200,13 @@ docker compose up -d --build
 ```
 
 Aplikacja będzie dostępna pod adresem: `http://localhost:8085` (lub port skonfigurowany w `WIKI_PORT`).
+
+---
+
+## Oznaczenie zmian i audyt dokumentacji (Audit Trail)
+
+Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełnej zgodności ze stanem faktycznym kodu aplikacji:
+- Uzupełniono specyfikację stałego paska akcji dokumentu (Sticky Action Header) w pozycjonowaniu CSS.
+- Wprowadzono szczegółowy opis zoptymalizowanego mechanizmu wydruku i generowania PDF w standardzie formatu A4.
+- Zaktualizowano opis procedur operacyjnych (Playbooks SOP), szybkich notatek oraz weryfikacji binarnej Magic Bytes.
+- Uzupełniono wykaz testów jednostkowych oraz parametry bezpieczeństwa izolacji sieciowej kontenerów.
