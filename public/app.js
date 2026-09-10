@@ -205,7 +205,7 @@ function renderTopCategories(categories) {
             const subHref = firstFile ? `#/${firstFile}` : `#/${cat.id}/${sub.id}`;
             
             return `
-              <a href="${subHref}" class="top-dropdown-item font-semibold" onclick="selectCategory('${cat.id}', '${sub.id}')" style="display: flex; align-items: center; gap: 6px;">
+              <a href="${subHref}" class="top-dropdown-item font-semibold" onclick="selectCategory('${cat.id}', '${sub.id}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${sub.relPath}')" style="display: flex; align-items: center; gap: 6px;">
                 [Dział] ${sub.title}
               </a>
             `;
@@ -324,6 +324,12 @@ async function renderSidebar() {
 
   if (sidebarTitle) {
     sidebarTitle.innerText = (targetSub ? targetSub.title : cat.title).toUpperCase();
+    if (targetSub && targetSub.relPath) {
+      sidebarTitle.setAttribute('ondragover', 'window.handleSidebarDragOver(event)');
+      sidebarTitle.setAttribute('ondragleave', 'window.handleSidebarDragLeave(event)');
+      sidebarTitle.setAttribute('ondrop', `window.handleSidebarDrop(event, '${targetSub.relPath}')`);
+      sidebarTitle.setAttribute('title', `Katalog główny działu: ${targetSub.title} (możesz upuścić plik tutaj)`);
+    }
   }
 
   if (!targetSub) {
@@ -374,6 +380,85 @@ async function renderSidebar() {
   }
   sidebarNav.innerHTML = html;
 }
+
+
+// ================= DRAG & DROP W LEWYM MENU I GÓRNYCH DZIAŁACH ================= //
+
+window.sidebarDraggedPath = '';
+
+window.handleSidebarDragStart = function(event, relPath) {
+  window.sidebarDraggedPath = relPath;
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('text/plain', relPath);
+    event.dataTransfer.setData('application/x-knowops-path', relPath);
+    event.dataTransfer.effectAllowed = 'move';
+  }
+};
+
+window.handleSidebarDragOver = function(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  const targetEl = event.currentTarget;
+  if (targetEl && !targetEl.classList.contains('sidebar-drag-over')) {
+    targetEl.classList.add('sidebar-drag-over');
+  }
+};
+
+window.handleSidebarDragLeave = function(event) {
+  event.stopPropagation();
+  const targetEl = event.currentTarget;
+  if (targetEl && (!event.relatedTarget || !targetEl.contains(event.relatedTarget))) {
+    targetEl.classList.remove('sidebar-drag-over');
+  }
+};
+
+window.handleSidebarDrop = async function(event, targetDirRelPath) {
+  event.preventDefault();
+  event.stopPropagation();
+  const targetEl = event.currentTarget;
+  if (targetEl) {
+    targetEl.classList.remove('sidebar-drag-over');
+  }
+
+  const sourceRelPath = (event.dataTransfer && event.dataTransfer.getData('text/plain')) || window.sidebarDraggedPath;
+  if (!sourceRelPath || !targetDirRelPath) return;
+
+  const currentFolder = sourceRelPath.includes('/') ? sourceRelPath.substring(0, sourceRelPath.lastIndexOf('/')) : '';
+  if (currentFolder === targetDirRelPath) {
+    alert('Dokument znajduje się już w tym dziale / folderze.');
+    return;
+  }
+
+  const filename = sourceRelPath.split('/').pop();
+  if (!confirm(`Czy na pewno chcesz przenieść dokument "${filename}" do lokalizacji docelowej: "${targetDirRelPath}"?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/move-page', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceRelPath: sourceRelPath,
+        targetCategoryRel: targetDirRelPath,
+        targetFilename: filename
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
+
+    expandedDirs[targetDirRelPath] = true;
+    await loadNavigation();
+    window.location.hash = `#/${data.relPath}`;
+    alert(`Dokument "${filename}" został pomyślnie przeniesiony do "${targetDirRelPath}".`);
+  } catch (err) {
+    alert(`Błąd podczas przenoszenia pliku: ${err.message}`);
+  }
+};
 
 async function handleHashNavigation() {
   if (monitorIntervalId) {
@@ -703,7 +788,7 @@ async function loadArticle(articlePath) {
     }
 
     const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:0; z-index:100; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
-      <div style="display:flex; flex-direction:column;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:600;">DOKUMENT: ${articlePath}</span><span style="font-size:0.65rem; color:#6b7280; margin-top:2px;">Ostatnia modyfikacja: ${window.currentMtime || "Brak danych"}</span></div>
+      <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
       <div style="display:flex; gap:6px;">
         <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ W TYM FOLDERZE</button>
         <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>

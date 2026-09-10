@@ -138,7 +138,9 @@
     .breadcrumb-nav { font-size: 0.72rem; color: #888888; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #222; }
 
     /* Style przeciagania dokumentow w lewym menu (Drag & Drop) */
-    .sidebar-drag-over {
+    .sidebar-drag-over,
+    .top-dropdown-item.sidebar-drag-over,
+    .left-topics-header.sidebar-drag-over {
       background-color: rgba(250, 204, 21, 0.22) !important;
       outline: 2px dashed var(--sw-gold) !important;
       outline-offset: -2px;
