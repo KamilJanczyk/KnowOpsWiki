@@ -2806,56 +2806,81 @@ function renderWikiInstruction() {
   const breadcrumbArea = document.getElementById('breadcrumbArea');
   if (breadcrumbArea) breadcrumbArea.innerHTML = 'Pulpit &gt; Instrukcja Obsługi';
 
-  contentArea.innerHTML = `<div class="instruction-box" style="max-width:800px; background:#111; border:1px solid #333; padding:20px; border-radius:6px; line-height:1.6;">
-    <h2 style="color:var(--sw-gold); margin-bottom:12px;">INSTRUKCJA OBSŁUGI PORTALU KNOWOPS WIKI</h2>
-    <p style="font-size:0.85rem; color:#ccc; margin-bottom:14px;">Portal KnowOps Wiki służy do zarządzania bazą wiedzy, procedurami administracyjnymi, zadaniami produkcyjnymi oraz narzędziami SecOps.</p>
+  contentArea.innerHTML = `<div class="instruction-box" style="max-width:880px; background:#111113; border:1px solid #27272a; padding:24px; border-radius:8px; line-height:1.6;">
+    <h2 style="color:var(--sw-gold); font-size:1.15rem; margin-bottom:8px; letter-spacing:0.5px;">INSTRUKCJA OBSŁUGI PORTALU KNOWOPS WIKI</h2>
+    <p style="font-size:0.84rem; color:#a1a1aa; margin-bottom:18px;">Kompleksowy podręcznik inżynierski opisujący architekturę, nawigację, zarządzanie dokumentacją, system tagów oraz wbudowane narzędzia administracyjne SecOps.</p>
     
-    <h3 style="color:#fff; font-size:0.9rem; margin-top:16px; margin-bottom:8px;">1. Główne Moduły Systemu</h3>
-    <ul style="font-size:0.82rem; color:#aaa; margin-left:20px; margin-bottom:16px;">
-      <li><strong>Pulpit (Tablica Kanban):</strong> Przeglądaj i dodawaj zadania w 4 kolumnach (TODO, IN_PROGRESS, DONE, ARCHIVED). Zadania zrobione można przeglądać w Archiwum Zadań.</li>
-      <li><strong>Szybkie Notatki:</strong> Twórz i edytuj w czasie rzeczywistym notatki administracyjne. Dodano w nich dynamiczne wyszukiwanie i filtrowanie kafelków w locie.</li>
-      <li><strong>Biuletyn RSS SecOps:</strong> Skanowanie najnowszych podatności i advisories (np. CERT Polska, CISA). Umożliwia włączanie/wyłączanie źródeł, dodawanie nowych kanałów oraz ukrywanie przeczytanych artykułów w pamięci podręcznej.</li>
-      <li><strong>Kategorie Główne:</strong> Nawiguj po kafelkach głównych (Sieci, Fortinet, Microsoft, Linux, Bazy Danych, Aplikacje, Poczta, Konteneryzacja, Proxmox VE, VMware).</li>
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">1. Główne Moduły Systemu</h3>
+    <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong>Pulpit (Tablica Kanban):</strong> Wizualne zarządzanie zadaniami technicznymi w 4 kolumnach (Do zrobienia, W trakcie, Zrobione, Archiwum). Każde zadanie obsługuje podzadania (checklisty subtasków), 3 poziomy priorytetów (Wysoki, Średni, Niski) oraz gotowe szablony procedur (Wdrożenie VM, Audyt serwera Linux, Konfiguracja tunelu VPN, Analiza incydentu SOC).</li>
+      <li><strong>Szybkie Notatki (Quick Notes):</strong> Podręczny notatnik inżynierski z natychmiastowym filtrowaniem kafelków w czasie rzeczywistym i synchronizacją w tle (plik <code>data/quick_notes.json</code>).</li>
+      <li><strong>Wieloetapowe Procedury Operacyjne (Playbooks SOP):</strong> Interaktywne procedury krok po kroku z checklistami, opisem technicznym i automatycznym zapisem stanu wykonania (plik <code>data/playbooks_data.json</code>).</li>
+      <li><strong>Biuletyn RSS SecOps:</strong> Automatyczny agregator podatności i biuletynów bezpieczeństwa (CERT Polska, CISA, The Hacker News) z możliwością włączania/wyłączania źródeł, dodawania własnych kanałów RSS i oznaczania wpisów jako przeczytane.</li>
+      <li><strong>Narzędzia Inżynierskie:</strong> Hasłomat SecOps (losowe hasła Diceware o wysokiej entropii), Kalkulator CIDR (podział podsieci IPv4), Kalkulator macierzy RAID & ZFS (obliczanie pojemności netto i odporności na awarie dysków HDD/SSD/NVMe) oraz Monitor Zasobów Serwera (statystyki CPU, RAM, dysku i uptime hosta).</li>
     </ul>
 
-    <h3 style="color:#fff; font-size:0.9rem; margin-top:16px; margin-bottom:8px;">2. Zarządzanie Dokumentami</h3>
-    <p style="font-size:0.82rem; color:#ccc; margin-bottom:10px;">Aplikacja działa w oparciu o trójpoziomową strukturę katalogów: <strong>Kategoria (Główna) &gt; Podkategoria (Dział) &gt; Dokument (.md)</strong>. Możesz zarządzać tą strukturą na dwa sposoby:</p>
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">2. Zarządzanie Strukturą Dokumentacji i Folderów</h3>
+    <p style="font-size:0.82rem; color:#d4d4d8; margin-bottom:12px;">Baza wiedzy opiera się na fizycznej strukturze katalogów w <code>docs/</code> z pełnym wsparciem dla wielopoziomowych podkatalogów (N-ty poziom zagnieżdżenia):</p>
     
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-      <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:4px;">
-        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Metoda 1: Przez interfejs WWW</h4>
-        <ul style="font-size:0.75rem; color:#aaa; margin-left:14px; padding:0;">
-          <li style="margin-bottom:4px;">Kliknij niebieski przycisk <strong>„+ Dodaj Stronę / Dział”</strong> na dole lewego menu.</li>
-          <li style="margin-bottom:4px;">Aby utworzyć nową podkategorię, wybierz kategorię nadrzędną, wpisz nową nazwę podkategorii (np. <code>03_Mój_Dział</code>) oraz nazwę pliku.</li>
-          <li style="margin-bottom:4px;">System automatycznie założy odpowiednie foldery i plik na dysku, po czym odświeży nawigację.</li>
-        </ul>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+      <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
+        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Dwuetapowe Sortowanie Numeryczne</h4>
+        <p style="font-size:0.75rem; color:#a1a1aa; line-height:1.4;">
+          Kolejność w menu nawigacyjnym jest ściśle deterministyczna i opiera się na fizycznych prefiksach w nazwach plików i folderów (np. <code>01_</code>, <code>02_</code>, <code>03_</code>). W każdym katalogu pliki Markdown wyświetlane są zawsze na początku, a podkatalogi pod nimi (również według kolejności numerycznej). Prefiksy są automatycznie maskowane na czytelne tytuły w interfejsie.
+        </p>
       </div>
-      <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:4px;">
-        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Metoda 2: Bezpośrednio (lokalnie na dysku)</h4>
-        <ul style="font-size:0.75rem; color:#aaa; margin-left:14px; padding:0;">
-          <li style="margin-bottom:4px;">Przejdź do lokalnego katalogu <code>knowops/docs/</code> na swoim komputerze.</li>
-          <li style="margin-bottom:4px;">Utwórz lub zmień foldery zachowując schemat: <code>docs/Kategoria_Główna/Podkategoria/Plik.md</code>.</li>
-          <li style="margin-bottom:4px;">Po zakończeniu modyfikacji plików, kliknij przycisk <strong>„Przeskanuj”</strong> w lewym sidebarze, aby przebudować menu.</li>
-        </ul>
+      <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
+        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Bezpieczne Usuwanie Folderów i Działów</h4>
+        <p style="font-size:0.75rem; color:#a1a1aa; line-height:1.4;">
+          Możliwość usunięcia całego działu lub zagnieżdżonego podfolderu za pomocą przycisku usuwania w drzewie lub na pasku działu. Dedykowane okno modalne dynamicznie kalkuluje liczbę zawartych plików i podkatalogów. Usunięte katalogi są bezpiecznie archiwizowane w koszu systemowym <code>docs/.trash/</code> z unikalnym znacznikiem czasu.
+        </p>
       </div>
     </div>
 
-    <h3 style="color:#fff; font-size:0.9rem; margin-top:16px; margin-bottom:8px;">3. Zaawansowane Funkcje i Automatyzacja</h3>
-    <ul style="font-size:0.82rem; color:#aaa; margin-left:20px; margin-bottom:16px;">
-      <li><strong>Paleta Poleceń (Ctrl+K):</strong> Wciśnięcie skrótu klawiszowego Ctrl+K (lub Cmd+K) otwiera wyszukiwarkę dokumentów. Pozwala na błyskawiczne znajdowanie i przechodzenie do stron za pomocą strzałek klawiatury i klawisza Enter.</li>
-      <li><strong>Autozapis (Auto-save):</strong> Edytor automatycznie zapisuje zmiany w tle na serwerze po przerwaniu pisania na 1.5 sekundy. Przy zamykaniu edytora następuje natychmiastowe wymuszenie zapisu i przeładowanie widoku.</li>
-      <li><strong>Wyszukiwarka Pełnotekstowa:</strong> Przeszukuje całą bazę wiedzy z poziomu pamięci serwera (in-memory cache) z automatycznym podświetlaniem pasujących fraz.</li>
-      <li><strong>Składnia Wikilinks:</strong> W plikach markdown możesz tworzyć wewnętrzne linki do innych dokumentów za pomocą składni <code>[[Nazwa Dokumentu]]</code>. System automatycznie dopasuje link lub oznaczy go na czerwono, jeśli dokument nie istnieje.</li>
-      <li><strong>Podświetlanie Kodu (Syntax Highlighting):</strong> Bloki kodu w dokumentach są automatycznie kolorowane za pomocą biblioteki Highlight.js (zgodnie z wykrytym językiem programowania lub skryptu).</li>
-      <li><strong>Importuj z URL (Web Scraper):</strong> Pobieranie artykułów i dokumentacji bezpośrednio z zewnętrznych linków. System wycina właściwą treść (ignorując reklamy/stopki), konwertuje HTML na Markdown i zapisuje we wskazanym podkatalogu.</li>
-      <li><strong>Kalkulator CIDR i Subnetting:</strong> Analizator sieciowy z binarną reprezentacją adresacji IP i modułem automatycznego podziału podsieci.</li>
-      <li><strong>Kalkulator RAID & ZFS:</strong> Narzędzie szacowania przestrzeni i wydajności macierzy (pojemność netto, odporność na awarie, prędkość odczytu/zapisu dla dysków HDD/SSD/NVMe).</li>
-      <li><strong>Hasłomat SecOps:</strong> Generator silnych haseł słownikowych Diceware z wyliczeniem entropii Shannona.</li>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+      <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
+        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Bezpieczne Przenoszenie Folderów (GUI & Drag and Drop)</h4>
+        <p style="font-size:0.75rem; color:#a1a1aa; line-height:1.4;">
+          Foldery można przenosić klikając przycisk <strong>[P]</strong> w drzewie lub przeciągając myszą (Drag & Drop) na docelowy folder. Okno modalne zawiera wyszukiwarkę lokalizacji docelowych w czasie rzeczywistym. Architektura blokuje cykle (przeniesienie folderu do samego siebie lub podkatalogu) oraz kolizje nazw (kod 409 Conflict).
+        </p>
+      </div>
+      <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
+        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Przenoszenie Dokumentów i Nowe Strony</h4>
+        <p style="font-size:0.75rem; color:#a1a1aa; line-height:1.4;">
+          Dokumenty można przenosić przeciągając myszą w menu lub klikając przycisk <strong>„PRZENIEŚ DOKUMENT”</strong> na stałym pasku artykułu. Nowe strony dodaje się przyciskiem <strong>„+ Dodaj Stronę / Dział”</strong> w menu lub <strong>„+ DODAJ STRONĘ W TYM FOLDERZE”</strong> na belce artykułu.
+        </p>
+      </div>
+    </div>
+
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">3. Edytor Dokumentów i Pasek Narzędziowy</h3>
+    <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong>Pasek Narzędziowy (Toolbar):</strong> Błyskawiczne wstawianie pogrubienia (<strong>B</strong>), kursywy (<em>I</em>), nagłówków (<strong>H1</strong>, <strong>H2</strong>), bloków kodu (<strong>Kod</strong>), tabel Markdown (<strong>Tabela</strong>) oraz schematów <strong>Diagram Mermaid</strong> (Flowchart, Sequence, Git Graph, Pie Chart, Gantt, State, Class, Active Directory, drzewo OU).</li>
+      <li><strong>Przycisk „Tagi” w Edytorze:</strong> Umożliwia wstawienie lub edycję metadanych tagów YAML Frontmatter na samej górze pliku za pomocą jednego kliknięcia. Kursor automatycznie zaznacza sekcję tagów, co pozwala na natychmiastowe wpisanie słów kluczowych.</li>
+      <li><strong>Wklejanie Grafik ze Schowka (Ctrl + V) i Drag & Drop:</strong> Zrzuty ekranu ze schowka systemowego oraz pliki przeciągnięte na pole edytora są automatycznie przesyłane na serwer i wklejane w formacie <code>![alt](/public/images/...)</code>. Wbudowany walidator Magic Bytes dopuszcza formaty PNG, JPEG, GIF, WebP (do 5 MB).</li>
+      <li><strong>Stały Pasek Akcji (Sticky Action Header):</strong> Podczas czytania dokumentu górna belka pozostaje stale zakotwiczona, wyświetlając czas ostatniej modyfikacji oraz przyciski szybkiej edycji, przenoszenia i dodawania podstrony.</li>
+      <li><strong>Autozapis (Auto-Save):</strong> Wszelkie zmiany wprowadzone w edytorze są automatycznie zapisywane na serwerze po 1.5 sekundy od zakończenia wprowadzania tekstu.</li>
     </ul>
 
-    <h3 style="color:#fff; font-size:0.9rem; margin-top:16px; margin-bottom:8px;">4. Druk oraz Eksport do PDF</h3>
-    <ul style="font-size:0.82rem; color:#aaa; margin-left:20px; margin-bottom:16px;">
-      <li><strong>Dedykowany Tryb Druku:</strong> Po kliknięciu przycisku "Drukuj / PDF" w lewym menu (lub wciśnięciu Ctrl+P) system automatycznie ukrywa panele nawigacyjne, stopki, nagłówki oraz przyciski edycyjne, pozostawiając samą treść dokumentu na białym tle do czystego wydruku lub zapisu do pliku PDF.</li>
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">4. System Tagów i Wyszukiwanie Pełnotekstowe</h3>
+    <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong>Format YAML Frontmatter:</strong> Tagi definiuje się na samym początku pliku Markdown w nagłówku ograniczonym potrójnymi myślnikami <code>---</code>, np. <code>tags: [cybersec, linux, nginx]</code>, jako pionową listę YAML (<code>- tag</code>) lub ciąg wartości rozdzielonych przecinkami.</li>
+      <li><strong>Pigułki Tagów pod Artykułem:</strong> W nagłówku każdego artykułu wyświetlane są estetyczne etykiety <code>#tag</code>. Kliknięcie dowolnej etykiety automatycznie uruchamia wyszukiwanie wszystkich artykułów powiązanych z tym znacznikiem.</li>
+      <li><strong>Chmura Tagów w Menu Bocznym:</strong> Pod wyszukiwarką w lewym panelu znajduje się chmura najpopularniejszych tagów z licznikiem powiązanych artykułów.</li>
+      <li><strong>Precyzyjne Wyszukiwanie po Tagach:</strong> Wpisanie frazy rozpoczynającej się od znaku hash (np. <code>#soc</code> lub <code>#proxmox</code>) w wyszukiwarce lub palecie poleceń wykonuje natychmiastowe filtrowanie wyłącznie po indeksie metadanych tagów.</li>
+    </ul>
+
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">5. Kopia Zapasowa ZIP i Oczyszczanie Bazy</h3>
+    <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong>Pobieranie Kopii Zapasowej ZIP:</strong> Przycisk <strong>„Kopia ZIP”</strong> w lewym panelu narzędziowym pakuje w locie całą bazę wiedzy (katalogi <code>docs/</code>, <code>data/</code>, <code>public/images/</code>) z automatycznym wykluczeniem kosza systemowego i przesyła strumieniowo plik <code>.zip</code> do przeglądarki. Plik tymczasowy jest automatycznie usuwany po transmisji.</li>
+      <li><strong>Menedżer Osieroconych Grafik:</strong> Przycisk <strong>„Oczyść grafiki”</strong> uruchamia rekurencyjny skan bazy dokumentów w poszukiwaniu odwołań do obrazów. Okno modalne prezentuje listę nieużywanych grafik z miniaturkami, rozmiarem i datą, umożliwia selekcję zbiorczą i bezpiecznie przenosi zbędne pliki do <code>docs/.trash/orphaned_images/</code> (bez ryzyka bezpowrotnej utraty).</li>
+    </ul>
+
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Zaawansowane Funkcje Operacyjne</h3>
+    <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong>Paleta Poleceń (Ctrl + K):</strong> Wciśnięcie skrótu klawiszowego Ctrl+K (lub Cmd+K) otwiera wyszukiwarkę nawigacyjną. Umożliwia błyskawiczne znajdowanie stron za pomocą strzałek i klawisza Enter. Klawisz Escape zamyka modal.</li>
+      <li><strong>Składnia Wikilinks:</strong> Tworzenie powiązań między dokumentami za pomocą zapisu <code>[[Nazwa Dokumentu]]</code>. System automatycznie mapuje link na odpowiednią ścieżkę lub oznacza brakujący dokument.</li>
+      <li><strong>Import z URL (Web Scraper):</strong> Przycisk <strong>„Importuj Plik (MD / HTML)”</strong> umożliwia pobranie artykułu z zewnętrznego adresu URL. Silnik wycina treść główną, ignoruje reklamy i stopki, konwertuje HTML na czysty Markdown i zapisuje we wskazanym dziale.</li>
+      <li><strong>Zoptymalizowany Druk i Eksport PDF:</strong> Przycisk <strong>„Drukuj / PDF”</strong> (lub skrót Ctrl+P) aktywuje arkusz stylów w standardzie formatu A4 portrait z marginesami 12x15mm, automatycznym dopasowaniem szerokich tabel i bloków kodu bez obcinania prawej krawędzi oraz ukryciem elementów interfejsu.</li>
     </ul>
   </div>`;
 }
@@ -4007,6 +4032,39 @@ window.insertEditorText = function(type) {
     case 'table':
       replacement = `\n| Nagłówek 1 | Nagłówek 2 |\n| --- | --- |\n| Dane 1 | Dane 2 |\n`;
       break;
+    case 'tags': {
+      if (text.startsWith('---')) {
+        const parts = text.split('---');
+        if (parts.length >= 3) {
+          const frontmatter = parts[1];
+          const match = frontmatter.match(/tags:\s*(\[[^\]\n]*\]|[^\n]+)/i);
+          if (match) {
+            const matchIndex = text.indexOf(match[0]);
+            textarea.focus();
+            textarea.setSelectionRange(matchIndex, matchIndex + match[0].length);
+            return;
+          } else {
+            const endOfFm = text.indexOf('---', 3);
+            const defaultTags = selectedText ? selectedText.replace(/[\r\n]/g, '').trim() : 'tag1, tag2';
+            const tagLine = `tags: [${defaultTags}]\n`;
+            textarea.value = text.substring(0, endOfFm) + tagLine + text.substring(endOfFm);
+            textarea.focus();
+            const tagSelStart = endOfFm + 7;
+            textarea.setSelectionRange(tagSelStart, tagSelStart + defaultTags.length);
+            if (typeof updateEditorPreview === 'function') updateEditorPreview();
+            return;
+          }
+        }
+      }
+
+      const defaultTags = selectedText ? selectedText.replace(/[\r\n]/g, '').trim() : 'tag1, tag2';
+      const fmBlock = `---\ntags: [${defaultTags}]\n---\n\n`;
+      textarea.value = fmBlock + text;
+      textarea.focus();
+      textarea.setSelectionRange(11, 11 + defaultTags.length);
+      if (typeof updateEditorPreview === 'function') updateEditorPreview();
+      return;
+    }
     case 'mermaid_flow':
       replacement = `\n\`\`\`mermaid\ngraph TD\n  A[Start] --> B{Decyzja?}\n  B -- Tak --> C[Proces A]\n  B -- Nie --> D[Proces B]\n  C --> E[Koniec]\n  D --> E\n\`\`\`\n`;
       break;

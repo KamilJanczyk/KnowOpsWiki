@@ -88,7 +88,7 @@ docs/
 
 1. **Wbudowany edytor Markdown z podglądem na żywo:**
    - Pełne wsparcie dla formatowania tekstu, tabel, bloków kodu i składni Markdown (`markdown-it`).
-   - Pasek narzędzi z szybkimi wzorcami formatowania, wstawianiem tabel i diagramów.
+   - Pasek narzędzi z szybkimi wzorcami formatowania, wstawianiem tabel, diagramów Mermaid oraz dedykowanym przyciskiem **Tagi** do natychmiastowego definiowania i edycji metadanych YAML Frontmatter na początku dokumentu.
    - Nakładka podświetlania składni w polu edycji (`Highlight Overlay`) z automatyczną walidacją i zapisem.
 
 2. **Diagramy i schematy wektorowe (Mermaid.js):**
@@ -140,7 +140,7 @@ docs/
     - Strumieniowe przesyłanie archiwum z automatycznym usuwaniem pliku tymczasowego po zakończeniu transmisji eliminuje ryzyko zapełnienia przestrzeni dyskowej serwera.
 
 12. **System kategoryzacji tagami (YAML Frontmatter):**
-    - Pełne wsparcie dla metadanych dokumentów za pośrednictwem nagłówka Frontmatter w formacie tablicowym `tags: [cybersec, linux, nginx]`, pionowej listy YAML (`- tag`) lub rozdzielanych przecinkami wartości.
+    - Pełne wsparcie dla metadanych dokumentów za pośrednictwem nagłówka Frontmatter w formacie tablicowym `tags: [cybersec, linux, nginx]`, pionowej listy YAML (`- tag`) lub rozdzielanych przecinkami wartości. Dedykowany przycisk **Tagi** w pasku narzędziowym edytora automatycznie wstawia blok Frontmatter lub ustawia kursor na istniejących tagach.
     - Automatyczne wyciąganie unikalnych tagów i ich prezentacja w postaci estetycznych pigułek (`#tag`) bezpośrednio pod nagłówkiem czytanego dokumentu.
     - Chmura tagów w lewym menu nawigacyjnym z licznikiem wystąpień oraz pełna integracja z wyszukiwarką pełnotekstową (błyskawiczne filtrowanie po wpisaniu lub kliknięciu frazy `#tag`).
 
@@ -240,3 +240,4 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Wprowadzono szczegółowy opis zoptymalizowanego mechanizmu wydruku i generowania PDF w standardzie formatu A4.
 - Zaktualizowano opis procedur operacyjnych (Playbooks SOP), szybkich notatek oraz weryfikacji binarnej Magic Bytes.
 - Rozszerzono pakiet testów jednostkowych do 14 testów automatycznych weryfikujących mechanizmy bezpieczeństwa, integralności, tagów i archiwizacji.
+- Dodano dedykowany przycisk "Tagi" w pasku narzędziowym edytora Markdown (`insertEditorText('tags')`) oraz zaktualizowano i rozszerzono wbudowaną instrukcję obsługi portalu dostępną w module Pulpit (`renderWikiInstruction`).
