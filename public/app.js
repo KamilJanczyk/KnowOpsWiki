@@ -2734,10 +2734,15 @@ function collectMoveFoldersRecursive(items, parentBreadcrumb = '', depth = 1) {
 
 window.renderMovePageFolderList = function(folders, selectedRelPath = '') {
   const listContainer = document.getElementById('movePageFolderList');
+  const countSpan = document.getElementById('movePageFolderCount');
   if (!listContainer) return;
 
+  if (countSpan) {
+    countSpan.innerText = `${folders ? folders.length : 0} folderów`;
+  }
+
   if (!folders || folders.length === 0) {
-    listContainer.innerHTML = `<div style="padding:16px; text-align:center; color:#71717a; font-size:0.75rem;">Brak pasujących folderów dla wpisanej frazy.</div>`;
+    listContainer.innerHTML = `<div style="padding:14px; text-align:center; color:#71717a; font-size:0.75rem;">Brak pasujących istniejących folderów w wiki. Jeśli ścieżka w polu tekstowym jest nowa, serwer utworzy ten katalog automatycznie.</div>`;
     return;
   }
 
@@ -2760,11 +2765,16 @@ window.renderMovePageFolderList = function(folders, selectedRelPath = '') {
   listContainer.innerHTML = html;
 };
 
-window.filterMovePageFolders = function(query) {
+window.onMovePageFolderInput = function(query) {
   const q = (query || '').trim().toLowerCase();
-  const selectedRelPath = document.getElementById('movePageTargetSelect')?.value || '';
+  const folderInput = document.getElementById('movePageTargetFolderInput');
+  const currentVal = folderInput ? folderInput.value.trim() : '';
+
+  const targetSelect = document.getElementById('movePageTargetSelect');
+  if (targetSelect) targetSelect.value = currentVal;
+
   if (!q) {
-    window.renderMovePageFolderList(movePageAllFolders, selectedRelPath);
+    window.renderMovePageFolderList(movePageAllFolders, currentVal);
     return;
   }
   const filtered = movePageAllFolders.filter(f => 
@@ -2772,19 +2782,22 @@ window.filterMovePageFolders = function(query) {
     (f.breadcrumb && f.breadcrumb.toLowerCase().includes(q)) || 
     (f.relPath && f.relPath.toLowerCase().includes(q))
   );
-  window.renderMovePageFolderList(filtered, selectedRelPath);
+  window.renderMovePageFolderList(filtered, currentVal);
 };
 
+window.filterMovePageFolders = window.onMovePageFolderInput;
+
 window.selectMovePageFolder = function(relPath) {
+  const folderInput = document.getElementById('movePageTargetFolderInput');
   const targetSelect = document.getElementById('movePageTargetSelect');
-  const displaySpan = document.getElementById('movePageSelectedPathDisplay');
+  if (folderInput) folderInput.value = relPath;
   if (targetSelect) targetSelect.value = relPath;
-  if (displaySpan) displaySpan.innerText = relPath || '[Nie wybrano]';
 
   const items = document.querySelectorAll('#movePageFolderList .move-folder-item');
   items.forEach(el => {
     if (el.getAttribute('data-rel') === relPath) {
       el.classList.add('selected');
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } else {
       el.classList.remove('selected');
     }
@@ -2793,13 +2806,12 @@ window.selectMovePageFolder = function(relPath) {
 
 window.openMovePageModal = function() {
   const modal = document.getElementById('movePageModalOverlay');
+  const folderInput = document.getElementById('movePageTargetFolderInput');
   const parentSelect = document.getElementById('movePageTargetSelect');
   const nameInput = document.getElementById('movePageNameInput');
   const currentPathInput = document.getElementById('movePageCurrentPath');
-  const searchInput = document.getElementById('movePageFolderSearch');
-  const displaySpan = document.getElementById('movePageSelectedPathDisplay');
   
-  if (!modal || !parentSelect || !nameInput || !currentPathInput) return;
+  if (!modal || !nameInput || !currentPathInput) return;
 
   const currentPath = decodeURIComponent(window.location.hash.replace('#/', ''));
   currentPathInput.value = currentPath;
@@ -2807,8 +2819,6 @@ window.openMovePageModal = function() {
   const lastSlash = currentPath.lastIndexOf('/');
   const filename = lastSlash !== -1 ? currentPath.substring(lastSlash + 1) : currentPath;
   nameInput.value = filename;
-
-  if (searchInput) searchInput.value = '';
 
   movePageAllFolders = [];
   let optionsHtml = '';
@@ -2843,7 +2853,7 @@ window.openMovePageModal = function() {
         }
       }
     }
-    parentSelect.innerHTML = optionsHtml;
+    if (parentSelect) parentSelect.innerHTML = optionsHtml;
   }
 
   let initialTarget = '';
@@ -2853,8 +2863,8 @@ window.openMovePageModal = function() {
     initialTarget = movePageAllFolders[0].relPath;
   }
 
-  parentSelect.value = initialTarget;
-  if (displaySpan) displaySpan.innerText = initialTarget || '[Wybierz folder z listy powyżej]';
+  if (folderInput) folderInput.value = initialTarget;
+  if (parentSelect) parentSelect.value = initialTarget;
 
   window.renderMovePageFolderList(movePageAllFolders, initialTarget);
 
@@ -2868,11 +2878,14 @@ window.closeMovePageModal = function() {
 
 window.submitMovePage = async function() {
   const sourceRelPath = document.getElementById('movePageCurrentPath').value.trim();
-  const targetCategoryRel = document.getElementById('movePageTargetSelect').value;
+  const folderInput = document.getElementById('movePageTargetFolderInput');
+  const parentSelect = document.getElementById('movePageTargetSelect');
+  let targetCategoryRel = (folderInput ? folderInput.value : parentSelect?.value || '').trim();
+  targetCategoryRel = targetCategoryRel.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
   const targetFilename = document.getElementById('movePageNameInput').value.trim();
 
   if (!sourceRelPath || !targetCategoryRel || !targetFilename) {
-    alert('Wszystkie pola są wymagane. Proszę wskazać folder docelowy.');
+    alert('Wszystkie pola są wymagane. Proszę wskazać lub wpisać folder docelowy.');
     return;
   }
 

@@ -133,8 +133,8 @@
       flex-shrink: 0;
     }
 
-    .main-content { flex: 1; padding: 20px 28px; min-width: 0; background: var(--sw-dark-bg); display: flex; justify-content: center; max-height: calc(100vh - 44px); overflow-y: auto; }
-    .content-inner-container { max-width: 1250px; width: 100%; display: flex; flex-direction: column; }
+    .main-content { flex: 1; padding: 0 28px 20px 28px; min-width: 0; background: var(--sw-dark-bg); display: flex; justify-content: center; max-height: calc(100vh - 44px); overflow-y: auto; }
+    .content-inner-container { max-width: 1250px; width: 100%; display: flex; flex-direction: column; padding-top: 14px; }
     .breadcrumb-nav { font-size: 0.72rem; color: #888888; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #222; }
 
     /* Style przeciagania dokumentow w lewym menu (Drag & Drop) */
