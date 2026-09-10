@@ -34,37 +34,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Obsługa skrótów klawiaturowych i Command Palette [dodane]
+  // Zamknięcie otwartych okien modalnych klawiszem Esc
   document.addEventListener('keydown', (e) => {
-    // Ctrl+K lub Cmd+K
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      openCommandPalette();
-    }
-    // Zamknięcie modali klawiszem Esc
     if (e.key === 'Escape') {
-      closeCommandPalette();
+      const overlays = document.querySelectorAll('.custom-modal-overlay');
+      overlays.forEach(modal => { modal.style.display = 'none'; });
     }
   });
-
-  const cpInput = document.getElementById('commandPaletteInput');
-  if (cpInput) {
-    cpInput.addEventListener('input', () => {
-      renderCommandPaletteResults(cpInput.value.trim());
-    });
-    cpInput.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        navigateCommandPalette(1);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        navigateCommandPalette(-1);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        triggerCommandPaletteSelection();
-      }
-    });
-  }
 
   window.addEventListener('hashchange', async () => {
     await handleHashNavigation();
@@ -347,6 +323,15 @@ async function renderSidebar() {
         <a href="#/tool/instrukcja" class="sidebar-tile-btn ${isInstrukcjaActive ? 'active' : ''}">
           <span class="label">Instrukcja Obsługi</span>
         </a>
+        <div style="margin-top:10px; padding-top:8px; border-top:1px solid #27272a;">
+          <div style="font-size:0.65rem; color:#71717a; text-transform:uppercase; font-weight:700; padding:0 4px 6px 4px; letter-spacing:0.5px;">Konserwacja Bazy</div>
+          <button onclick="downloadWikiZip()" class="sidebar-tile-btn" style="width:100%; text-align:left; background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; margin-bottom:4px; cursor:pointer;">
+            <span class="label">Kopia ZIP (Pobierz bazę)</span>
+          </button>
+          <button onclick="openOrphanedImagesModal()" class="sidebar-tile-btn" style="width:100%; text-align:left; background:#18181b; border:1px solid #3f3f46; color:#e4e4e7; cursor:pointer;">
+            <span class="label">Oczyść Grafiki (Menedżer)</span>
+          </button>
+        </div>
       </div>
     `;
     return;
@@ -770,27 +755,6 @@ function addCopyButtons(container = null) {
 function parseMarkdown(text) {
   if (!text) return '';
 
-  // Wikilinks: [[Nazwa Artykulu]] -> [Nazwa Artykulu](#/sciezka.md) [dodane: punkt 13]
-  text = text.replace(/\[\[([^\]]+)\]\]/g, (match, wikiName) => {
-    const normalized = wikiName.trim();
-    if (navigationData && navigationData.categories) {
-      for (const cat of navigationData.categories) {
-        for (const sub of (cat.subcategories || [])) {
-          for (const file of (sub.files || [])) {
-            if (
-              file.title.toLowerCase() === normalized.toLowerCase() ||
-              file.relPath.toLowerCase().includes(normalized.toLowerCase().replace(/\s+/g, '_'))
-            ) {
-              return `[${normalized}](#/${file.relPath})`;
-            }
-          }
-        }
-      }
-    }
-    // Artykul nie znaleziony w navigationData
-    return `<span style="color:#ef4444; text-decoration:underline dotted; cursor:help;" title="Artykul nie znaleziony w wiki: ${normalized}">[[${normalized}]]</span>`;
-  });
-
   const normalizedText = text.replace(/[´'']/g, '`');
   let html = '';
   try {
@@ -998,9 +962,11 @@ async function loadKanbanBoard() {
     const archivedCount = kanbanTasks.filter(t => t.archived || t.status === 'done').length;
 
     let html = `<div class="kanban-wrapper">
-      <div class="tool-header">
-        <h2>TABLICA ZADAŃ SYSTEMOWYCH KANBAN</h2>
-        <div>
+      <div class="tool-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h2 style="margin:0;">TABLICA ZADAŃ SYSTEMOWYCH KANBAN</h2>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-size:0.72rem; padding:5px 10px;" onclick="downloadWikiZip()" title="Pobierz pełną kopię zapasową bazy wiedzy jako archiwum ZIP">Kopia ZIP</button>
+          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#e4e4e7; font-size:0.72rem; padding:5px 10px;" onclick="openOrphanedImagesModal()" title="Skanuj i usuń nieużywane grafiki">Oczyść grafiki</button>
           <button class="btn-action" onclick="openAddTaskModal()">+ Nowe Zadanie</button>
           <button class="btn-action btn-archive" onclick="openArchiveModal()">Archiwum Zadań (${archivedCount})</button>
         </div>
@@ -2863,23 +2829,21 @@ function renderWikiInstruction() {
 
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">4. System Tagów i Wyszukiwanie Pełnotekstowe</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong>Format YAML Frontmatter:</strong> Tagi definiuje się na samym początku pliku Markdown w nagłówku ograniczonym potrójnymi myślnikami <code>---</code>, np. <code>tags: [cybersec, linux, nginx]</code>, jako pionową listę YAML (<code>- tag</code>) lub ciąg wartości rozdzielonych przecinkami.</li>
+      <li><strong>Format YAML Frontmatter:</strong> Tagi definiuje się na samym początku pliku Markdown w nagłówku ograniczonym potrójnymi myślnikami <code>---</code>, np. <code>tags: [cybersec, linux, nginx]</code>, jako pionową listę YAML (<code>- tag</code>) lub ciąg wartości rozdzielonych przecinkami. Do ich szybkiego wstawiania służy przycisk <strong>„Tagi”</strong> w edytorze.</li>
       <li><strong>Pigułki Tagów pod Artykułem:</strong> W nagłówku każdego artykułu wyświetlane są estetyczne etykiety <code>#tag</code>. Kliknięcie dowolnej etykiety automatycznie uruchamia wyszukiwanie wszystkich artykułów powiązanych z tym znacznikiem.</li>
       <li><strong>Chmura Tagów w Menu Bocznym:</strong> Pod wyszukiwarką w lewym panelu znajduje się chmura najpopularniejszych tagów z licznikiem powiązanych artykułów.</li>
-      <li><strong>Precyzyjne Wyszukiwanie po Tagach:</strong> Wpisanie frazy rozpoczynającej się od znaku hash (np. <code>#soc</code> lub <code>#proxmox</code>) w wyszukiwarce lub palecie poleceń wykonuje natychmiastowe filtrowanie wyłącznie po indeksie metadanych tagów.</li>
+      <li><strong>Precyzyjne Wyszukiwanie po Tagach:</strong> Wpisanie frazy rozpoczynającej się od znaku hash (np. <code>#soc</code> lub <code>#proxmox</code>) w globalnej wyszukiwarce wykonuje natychmiastowe filtrowanie wyłącznie po indeksie metadanych tagów.</li>
     </ul>
 
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">5. Kopia Zapasowa ZIP i Oczyszczanie Bazy</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong>Pobieranie Kopii Zapasowej ZIP:</strong> Przycisk <strong>„Kopia ZIP”</strong> w lewym panelu narzędziowym pakuje w locie całą bazę wiedzy (katalogi <code>docs/</code>, <code>data/</code>, <code>public/images/</code>) z automatycznym wykluczeniem kosza systemowego i przesyła strumieniowo plik <code>.zip</code> do przeglądarki. Plik tymczasowy jest automatycznie usuwany po transmisji.</li>
-      <li><strong>Menedżer Osieroconych Grafik:</strong> Przycisk <strong>„Oczyść grafiki”</strong> uruchamia rekurencyjny skan bazy dokumentów w poszukiwaniu odwołań do obrazów. Okno modalne prezentuje listę nieużywanych grafik z miniaturkami, rozmiarem i datą, umożliwia selekcję zbiorczą i bezpiecznie przenosi zbędne pliki do <code>docs/.trash/orphaned_images/</code> (bez ryzyka bezpowrotnej utraty).</li>
+      <li><strong>Pobieranie Kopii Zapasowej ZIP:</strong> Przycisk <strong>„Kopia ZIP”</strong> (dostępny w lewym pasku narzędziowym pod przyciskami skanowania/druku, na Pulpicie w nagłówku Tablicy Zadań oraz w menu bocznym Pulpitu w sekcji Konserwacja Bazy) pakuje w locie całą bazę wiedzy (katalogi <code>docs/</code>, <code>data/</code>, <code>public/images/</code>) z automatycznym wykluczeniem kosza systemowego i przesyła strumieniowo plik <code>.zip</code> do przeglądarki. Plik tymczasowy jest automatycznie usuwany po transmisji.</li>
+      <li><strong>Menedżer Osieroconych Grafik:</strong> Przycisk <strong>„Oczyść grafiki”</strong> (dostępny w lewym pasku narzędziowym, na Pulpicie w nagłówku Tablicy Zadań oraz w menu bocznym Pulpitu) uruchamia rekurencyjny skan bazy dokumentów w poszukiwaniu odwołań do obrazów. Okno modalne prezentuje listę nieużywanych grafik z miniaturkami, rozmiarem i datą, umożliwia selekcję zbiorczą i bezpiecznie przenosi zbędne pliki do <code>docs/.trash/orphaned_images/</code> (bez ryzyka bezpowrotnej utraty).</li>
     </ul>
 
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Zaawansowane Funkcje Operacyjne</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong>Paleta Poleceń (Ctrl + K):</strong> Wciśnięcie skrótu klawiszowego Ctrl+K (lub Cmd+K) otwiera wyszukiwarkę nawigacyjną. Umożliwia błyskawiczne znajdowanie stron za pomocą strzałek i klawisza Enter. Klawisz Escape zamyka modal.</li>
-      <li><strong>Składnia Wikilinks:</strong> Tworzenie powiązań między dokumentami za pomocą zapisu <code>[[Nazwa Dokumentu]]</code>. System automatycznie mapuje link na odpowiednią ścieżkę lub oznacza brakujący dokument.</li>
-      <li><strong>Import z URL (Web Scraper):</strong> Przycisk <strong>„Importuj Plik (MD / HTML)”</strong> umożliwia pobranie artykułu z zewnętrznego adresu URL. Silnik wycina treść główną, ignoruje reklamy i stopki, konwertuje HTML na czysty Markdown i zapisuje we wskazanym dziale.</li>
+      <li><strong>Import z URL (Web Scraper):</strong> Przycisk <strong>„Importuj Plik (MD / HTML)”</strong> w lewym panelu umożliwia pobranie artykułu z zewnętrznego adresu URL. Silnik wycina treść główną, ignoruje reklamy i stopki, konwertuje HTML na czysty Markdown i zapisuje we wskazanym dziale.</li>
       <li><strong>Zoptymalizowany Druk i Eksport PDF:</strong> Przycisk <strong>„Drukuj / PDF”</strong> (lub skrót Ctrl+P) aktywuje arkusz stylów w standardzie formatu A4 portrait z marginesami 12x15mm, automatycznym dopasowaniem szerokich tabel i bloków kodu bez obcinania prawej krawędzi oraz ukryciem elementów interfejsu.</li>
     </ul>
   </div>`;
@@ -3458,154 +3422,6 @@ async function loadRightSidebarKanban() {
     container.innerHTML = `<div style="font-size:0.65rem; color:#ef4444; text-align:center;">Błąd ładowania</div>`;
   }
 }
-
-// ================= COMMAND PALETTE (Ctrl+K) [dodane] ================= //
-let commandPaletteSelectedIndex = -1;
-let commandPaletteFilteredItems = [];
-
-function getAllDocuments() {
-  const docs = [];
-  if (!navigationData || !navigationData.categories) return docs;
-  
-  function walkSubcategory(sub, catTitle) {
-    if (sub.files) {
-      for (const f of sub.files) {
-        docs.push({
-          title: f.title,
-          relPath: f.relPath,
-          category: catTitle,
-          subcategory: sub.title
-        });
-      }
-    }
-    if (sub.items) {
-      for (const item of sub.items) {
-        walkSubcategory(item, catTitle);
-      }
-    }
-  }
-
-  for (const cat of navigationData.categories) {
-    if (cat.id === 'kanban_board') continue;
-    if (cat.subcategories) {
-      for (const sub of cat.subcategories) {
-        walkSubcategory(sub, cat.title);
-      }
-    }
-  }
-  return docs;
-}
-
-window.openCommandPalette = function() {
-  const modal = document.getElementById('commandPaletteModal');
-  const input = document.getElementById('commandPaletteInput');
-  if (!modal || !input) return;
-
-  modal.style.display = 'flex';
-  input.value = '';
-  commandPaletteSelectedIndex = -1;
-  commandPaletteFilteredItems = getAllDocuments();
-  renderCommandPaletteResultsList();
-  setTimeout(() => input.focus(), 50);
-};
-
-window.closeCommandPalette = function() {
-  const modal = document.getElementById('commandPaletteModal');
-  if (modal) modal.style.display = 'none';
-};
-
-window.renderCommandPaletteResults = function(query) {
-  const allDocs = getAllDocuments();
-  if (!query) {
-    commandPaletteFilteredItems = allDocs;
-  } else {
-    const q = query.toLowerCase();
-    commandPaletteFilteredItems = allDocs.filter(d => 
-      d.title.toLowerCase().includes(q) || 
-      d.relPath.toLowerCase().includes(q) ||
-      d.subcategory.toLowerCase().includes(q) ||
-      d.category.toLowerCase().includes(q)
-    );
-  }
-  commandPaletteSelectedIndex = commandPaletteFilteredItems.length > 0 ? 0 : -1;
-  renderCommandPaletteResultsList();
-};
-
-function renderCommandPaletteResultsList() {
-  const container = document.getElementById('commandPaletteResults');
-  if (!container) return;
-
-  if (commandPaletteFilteredItems.length === 0) {
-    container.innerHTML = '<p style="font-size:0.75rem; color:#666; text-align:center; padding:20px;">Brak pasujących dokumentów</p>';
-    return;
-  }
-
-  let html = '';
-  commandPaletteFilteredItems.forEach((item, index) => {
-    const isSelected = index === commandPaletteSelectedIndex;
-    const bg = isSelected ? '#1e293b' : 'transparent';
-    const border = isSelected ? '1px solid #3b82f6' : '1px solid transparent';
-    const color = isSelected ? 'var(--sw-gold)' : '#fff';
-    
-    const safeTitle = escapeHtml(item.title);
-    const safeCat = escapeHtml(item.category);
-    const safeSubcat = escapeHtml(item.subcategory);
-    const safeRel = escapeHtml(item.relPath);
-
-    html += `
-      <div class="cp-result-item" data-rel="${safeRel}" style="background:${bg}; border:${border}; padding:8px 12px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:background 0.1s;">
-        <div>
-          <span style="color:${color}; font-weight:600; font-size:0.8rem;">${safeTitle}</span>
-          <div style="font-size:0.65rem; color:#666; margin-top:2px;">${safeCat} &gt; ${safeSubcat}</div>
-        </div>
-        <span style="font-size:0.65rem; color:#555;">${safeRel}</span>
-      </div>
-    `;
-  });
-  container.innerHTML = html;
-
-  container.querySelectorAll('.cp-result-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const rel = el.getAttribute('data-rel');
-      if (rel && typeof selectCommandPaletteItem === 'function') {
-        selectCommandPaletteItem(rel);
-      }
-    });
-  });
-
-  if (commandPaletteSelectedIndex !== -1) {
-    const selectedEl = container.children[commandPaletteSelectedIndex];
-    if (selectedEl) {
-      selectedEl.scrollIntoView({ block: 'nearest' });
-    }
-  }
-}
-
-window.navigateCommandPalette = function(direction) {
-  if (commandPaletteFilteredItems.length === 0) return;
-  
-  commandPaletteSelectedIndex += direction;
-  if (commandPaletteSelectedIndex < 0) {
-    commandPaletteSelectedIndex = commandPaletteFilteredItems.length - 1;
-  } else if (commandPaletteSelectedIndex >= commandPaletteFilteredItems.length) {
-    commandPaletteSelectedIndex = 0;
-  }
-  renderCommandPaletteResultsList();
-};
-
-window.triggerCommandPaletteSelection = function() {
-  if (commandPaletteSelectedIndex === -1 || commandPaletteFilteredItems.length === 0) return;
-  const item = commandPaletteFilteredItems[commandPaletteSelectedIndex];
-  if (item) {
-    window.selectCommandPaletteItem(item.relPath);
-  }
-};
-
-window.selectCommandPaletteItem = function(relPath) {
-  window.closeCommandPalette();
-  window.location.hash = '#/' + relPath;
-};
-
 
 // --- ZMIANY: Tabulator oraz zmiana nazwy ---
 document.addEventListener('DOMContentLoaded', () => {
