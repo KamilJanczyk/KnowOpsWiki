@@ -702,7 +702,7 @@ async function loadArticle(articlePath) {
       breadcrumbArea.innerHTML = bCrumbText;
     }
 
-    const actionHeaderHtml = `<div class="article-action-header" style="display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px;">
+    const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:0; z-index:100; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
       <div style="display:flex; flex-direction:column;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:600;">DOKUMENT: ${articlePath}</span><span style="font-size:0.65rem; color:#6b7280; margin-top:2px;">Ostatnia modyfikacja: ${window.currentMtime || "Brak danych"}</span></div>
       <div style="display:flex; gap:6px;">
         <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ W TYM FOLDERZE</button>
