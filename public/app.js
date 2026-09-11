@@ -4317,8 +4317,47 @@ window.submitMoveFolder = async function() {
 
 // ================= CZYSZCZENIE OSIEROCONYCH GRAFIK ================= //
 
+function ensureOrphanedImagesModalInDOM() {
+  let overlay = document.getElementById('orphanedImagesModalOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orphanedImagesModalOverlay';
+    overlay.className = 'custom-modal-overlay';
+    overlay.style.display = 'none';
+    overlay.innerHTML = `
+    <div class="custom-modal" style="max-width: 680px; width: 95%;">
+      <div class="modal-header">
+        <h3 style="color:#60a5fa;">CZYSZCZENIE OSIEROCONYCH GRAFIK</h3>
+        <button class="modal-close-btn" onclick="closeOrphanedImagesModal()">X</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.8rem; color:#ccc; margin-bottom:12px; line-height:1.4;">
+          Poniższe pliki graficzne z folderu <code>public/images/</code> nie są linkowane w żadnym aktywnym dokumencie Markdown. Możesz je bezpiecznie przenieść do kosza systemowego.
+        </p>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-size:0.75rem; color:#a1a1aa;">
+            Znaleziono: <strong id="orphanedCountDisplay" style="color:var(--sw-gold);">0</strong> grafik (<span id="orphanedSizeDisplay" style="color:#fff;">0 MB</span>)
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" style="font-size:0.68rem; padding:3px 8px;" onclick="toggleSelectAllOrphaned(true)">Zaznacz wszystkie</button>
+            <button class="btn-secondary" style="font-size:0.68rem; padding:3px 8px;" onclick="toggleSelectAllOrphaned(false)">Odznacz</button>
+          </div>
+        </div>
+        <div id="orphanedImagesList" style="max-height: 280px; overflow-y: auto; background: #0c0c0e; border: 1px solid #333336; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeOrphanedImagesModal()">Zamknij</button>
+        <button class="btn-action" id="btnDeleteSelectedOrphaned" style="background:#ef4444; color:#fff; font-weight:bold;" onclick="submitDeleteOrphanedImages()">Usuń zaznaczone grafiki</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+  return overlay;
+}
+
 window.openOrphanedImagesModal = async function() {
-  const overlay = document.getElementById('orphanedImagesModalOverlay');
+  const overlay = ensureOrphanedImagesModalInDOM();
   const listEl = document.getElementById('orphanedImagesList');
   const countDisplay = document.getElementById('orphanedCountDisplay');
   const sizeDisplay = document.getElementById('orphanedSizeDisplay');
@@ -4326,7 +4365,8 @@ window.openOrphanedImagesModal = async function() {
 
   if (!overlay || !listEl) return;
   overlay.style.display = 'flex';
-  listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Trwa skanowanie bazy wiedzy w poszukiwaniu nieużywanych grafik...</div>';
+  document.body.style.cursor = 'wait';
+  listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#a1a1aa; font-size:0.82rem;">Trwa rekurencyjne skanowanie bazy wiedzy w poszukiwaniu nieużywanych grafik...</div>';
   if (countDisplay) countDisplay.textContent = '...';
   if (sizeDisplay) sizeDisplay.textContent = '...';
   if (deleteBtn) deleteBtn.disabled = true;
@@ -4342,7 +4382,7 @@ window.openOrphanedImagesModal = async function() {
     if (sizeDisplay) sizeDisplay.textContent = `${totalMb} MB`;
 
     if (count === 0) {
-      listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#10b981; font-size:0.85rem;">Brak osieroconych grafik w public/images/. Wszystkie grafiki są używane w dokumentacji.</div>';
+      listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#10b981; font-size:0.85rem; line-height:1.5;">Brak osieroconych grafik w public/images/.<br><span style="color:#a1a1aa; font-size:0.75rem;">Wszystkie pliki graficzne są aktywnie używane w dokumentacji.</span></div>';
       if (deleteBtn) deleteBtn.disabled = true;
       return;
     }
@@ -4367,6 +4407,8 @@ window.openOrphanedImagesModal = async function() {
     listEl.innerHTML = html;
   } catch (err) {
     listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Błąd pobierania listy grafik: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    document.body.style.cursor = 'default';
   }
 };
 
