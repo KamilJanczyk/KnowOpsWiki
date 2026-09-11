@@ -149,6 +149,16 @@ docs/
     - Dedykowane okno modalne z podglądem miniaturek osieroconych plików, kalkulatorem zajmowanego miejsca i opcjami masowego zaznaczania.
     - Zabezpieczenie przed bezpowrotną utratą danych: usuwane grafiki są bezpiecznie archiwizowane w koszu systemowym (`docs/.trash/orphaned_images/`) z unikalnym znacznikiem czasu.
 
+14. **Podręczny notatnik roboczy i szybki brudnopis (Scratchpad / Quick Draft - skrót Alt+N):**
+    - Globalny, wysuwany z prawej krawędzi panel boczny (Off-canvas Drawer) dostępny w każdym miejscu aplikacji bez konieczności opuszczania aktualnie czytanego dokumentu.
+    - Wywoływany za pomocą skrótu klawiszowego `Alt + N` (lub `Alt + S`) oraz dyskretnego, bocznego uchwytu na prawej krawędzi okna.
+    - Autozapis w czasie rzeczywistym w `localStorage` oraz asynchroniczna synchronizacja w tle z serwerem API (`/api/scratchpad`, plik `data/scratchpad_data.json`).
+    - Dwie zakładki robocze:
+      - *Brudnopis (Tekst / Kod)*: wielowierszowy edytor monospaced z automatycznym licznikiem znaków i linii, idealny do agregacji poleceń i wycinków konfiguracji.
+      - *Szybka Checklista*: lista zadań do odhaczenia (`Enter` dodaje zadanie, kliknięcie oznacza stan ukończenia).
+    - Zintegrowany przycisk **Przekształć w stronę Wiki**: błyskawicznie przenosi treść brudnopisu do kreatora nowej strony Markdown bez konieczności ręcznego kopiowania.
+    - Szybkie kopiowanie całej treści do schowka systemowego jednym kliknięciem.
+
 ---
 
 ## Bezpieczeństwo i hardening (SecOps)
@@ -239,5 +249,6 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Uzupełniono specyfikację stałego paska akcji dokumentu (Sticky Action Header) w pozycjonowaniu CSS.
 - Wprowadzono szczegółowy opis zoptymalizowanego mechanizmu wydruku i generowania PDF w standardzie formatu A4.
 - Zaktualizowano opis procedur operacyjnych (Playbooks SOP), szybkich notatek oraz weryfikacji binarnej Magic Bytes.
-- Rozszerzono pakiet testów jednostkowych do 14 testów automatycznych weryfikujących mechanizmy bezpieczeństwa, integralności, tagów i archiwizacji.
+- Rozszerzono pakiet testów jednostkowych do 15 testów automatycznych weryfikujących mechanizmy bezpieczeństwa, integralności, tagów, archiwizacji oraz walidacji brudnopisu.
 - Dodano dedykowany przycisk "Tagi" w pasku narzędziowym edytora Markdown (`insertEditorText('tags')`) oraz zaktualizowano i rozszerzono wbudowaną instrukcję obsługi portalu dostępną w module Pulpit (`renderWikiInstruction`).
+- Wdrożono moduł Podręcznego Notatnika Roboczego (Scratchpad / Quick Draft) z globalnym skrótem klawiszowym `Alt + N`, dwoma trybami roboczymi (brudnopis tekstu/kodu i checklista), natychmiastowym autozapisem oraz opcją bezpośredniej konwersji do strony Wiki (`promoteScratchpadToWikiPage`).

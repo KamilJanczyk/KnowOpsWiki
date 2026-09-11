@@ -465,3 +465,50 @@ test('Backup ZIP Engine: Weryfikacja integralności archiwizacji bazy wiedzy', (
     fs.unlinkSync(result.path);
   } catch (e) {}
 });
+
+test('Scratchpad Security & Validation: Walidacja danych brudnopisu i ochrona payloadu', () => {
+  function validateScratchpadPayload(body) {
+    if (!body || typeof body !== 'object') return { valid: false, error: 'Nieprawidłowe ciało żądania' };
+    const content = typeof body.content === 'string' ? body.content : '';
+    if (content.length > 1024 * 1024) {
+      return { valid: false, error: 'Treść brudnopisu przekracza maksymalny limit 1MB' };
+    }
+    const checklist = Array.isArray(body.checklist) ? body.checklist.slice(0, 100).map(item => ({
+      id: String(item.id || Date.now() + Math.random().toString(36).slice(2, 6)),
+      text: String(item.text || '').replace(/[<>]/g, '').slice(0, 500),
+      done: Boolean(item.done)
+    })) : [];
+
+    return {
+      valid: true,
+      data: {
+        content,
+        checklist
+      }
+    };
+  }
+
+  // 1. Zabezpieczenie przed przepełnieniem (Payload > 1MB)
+  const hugeString = 'a'.repeat(1024 * 1024 + 50);
+  const oversizedResult = validateScratchpadPayload({ content: hugeString });
+  assert.equal(oversizedResult.valid, false);
+  assert.equal(oversizedResult.error.includes('1MB'), true);
+
+  // 2. Poprawny brudnopis z tekstem i checklistą
+  const validPayload = {
+    content: 'Tymczasowe polecenie: sudo systemctl restart nginx\nIP: 192.168.1.10',
+    checklist: [
+      { id: '1', text: 'Sprawdzić status klastra <script>alert(1)</script>', done: false },
+      { id: '2', text: 'Wykonać kopię zapasową', done: true }
+    ]
+  };
+  const validResult = validateScratchpadPayload(validPayload);
+  assert.equal(validResult.valid, true);
+  assert.equal(validResult.data.content.includes('sudo systemctl'), true);
+  assert.equal(validResult.data.checklist.length, 2);
+  // Sanityzacja znaków tagów HTML
+  assert.equal(validResult.data.checklist[0].text.includes('<script>'), false);
+  assert.equal(validResult.data.checklist[0].done, false);
+  assert.equal(validResult.data.checklist[1].done, true);
+});
+

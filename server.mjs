@@ -203,6 +203,11 @@ if (!fs.existsSync(QUICK_NOTES_FILE)) {
   fs.writeFileSync(QUICK_NOTES_FILE, JSON.stringify({ notes: [] }, null, 2));
 }
 
+const SCRATCHPAD_FILE = path.join(DATA_DIR, 'scratchpad_data.json');
+if (!fs.existsSync(SCRATCHPAD_FILE)) {
+  fs.writeFileSync(SCRATCHPAD_FILE, JSON.stringify({ content: '', checklist: [] }, null, 2));
+}
+
 // RSS Security Bulletins [dodane]
 const RSS_FEEDS_FILE = path.join(DATA_DIR, 'rss_feeds.json');
 const defaultRssFeeds = [
@@ -447,7 +452,7 @@ try {
     if (isApiSaving) return;
     if (!filename || filename.includes('node_modules') || filename.includes('.git') || filename.includes('dist')) return;
     if (!filename.endsWith('.md') && !filename.includes('public')) return;
-    if (filename.includes('kanban_data.json') || filename.includes('quick_notes.json')) return;
+    if (filename.includes('kanban_data.json') || filename.includes('quick_notes.json') || filename.includes('scratchpad_data.json')) return;
 
     if (watchDebounceTimer) clearTimeout(watchDebounceTimer);
     watchDebounceTimer = setTimeout(() => {
@@ -595,6 +600,22 @@ const server = http.createServer(async (req, res) => {
         return sendJson(200, data);
       }
       return sendJson(200, { notes: [] });
+    }
+
+    if (normPath === '/api/scratchpad' && req.method === 'GET') {
+      if (fs.existsSync(SCRATCHPAD_FILE)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(SCRATCHPAD_FILE, 'utf8'));
+          return sendJson(200, {
+            content: typeof data.content === 'string' ? data.content : '',
+            checklist: Array.isArray(data.checklist) ? data.checklist : [],
+            updatedAt: data.updatedAt || null
+          });
+        } catch (e) {
+          console.error('[Wiki API] Błąd odczytu scratchpad_data.json:', e);
+        }
+      }
+      return sendJson(200, { content: '', checklist: [], updatedAt: null });
     }
 
     if (normPath === '/api/playbooks' && req.method === 'GET') {
@@ -1035,6 +1056,27 @@ const server = http.createServer(async (req, res) => {
       atomicWriteFile(QUICK_NOTES_FILE, JSON.stringify({ notes: body.notes }, null, 2), 'utf8');
       console.log(`[Wiki API] Zaktualizowano Szybkie Notatki (${body.notes.length} notatek)`);
       return sendJson(200, { success: true, message: 'Szybkie Notatki zostały zapisane.' });
+    }
+
+    if (normPath === '/api/scratchpad' && req.method === 'POST') {
+      const body = await getBody();
+      const content = typeof body.content === 'string' ? body.content : '';
+      if (content.length > 1024 * 1024) {
+        return sendJson(400, { error: 'Treść brudnopisu przekracza maksymalny limit 1MB' });
+      }
+      const checklist = Array.isArray(body.checklist) ? body.checklist.slice(0, 100).map(item => ({
+        id: String(item.id || Date.now() + Math.random().toString(36).slice(2, 6)),
+        text: String(item.text || '').replace(/[<>]/g, '').slice(0, 500),
+        done: Boolean(item.done)
+      })) : [];
+
+      const record = {
+        content,
+        checklist,
+        updatedAt: new Date().toISOString()
+      };
+      atomicWriteFile(SCRATCHPAD_FILE, JSON.stringify(record, null, 2), 'utf8');
+      return sendJson(200, { success: true, message: 'Brudnopis został zsynchronizowany.', record });
     }
 
     if (normPath === '/api/playbooks' && req.method === 'POST') {

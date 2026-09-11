@@ -595,6 +595,9 @@
       .breadcrumb-nav,
       .copy-code-btn,
       .custom-modal-overlay,
+      .scratchpad-trigger-tab,
+      .scratchpad-drawer,
+      .scratchpad-backdrop,
       #articleEditorModal,
       #toastContainer,
       .article-action-header,
@@ -1037,3 +1040,204 @@
       background: #000;
       flex-shrink: 0;
     }
+
+    /* Podręczny Notatnik Roboczy (Scratchpad / Quick Draft) */
+    .scratchpad-trigger-tab {
+      position: fixed;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 2100;
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-right: none;
+      color: #e4e4e7;
+      padding: 10px 5px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      border-radius: 6px 0 0 6px;
+      cursor: pointer;
+      box-shadow: -2px 4px 12px rgba(0,0,0,0.5);
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .scratchpad-trigger-tab:hover {
+      background: #27272a;
+      color: var(--sw-gold);
+      border-color: var(--sw-gold);
+      padding-right: 8px;
+    }
+    .scratchpad-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: 2850;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .scratchpad-backdrop.open {
+      display: block;
+      opacity: 1;
+    }
+    .scratchpad-drawer {
+      position: fixed;
+      right: -430px;
+      top: 0;
+      width: 420px;
+      max-width: 95vw;
+      height: 100vh;
+      background: #121214;
+      border-left: 1px solid #27272a;
+      z-index: 2900;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -8px 0 24px rgba(0,0,0,0.85);
+      transition: right 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .scratchpad-drawer.open {
+      right: 0;
+    }
+    .scratchpad-header {
+      background: #09090b;
+      padding: 12px 16px;
+      border-bottom: 1px solid #27272a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .scratchpad-header h3 {
+      font-size: 0.88rem;
+      color: var(--sw-gold);
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .scratchpad-badge {
+      font-size: 0.65rem;
+      color: #71717a;
+      background: #18181b;
+      border: 1px solid #333;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .scratchpad-tabs-bar {
+      display: flex;
+      background: #0c0c0e;
+      border-bottom: 1px solid #27272a;
+      padding: 0 12px;
+      gap: 6px;
+    }
+    .scratchpad-tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #888888;
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .scratchpad-tab-btn:hover {
+      color: #ffffff;
+    }
+    .scratchpad-tab-btn.active {
+      color: var(--sw-gold);
+      border-bottom-color: var(--sw-gold);
+    }
+    .scratchpad-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      overflow: hidden;
+      gap: 10px;
+    }
+    .scratchpad-textarea {
+      flex: 1;
+      width: 100%;
+      background: #09090b;
+      color: #f4f4f5;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+    }
+    .scratchpad-textarea:focus {
+      border-color: var(--sw-gold);
+    }
+    .scratchpad-checklist-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      gap: 10px;
+    }
+    .scratchpad-add-item-row {
+      display: flex;
+      gap: 6px;
+    }
+    .scratchpad-items-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .scratchpad-check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: #141416;
+      border: 1px solid #222;
+      border-radius: 4px;
+      font-size: 0.76rem;
+      transition: background 0.1s;
+    }
+    .scratchpad-check-item:hover {
+      background: #1c1c1f;
+    }
+    .scratchpad-check-item.done span {
+      text-decoration: line-through;
+      color: #71717a;
+    }
+    .scratchpad-footer {
+      background: #09090b;
+      border-top: 1px solid #27272a;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .scratchpad-status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.68rem;
+      color: #71717a;
+    }
+    .scratchpad-actions-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+

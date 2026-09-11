@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadNavigation();
   await handleHashNavigation();
   await loadRightSidebarKanban();
+  if (typeof window.initScratchpad === 'function') {
+    await window.initScratchpad();
+  }
 
   // Obsługa globalnej wyszukiwarki
   const searchInput = document.getElementById('globalSearchInput');
@@ -34,11 +37,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Zamknięcie otwartych okien modalnych klawiszem Esc
+  // Zamknięcie otwartych okien modalnych klawiszem Esc oraz skrót Alt+N dla brudnopisu
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const overlays = document.querySelectorAll('.custom-modal-overlay');
       overlays.forEach(modal => { modal.style.display = 'none'; });
+      if (typeof window.closeScratchpad === 'function') {
+        window.closeScratchpad();
+      }
+    }
+    if (e.altKey && (e.key === 'n' || e.key === 'N' || e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      if (typeof window.toggleScratchpad === 'function') {
+        window.toggleScratchpad();
+      }
     }
   });
 
@@ -2843,6 +2855,7 @@ function renderWikiInstruction() {
 
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Zaawansowane Funkcje Operacyjne</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong>Podręczny Brudnopis (Scratchpad - Alt+N):</strong> Wciśnięcie skrótu klawiszowego <code>Alt + N</code> (lub kliknięcie bocznego uchwytu NOTATNIK na prawej krawędzi ekranu) wysuwa globalny panel roboczy z autozapisem w czasie rzeczywistym. Zawiera edytor tekstu/kodu, szybką checklistę zadań, natychmiastowe kopiowanie oraz przycisk <strong>„Przekształć w stronę Wiki”</strong> do bezpośredniej konwersji brudnopisu w nowy plik dokumentacji.</li>
       <li><strong>Import z URL (Web Scraper):</strong> Przycisk <strong>„Importuj Plik (MD / HTML)”</strong> w lewym panelu umożliwia pobranie artykułu z zewnętrznego adresu URL. Silnik wycina treść główną, ignoruje reklamy i stopki, konwertuje HTML na czysty Markdown i zapisuje we wskazanym dziale.</li>
       <li><strong>Zoptymalizowany Druk i Eksport PDF:</strong> Przycisk <strong>„Drukuj / PDF”</strong> (lub skrót Ctrl+P) aktywuje arkusz stylów w standardzie formatu A4 portrait z marginesami 12x15mm, automatycznym dopasowaniem szerokich tabel i bloków kodu bez obcinania prawej krawędzi oraz ukryciem elementów interfejsu.</li>
     </ul>
@@ -4462,3 +4475,375 @@ window.submitDeleteOrphanedImages = async function() {
     }
   }
 };
+
+// ================= PODRĘCZNY NOTATNIK ROBOCZY (SCRATCHPAD) ================= //
+
+let scratchpadChecklist = [];
+let scratchpadSaveTimer = null;
+let currentScratchpadTab = 'doc';
+
+function ensureScratchpadInDOM() {
+  let drawer = document.getElementById('scratchpadDrawer');
+  let backdrop = document.getElementById('scratchpadBackdrop');
+  let triggerBtn = document.getElementById('scratchpadTriggerBtn');
+
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'scratchpadBackdrop';
+    backdrop.className = 'scratchpad-backdrop';
+    backdrop.onclick = window.closeScratchpad;
+    document.body.appendChild(backdrop);
+  }
+
+  if (!drawer) {
+    drawer = document.createElement('aside');
+    drawer.id = 'scratchpadDrawer';
+    drawer.className = 'scratchpad-drawer';
+    drawer.setAttribute('aria-label', 'Podręczny Brudnopis');
+    drawer.innerHTML = `
+      <div class="scratchpad-header">
+        <h3>
+          <span>PODRĘCZNY BRUDNOPIS</span>
+          <span class="scratchpad-badge">Alt + N</span>
+        </h3>
+        <button class="modal-close-btn" onclick="window.closeScratchpad()" title="Zamknij (Esc)">X</button>
+      </div>
+      <div class="scratchpad-tabs-bar">
+        <button id="scratchpadTabDoc" class="scratchpad-tab-btn active" onclick="window.switchScratchpadTab('doc')">Brudnopis (Tekst / Kod)</button>
+        <button id="scratchpadTabCheck" class="scratchpad-tab-btn" onclick="window.switchScratchpadTab('check')">Szybka Checklista (<span id="scratchpadCheckCount">0</span>)</button>
+      </div>
+      <div class="scratchpad-body">
+        <div id="scratchpadDocPane" style="display:flex; flex-direction:column; flex:1; height:100%;">
+          <textarea id="scratchpadTextarea" class="scratchpad-textarea" placeholder="Wklej tutaj tymczasowe polecenia, zrzuty konfiguracji, notatki ze spotkań, numery portów, adresy IP... Zapisuje się automatycznie." oninput="window.onScratchpadInput()"></textarea>
+        </div>
+        <div id="scratchpadCheckPane" class="scratchpad-checklist-container" style="display:none;">
+          <div class="scratchpad-add-item-row">
+            <input type="text" id="scratchpadNewCheckInput" class="modal-input" placeholder="Wpisz nowe zadanie i wciśnij Enter..." onkeydown="if(event.key==='Enter'){event.preventDefault(); window.addScratchpadCheckItem();}" style="font-size:0.75rem; padding:6px 10px;">
+            <button class="btn-action" onclick="window.addScratchpadCheckItem()" style="font-size:0.72rem; padding:5px 10px;">Dodaj</button>
+          </div>
+          <div id="scratchpadItemsList" class="scratchpad-items-list"></div>
+        </div>
+      </div>
+      <div class="scratchpad-footer">
+        <div class="scratchpad-status-row">
+          <span id="scratchpadCountsDisplay">Znaki: 0 | Linie: 0</span>
+          <span id="scratchpadSyncStatus" style="color:#10b981;">Zapisano</span>
+        </div>
+        <div class="scratchpad-actions-row">
+          <div style="display:flex; gap:6px;">
+            <button class="btn-secondary" id="btnScratchpadCopy" onclick="window.copyScratchpadToClipboard()" style="font-size:0.68rem; padding:4px 8px;" title="Kopiuj całą treść do schowka">Kopiuj całość</button>
+            <button class="btn-secondary" onclick="window.clearScratchpad()" style="font-size:0.68rem; padding:4px 8px; color:#ef4444;" title="Wyczyść brudnopis">Wyczyść</button>
+          </div>
+          <button class="btn-action" onclick="window.promoteScratchpadToWikiPage()" style="font-size:0.68rem; padding:5px 10px; background:var(--sw-gold); color:#000; font-weight:700;" title="Otwórz formularz nowej strony z tą treścią">Przekształć w stronę Wiki</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(drawer);
+  }
+
+  if (!triggerBtn) {
+    triggerBtn = document.createElement('button');
+    triggerBtn.id = 'scratchpadTriggerBtn';
+    triggerBtn.className = 'scratchpad-trigger-tab';
+    triggerBtn.onclick = window.toggleScratchpad;
+    triggerBtn.title = 'Podręczny Notatnik (Skrót: Alt + N)';
+    triggerBtn.textContent = 'NOTATNIK [Alt+N]';
+    document.body.appendChild(triggerBtn);
+  }
+
+  return { drawer, backdrop, triggerBtn };
+}
+
+window.initScratchpad = async function() {
+  ensureScratchpadInDOM();
+  const savedLocalContent = localStorage.getItem('knowops_scratchpad_content');
+  const savedLocalChecklist = localStorage.getItem('knowops_scratchpad_checklist');
+
+  const textarea = document.getElementById('scratchpadTextarea');
+  if (textarea && savedLocalContent !== null) {
+    textarea.value = savedLocalContent;
+    window.updateScratchpadCounts();
+  }
+
+  if (savedLocalChecklist) {
+    try {
+      scratchpadChecklist = JSON.parse(savedLocalChecklist) || [];
+      window.renderScratchpadChecklist();
+    } catch (e) {}
+  }
+
+  try {
+    const res = await fetch('/api/scratchpad?t=' + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      if (data.content && (!savedLocalContent || data.content.length > savedLocalContent.length)) {
+        if (textarea) {
+          textarea.value = data.content;
+          localStorage.setItem('knowops_scratchpad_content', data.content);
+          window.updateScratchpadCounts();
+        }
+      }
+      if (Array.isArray(data.checklist) && data.checklist.length > 0 && scratchpadChecklist.length === 0) {
+        scratchpadChecklist = data.checklist;
+        localStorage.setItem('knowops_scratchpad_checklist', JSON.stringify(scratchpadChecklist));
+        window.renderScratchpadChecklist();
+      }
+    }
+  } catch (e) {
+    console.warn('[Scratchpad] Błąd synchronizacji z serwerem:', e);
+  }
+};
+
+window.toggleScratchpad = function() {
+  const drawer = document.getElementById('scratchpadDrawer');
+  if (!drawer) {
+    ensureScratchpadInDOM();
+  }
+  const isCurrentlyOpen = document.getElementById('scratchpadDrawer').classList.contains('open');
+  if (isCurrentlyOpen) {
+    window.closeScratchpad();
+  } else {
+    window.openScratchpad();
+  }
+};
+
+window.openScratchpad = function() {
+  ensureScratchpadInDOM();
+  const drawer = document.getElementById('scratchpadDrawer');
+  const backdrop = document.getElementById('scratchpadBackdrop');
+  if (drawer) drawer.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
+
+  window.updateScratchpadCounts();
+  if (currentScratchpadTab === 'doc') {
+    const ta = document.getElementById('scratchpadTextarea');
+    if (ta) setTimeout(() => ta.focus(), 80);
+  } else {
+    const inp = document.getElementById('scratchpadNewCheckInput');
+    if (inp) setTimeout(() => inp.focus(), 80);
+  }
+};
+
+window.closeScratchpad = function() {
+  const drawer = document.getElementById('scratchpadDrawer');
+  const backdrop = document.getElementById('scratchpadBackdrop');
+  if (drawer) drawer.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+};
+
+window.switchScratchpadTab = function(tab) {
+  currentScratchpadTab = tab;
+  const docTabBtn = document.getElementById('scratchpadTabDoc');
+  const checkTabBtn = document.getElementById('scratchpadTabCheck');
+  const docPane = document.getElementById('scratchpadDocPane');
+  const checkPane = document.getElementById('scratchpadCheckPane');
+
+  if (tab === 'doc') {
+    if (docTabBtn) docTabBtn.classList.add('active');
+    if (checkTabBtn) checkTabBtn.classList.remove('active');
+    if (docPane) docPane.style.display = 'flex';
+    if (checkPane) checkPane.style.display = 'none';
+    const ta = document.getElementById('scratchpadTextarea');
+    if (ta) setTimeout(() => ta.focus(), 50);
+  } else {
+    if (docTabBtn) docTabBtn.classList.remove('active');
+    if (checkTabBtn) checkTabBtn.classList.add('active');
+    if (docPane) docPane.style.display = 'none';
+    if (checkPane) checkPane.style.display = 'flex';
+    const inp = document.getElementById('scratchpadNewCheckInput');
+    if (inp) setTimeout(() => inp.focus(), 50);
+  }
+};
+
+window.updateScratchpadCounts = function() {
+  const ta = document.getElementById('scratchpadTextarea');
+  const countsEl = document.getElementById('scratchpadCountsDisplay');
+  const checkCountEl = document.getElementById('scratchpadCheckCount');
+  if (!ta) return;
+  const text = ta.value;
+  const chars = text.length;
+  const lines = text ? text.split('\n').length : 0;
+  if (countsEl) countsEl.textContent = `Znaki: ${chars} | Linie: ${lines}`;
+  if (checkCountEl) {
+    const pending = scratchpadChecklist.filter(item => !item.done).length;
+    checkCountEl.textContent = pending;
+  }
+};
+
+window.onScratchpadInput = function() {
+  const ta = document.getElementById('scratchpadTextarea');
+  if (!ta) return;
+  const content = ta.value;
+  localStorage.setItem('knowops_scratchpad_content', content);
+  window.updateScratchpadCounts();
+
+  const statusEl = document.getElementById('scratchpadSyncStatus');
+  if (statusEl) {
+    statusEl.textContent = 'Zapisywanie...';
+    statusEl.style.color = '#facc15';
+  }
+
+  if (scratchpadSaveTimer) clearTimeout(scratchpadSaveTimer);
+  scratchpadSaveTimer = setTimeout(() => {
+    window.saveScratchpadToServer();
+  }, 600);
+};
+
+window.saveScratchpadToServer = async function() {
+  const ta = document.getElementById('scratchpadTextarea');
+  const content = ta ? ta.value : '';
+  const statusEl = document.getElementById('scratchpadSyncStatus');
+
+  try {
+    const res = await fetch('/api/scratchpad', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content,
+        checklist: scratchpadChecklist
+      })
+    });
+    if (res.ok) {
+      if (statusEl) {
+        statusEl.textContent = 'Zapisano';
+        statusEl.style.color = '#10b981';
+      }
+    }
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = 'Lokalnie';
+      statusEl.style.color = '#a1a1aa';
+    }
+  }
+};
+
+window.copyScratchpadToClipboard = async function() {
+  const ta = document.getElementById('scratchpadTextarea');
+  if (!ta || !ta.value.trim()) {
+    alert('Brudnopis jest pusty.');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    const copyBtn = document.getElementById('btnScratchpadCopy');
+    if (copyBtn) {
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = 'Skopiowano!';
+      copyBtn.style.color = '#10b981';
+      setTimeout(() => {
+        copyBtn.textContent = orig;
+        copyBtn.style.color = '';
+      }, 1500);
+    }
+  } catch (e) {
+    ta.select();
+    document.execCommand('copy');
+    alert('Skopiowano treść do schowka.');
+  }
+};
+
+window.clearScratchpad = function() {
+  const ta = document.getElementById('scratchpadTextarea');
+  if (!ta || !ta.value.trim()) return;
+  if (confirm('Czy na pewno chcesz wyczyścić zawartość brudnopisu?')) {
+    ta.value = '';
+    localStorage.removeItem('knowops_scratchpad_content');
+    window.updateScratchpadCounts();
+    window.saveScratchpadToServer();
+  }
+};
+
+window.promoteScratchpadToWikiPage = function() {
+  const ta = document.getElementById('scratchpadTextarea');
+  const content = ta ? ta.value.trim() : '';
+  if (!content) {
+    alert('Brudnopis jest pusty. Wpisz najpierw treść, którą chcesz przekształcić w stronę Wiki.');
+    return;
+  }
+
+  window.closeScratchpad();
+  if (typeof openCreateItemModal === 'function') {
+    openCreateItemModal();
+    setTimeout(() => {
+      const typeSelect = document.getElementById('createItemTypeSelect');
+      if (typeSelect) typeSelect.value = 'page';
+      const pageFields = document.getElementById('createPageFields');
+      if (pageFields) pageFields.style.display = 'block';
+      const folderFields = document.getElementById('createFolderFields');
+      if (folderFields) folderFields.style.display = 'none';
+
+      const contentArea = document.getElementById('createItemContentTextarea');
+      if (contentArea) {
+        contentArea.value = content;
+      }
+      const titleInput = document.getElementById('createItemTitleInput');
+      if (titleInput) {
+        titleInput.focus();
+      }
+    }, 120);
+  }
+};
+
+window.renderScratchpadChecklist = function() {
+  const listEl = document.getElementById('scratchpadItemsList');
+  if (!listEl) return;
+
+  if (scratchpadChecklist.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:18px; color:#666; font-size:0.75rem;">Brak zadań w checkliście. Wpisz zadanie powyżej i wciśnij Enter.</div>';
+    window.updateScratchpadCounts();
+    return;
+  }
+
+  let html = '';
+  scratchpadChecklist.forEach((item) => {
+    const safeText = escapeHtml(item.text);
+    const safeId = escapeHtml(item.id);
+    const isDone = Boolean(item.done);
+
+    html += `
+      <div class="scratchpad-check-item ${isDone ? 'done' : ''}">
+        <input type="checkbox" ${isDone ? 'checked' : ''} onchange="window.toggleScratchpadCheckItem('${safeId}')" style="cursor:pointer; width:15px; height:15px;">
+        <span style="flex:1; word-break:break-word;">${safeText}</span>
+        <button type="button" onclick="window.deleteScratchpadCheckItem('${safeId}')" style="background:none; border:none; color:#ef4444; font-size:0.75rem; cursor:pointer; padding:2px 4px;" title="Usuń zadanie">X</button>
+      </div>
+    `;
+  });
+  listEl.innerHTML = html;
+  window.updateScratchpadCounts();
+};
+
+window.addScratchpadCheckItem = function() {
+  const inp = document.getElementById('scratchpadNewCheckInput');
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+
+  scratchpadChecklist.push({
+    id: 'chk_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    text: text,
+    done: false
+  });
+  inp.value = '';
+  localStorage.setItem('knowops_scratchpad_checklist', JSON.stringify(scratchpadChecklist));
+  window.renderScratchpadChecklist();
+  window.saveScratchpadToServer();
+  inp.focus();
+};
+
+window.toggleScratchpadCheckItem = function(id) {
+  const item = scratchpadChecklist.find(i => i.id === id);
+  if (item) {
+    item.done = !item.done;
+    localStorage.setItem('knowops_scratchpad_checklist', JSON.stringify(scratchpadChecklist));
+    window.renderScratchpadChecklist();
+    window.saveScratchpadToServer();
+  }
+};
+
+window.deleteScratchpadCheckItem = function(id) {
+  scratchpadChecklist = scratchpadChecklist.filter(i => i.id !== id);
+  localStorage.setItem('knowops_scratchpad_checklist', JSON.stringify(scratchpadChecklist));
+  window.renderScratchpadChecklist();
+  window.saveScratchpadToServer();
+};
+
