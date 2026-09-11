@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.3.0">
+  <link rel="stylesheet" href="/public/style.css?v=2.3.1">
 </head>
 <body>
 
@@ -109,7 +109,7 @@
         <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>
         <button type="button" class="toolbar-btn" onclick="insertEditorText('code')" title="Blok kodu">Kod</button>
         <button type="button" class="toolbar-btn" onclick="insertEditorText('table')" title="Tabela">Tabela</button>
-        <button type="button" class="toolbar-btn" onclick="insertEditorText('tags')" title="Wstaw lub edytuj tagi dokumentu (YAML Frontmatter)">Tagi</button>
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('tags')" title="Wstaw lub edytuj tagi dokumentu (YAML Frontmatter)" style="color:var(--sw-gold); font-weight:700;">Tagi</button>
         <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>
         <select class="toolbar-btn" onchange="if(this.value){insertEditorText(this.value); this.value='';}" style="background:#27272a; color:#e4e4e7; border:1px solid #3f3f46; padding:3px 6px; font-size:0.68rem; border-radius:4px; cursor:pointer; outline:none;">
           <option value="">Diagram Mermaid</option>
@@ -197,7 +197,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.5.0"></script>
+  <script src="/public/app.js?v=2.5.1"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">

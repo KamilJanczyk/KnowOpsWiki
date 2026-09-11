@@ -512,3 +512,65 @@ test('Scratchpad Security & Validation: Walidacja danych brudnopisu i ochrona pa
   assert.equal(validResult.data.checklist[1].done, true);
 });
 
+test('Editor Tags Handler: Weryfikacja logiki wstawiania i modyfikacji YAML Frontmatter dla tagów', () => {
+  function processEditorTags(text, selectedText = '') {
+    const defaultTags = selectedText ? selectedText.replace(/[\r\n]/g, '').trim() : 'tag1, tag2';
+
+    if (text.startsWith('---')) {
+      const parts = text.split('---');
+      if (parts.length >= 3) {
+        const frontmatter = parts[1];
+        const match = frontmatter.match(/tags:\s*(\[[^\]\n]*\]|[^\n]+)/i);
+        if (match) {
+          const matchIndex = text.indexOf(match[0]);
+          return {
+            type: 'existing_tags',
+            newText: text,
+            selectionStart: matchIndex,
+            selectionEnd: matchIndex + match[0].length
+          };
+        } else {
+          const endOfFm = text.indexOf('---', 3);
+          const tagLine = `tags: [${defaultTags}]\n`;
+          const newText = text.substring(0, endOfFm) + tagLine + text.substring(endOfFm);
+          const tagSelStart = endOfFm + 7;
+          return {
+            type: 'inserted_in_fm',
+            newText: newText,
+            selectionStart: tagSelStart,
+            selectionEnd: tagSelStart + defaultTags.length
+          };
+        }
+      }
+    }
+
+    const fmBlock = `---\ntags: [${defaultTags}]\n---\n\n`;
+    return {
+      type: 'created_fm',
+      newText: fmBlock + text,
+      selectionStart: 11,
+      selectionEnd: 11 + defaultTags.length
+    };
+  }
+
+  // 1. Dokument bez frontmattera
+  const plainDoc = '# Tytuł artykułu\nTreść dokumentu.';
+  const res1 = processEditorTags(plainDoc, 'linux, security');
+  assert.equal(res1.type, 'created_fm');
+  assert.equal(res1.newText.startsWith('---\ntags: [linux, security]\n---\n\n# Tytuł'), true);
+
+  // 2. Dokument z frontmatterem bez tagów
+  const fmDoc = '---\ntitle: NFS Storage\nauthor: Admin\n---\n# Treść';
+  const res2 = processEditorTags(fmDoc, 'vmware, storage');
+  assert.equal(res2.type, 'inserted_in_fm');
+  assert.equal(res2.newText.includes('tags: [vmware, storage]\n---'), true);
+
+  // 3. Dokument z istniejącymi tagami
+  const existingTagsDoc = '---\ntitle: VMware\ntags: [esxi, vcenter]\n---\n# Treść';
+  const res3 = processEditorTags(existingTagsDoc);
+  assert.equal(res3.type, 'existing_tags');
+  assert.equal(res3.newText, existingTagsDoc);
+  assert.equal(existingTagsDoc.substring(res3.selectionStart, res3.selectionEnd), 'tags: [esxi, vcenter]');
+});
+
+

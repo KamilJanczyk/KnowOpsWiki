@@ -18,6 +18,7 @@ function escapeHtml(str) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  ensureEditorToolbarTagsButton();
   await loadNavigation();
   await handleHashNavigation();
   await loadRightSidebarKanban();
@@ -3556,6 +3557,7 @@ async function openEditorModal(targetPath) {
     const modal = document.getElementById('articleEditorModal');
     if (modal) {
       modal.style.display = 'flex';
+      ensureEditorToolbarTagsButton();
       updateEditorPreview();
     } else {
       alert('Nie znaleziono okna edytora articleEditorModal w strukturze HTML.');
@@ -3827,6 +3829,35 @@ window.saveCurrentDraftAsTemplate = saveCurrentDraftAsTemplate;
 
 
 // ================= EDITOR TOOLBAR & IMAGE UPLOAD FUNCTIONS ================= //
+
+function ensureEditorToolbarTagsButton() {
+  const toolbar = document.querySelector('.editor-toolbar');
+  if (!toolbar) return;
+
+  let tagBtn = toolbar.querySelector('button[onclick*="tags"]');
+  if (!tagBtn) {
+    tagBtn = document.createElement('button');
+    tagBtn.type = 'button';
+    tagBtn.className = 'toolbar-btn';
+    tagBtn.setAttribute('onclick', "insertEditorText('tags')");
+    tagBtn.title = 'Wstaw lub edytuj tagi dokumentu (YAML Frontmatter)';
+    tagBtn.textContent = 'Tagi';
+    tagBtn.style.color = 'var(--sw-gold)';
+    tagBtn.style.fontWeight = '700';
+
+    const tableBtn = Array.from(toolbar.querySelectorAll('button')).find(b => b.textContent && b.textContent.trim().includes('Tabela'));
+    if (tableBtn) {
+      tableBtn.insertAdjacentElement('afterend', tagBtn);
+    } else {
+      toolbar.appendChild(tagBtn);
+    }
+  } else {
+    tagBtn.style.color = 'var(--sw-gold)';
+    tagBtn.style.fontWeight = '700';
+    tagBtn.style.display = 'inline-block';
+  }
+}
+window.ensureEditorToolbarTagsButton = ensureEditorToolbarTagsButton;
 
 window.insertEditorText = function(type) {
   const textarea = document.getElementById('editorTextarea');
