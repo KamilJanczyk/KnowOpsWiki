@@ -336,15 +336,6 @@ async function renderSidebar() {
         <a href="#/tool/instrukcja" class="sidebar-tile-btn ${isInstrukcjaActive ? 'active' : ''}">
           <span class="label">Instrukcja Obsługi</span>
         </a>
-        <div style="margin-top:10px; padding-top:8px; border-top:1px solid #27272a;">
-          <div style="font-size:0.65rem; color:#71717a; text-transform:uppercase; font-weight:700; padding:0 4px 6px 4px; letter-spacing:0.5px;">Konserwacja Bazy</div>
-          <button onclick="downloadWikiZip()" class="sidebar-tile-btn" style="width:100%; text-align:left; background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; margin-bottom:4px; cursor:pointer;">
-            <span class="label">Kopia ZIP (Pobierz bazę)</span>
-          </button>
-          <button onclick="openOrphanedImagesModal()" class="sidebar-tile-btn" style="width:100%; text-align:left; background:#18181b; border:1px solid #3f3f46; color:#e4e4e7; cursor:pointer;">
-            <span class="label">Oczyść Grafiki (Menedżer)</span>
-          </button>
-        </div>
       </div>
     `;
     return;
@@ -2925,8 +2916,8 @@ function renderWikiInstruction() {
 
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">5. Kopia Zapasowa ZIP i Oczyszczanie Bazy</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong>Pobieranie Kopii Zapasowej ZIP:</strong> Przycisk <strong>„Kopia ZIP”</strong> (dostępny w lewym pasku narzędziowym pod przyciskami skanowania/druku, na Pulpicie w nagłówku Tablicy Zadań oraz w menu bocznym Pulpitu w sekcji Konserwacja Bazy) pakuje w locie całą bazę wiedzy (katalogi <code>docs/</code>, <code>data/</code>, <code>public/images/</code>) z automatycznym wykluczeniem kosza systemowego i przesyła strumieniowo plik <code>.zip</code> do przeglądarki. Plik tymczasowy jest automatycznie usuwany po transmisji.</li>
-      <li><strong>Menedżer Osieroconych Grafik:</strong> Przycisk <strong>„Oczyść grafiki”</strong> (dostępny w lewym pasku narzędziowym, na Pulpicie w nagłówku Tablicy Zadań oraz w menu bocznym Pulpitu) uruchamia rekurencyjny skan bazy dokumentów w poszukiwaniu odwołań do obrazów. Okno modalne prezentuje listę nieużywanych grafik z miniaturkami, rozmiarem i datą, umożliwia selekcję zbiorczą i bezpiecznie przenosi zbędne pliki do <code>docs/.trash/orphaned_images/</code> (bez ryzyka bezpowrotnej utraty).</li>
+      <li><strong>Pobieranie Kopii Zapasowej ZIP:</strong> Przycisk <strong>„Kopia ZIP”</strong> (dostępny w lewym panelu narzędziowym pod przyciskami skanowania i druku) pakuje w locie całą bazę wiedzy (katalogi <code>docs/</code>, <code>data/</code>, <code>public/images/</code>) z automatycznym wykluczeniem kosza systemowego i przesyła strumieniowo plik <code>.zip</code> do przeglądarki. Plik tymczasowy jest automatycznie usuwany po transmisji.</li>
+      <li><strong>Menedżer Osieroconych Grafik:</strong> Przycisk <strong>„Oczyść grafiki”</strong> (dostępny w lewym panelu narzędziowym obok przycisku Kopii ZIP) uruchamia rekurencyjny skan bazy dokumentów w poszukiwaniu odwołań do obrazów. Okno modalne prezentuje listę nieużywanych grafik z miniaturkami, rozmiarem i datą, umożliwia selekcję zbiorczą i bezpiecznie przenosi zbędne pliki do <code>docs/.trash/orphaned_images/</code> (bez ryzyka bezpowrotnej utraty).</li>
     </ul>
 
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Zaawansowane Funkcje Operacyjne</h3>
