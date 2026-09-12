@@ -402,51 +402,73 @@ tags: proxmox, virtualisation, homelab
   }
 });
 
-test('Orphaned Images Security: Wykrywanie osieroconych grafik i mitygacja Path Traversal przy usuwaniu', () => {
+test('Orphaned Images Security: Wykrywanie osieroconych grafik w podkatalogach i mitygacja Path Traversal przy usuwaniu', () => {
   const imagesBase = path.resolve('public', 'images');
+  const imagesTrashDir = path.join(imagesBase, '.trash');
 
-  // 1. Ekstrakcja referencji do obrazów z Markdown
+  // 1. Ekstrakcja referencji do obrazów z Markdown z uwzględnieniem podfolderów
   const sampleMd = `
   # Testowy dokument
-  Oto diagram architektury: ![Architektura](/public/images/arch_v1.png)
+  Oto diagram architektury: ![Architektura](/public/images/Ansible_grafiki/arch_v1.png)
   Oto zrzut ekranu: ![Screen](screen_shot.jpg)
   Oraz znacznik HTML: <img src="icons/badge.svg" alt="badge">
   Plik niebędący grafiką: [Dokument](manual.pdf)
   `;
 
   const matches = sampleMd.match(/[\w\-./\\]+\.(?:png|jpe?g|gif|webp|svg)/gi) || [];
-  const referenced = new Set(matches.map(m => path.basename(m.replace(/\\/g, '/'))));
+  const referenced = new Set();
+  for (const m of matches) {
+    const clean = m.replace(/\\/g, '/').replace(/^\/+/, '');
+    referenced.add(clean.toLowerCase());
+    referenced.add(path.basename(clean).toLowerCase());
+    const withoutPrefix = clean.replace(/^(?:public\/)?images\//i, '');
+    referenced.add(withoutPrefix.toLowerCase());
+  }
 
   assert.equal(referenced.has('arch_v1.png'), true);
+  assert.equal(referenced.has('ansible_grafiki/arch_v1.png'), true);
+  assert.equal(referenced.has('public/images/ansible_grafiki/arch_v1.png'), true);
   assert.equal(referenced.has('screen_shot.jpg'), true);
   assert.equal(referenced.has('badge.svg'), true);
   assert.equal(referenced.has('manual.pdf'), false);
 
-  // 2. Walidator bezpieczeństwa usuwania osieroconych plików
+  // 2. Walidator bezpieczeństwa usuwania osieroconych plików z podkatalogami
   function validateOrphanedImageDeletion(rawName, baseDir) {
     if (typeof rawName !== 'string') return { valid: false, error: 'Błędny typ danych' };
-    const sanitized = path.basename(rawName).trim();
-    if (!sanitized || sanitized === '.' || sanitized === '..' || sanitized.includes('\0')) {
+    const normalized = path.normalize(rawName.trim()).replace(/\\/g, '/');
+    const sanitizedRel = normalized.replace(/^(\.\.[\/])+/g, '').replace(/^\/+/g, '');
+    if (!sanitizedRel || sanitizedRel === '.' || sanitizedRel === '..' || sanitizedRel.includes('\0')) {
       return { valid: false, error: 'Niebezpieczna nazwa' };
     }
-    const resolvedPath = path.resolve(baseDir, sanitized);
+    const resolvedPath = path.resolve(baseDir, sanitizedRel);
     if (!isPathInsideDocs(resolvedPath, baseDir)) {
       return { valid: false, error: 'Próba wyjścia poza katalog' };
     }
-    return { valid: true, sanitized, resolvedPath };
+    const trashDest = path.join(imagesTrashDir, sanitizedRel);
+    return { valid: true, sanitizedRel, resolvedPath, trashDest };
   }
 
   // Próby ataku Path Traversal
   assert.equal(validateOrphanedImageDeletion('../../../etc/shadow', imagesBase).valid, true);
-  assert.equal(validateOrphanedImageDeletion('../../../etc/shadow', imagesBase).sanitized, 'shadow');
+  assert.equal(validateOrphanedImageDeletion('../../../etc/shadow', imagesBase).sanitizedRel, 'etc/shadow');
+  assert.equal(validateOrphanedImageDeletion('../../../etc/shadow', imagesBase).resolvedPath, path.join(imagesBase, 'etc', 'shadow'));
+  assert.equal(isPathInsideDocs(validateOrphanedImageDeletion('../../../etc/shadow', imagesBase).resolvedPath, imagesBase), true);
+
   assert.equal(validateOrphanedImageDeletion('..', imagesBase).valid, false);
   assert.equal(validateOrphanedImageDeletion('.', imagesBase).valid, false);
   assert.equal(validateOrphanedImageDeletion('img\0.png', imagesBase).valid, false);
 
-  // Prawidłowa grafika
-  const validCheck = validateOrphanedImageDeletion('orphaned_diagram.png', imagesBase);
-  assert.equal(validCheck.valid, true);
-  assert.equal(validCheck.resolvedPath, path.join(imagesBase, 'orphaned_diagram.png'));
+  // Prawidłowa grafika w katalogu głównym
+  const validRoot = validateOrphanedImageDeletion('orphaned_diagram.png', imagesBase);
+  assert.equal(validRoot.valid, true);
+  assert.equal(validRoot.resolvedPath, path.join(imagesBase, 'orphaned_diagram.png'));
+  assert.equal(validRoot.trashDest, path.join(imagesTrashDir, 'orphaned_diagram.png'));
+
+  // Prawidłowa grafika w podkatalogu (np. Ansible_grafiki)
+  const validSub = validateOrphanedImageDeletion('Ansible_grafiki/unused_screen.png', imagesBase);
+  assert.equal(validSub.valid, true);
+  assert.equal(validSub.resolvedPath, path.join(imagesBase, 'Ansible_grafiki', 'unused_screen.png'));
+  assert.equal(validSub.trashDest, path.join(imagesTrashDir, 'Ansible_grafiki', 'unused_screen.png'));
 });
 
 test('Backup ZIP Engine: Weryfikacja integralności archiwizacji bazy wiedzy', () => {

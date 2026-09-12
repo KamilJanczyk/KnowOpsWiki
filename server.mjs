@@ -80,8 +80,11 @@ export function getReferencedImages() {
           const matches = content.match(/[\w\-./\\]+\.(?:png|jpe?g|gif|webp|svg)/gi);
           if (matches) {
             for (const m of matches) {
-              const filename = path.basename(m.replace(/\\/g, '/'));
-              referenced.add(filename);
+              const clean = m.replace(/\\/g, '/').replace(/^\/+/, '');
+              referenced.add(clean.toLowerCase());
+              referenced.add(path.basename(clean).toLowerCase());
+              const withoutImagesPrefix = clean.replace(/^(?:public\/)?images\//i, '');
+              referenced.add(withoutImagesPrefix.toLowerCase());
             }
           }
         } catch (e) {}
@@ -97,25 +100,50 @@ export function getOrphanedImagesList() {
   const orphaned = [];
   let totalBytes = 0;
 
-  if (fs.existsSync(IMAGES_DIR)) {
-    const files = fs.readdirSync(IMAGES_DIR, { withFileTypes: true });
-    for (const file of files) {
-      if (!file.isFile() || file.name.startsWith('.')) continue;
-      if (!referenced.has(file.name)) {
-        const fullPath = path.join(IMAGES_DIR, file.name);
-        try {
-          const stat = fs.statSync(fullPath);
-          totalBytes += stat.size;
-          orphaned.push({
-            filename: file.name,
-            size: stat.size,
-            mtime: stat.mtime.toISOString(),
-            url: `/public/images/${file.name}`
-          });
-        } catch (e) {}
+  function scanImagesDir(dir) {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanImagesDir(fullPath);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (!['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'].includes(ext)) continue;
+
+        const relPath = path.relative(IMAGES_DIR, fullPath).replace(/\\/g, '/');
+        const filename = entry.name;
+
+        const isReferenced = referenced.has(filename.toLowerCase()) || 
+                             referenced.has(relPath.toLowerCase()) ||
+                             referenced.has(`public/images/${relPath}`.toLowerCase()) ||
+                             referenced.has(`images/${relPath}`.toLowerCase());
+
+        if (!isReferenced) {
+          try {
+            const stat = fs.statSync(fullPath);
+            totalBytes += stat.size;
+            orphaned.push({
+              filename: filename,
+              relPath: relPath,
+              size: stat.size,
+              mtime: stat.mtime.toISOString(),
+              url: `/public/images/${relPath}`
+            });
+          } catch (e) {}
+        }
       }
     }
   }
+
+  if (fs.existsSync(IMAGES_DIR)) {
+    scanImagesDir(IMAGES_DIR);
+  }
+
+  orphaned.sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+
   return { orphaned, totalBytes, count: orphaned.length };
 }
 
@@ -1690,12 +1718,12 @@ const server = http.createServer(async (req, res) => {
       const body = await getBody();
       const { filenames } = body;
       if (!Array.isArray(filenames) || filenames.length === 0) {
-        return sendJson(400, { error: 'Wymagana tablica nazw plików do usunięcia (filenames)' });
+        return sendJson(400, { error: 'Wymagana tablica nazw/ścieżek plików do usunięcia (filenames)' });
       }
 
-      const trashImagesDir = path.join(TRASH_DIR, 'orphaned_images');
-      if (!fs.existsSync(trashImagesDir)) {
-        fs.mkdirSync(trashImagesDir, { recursive: true });
+      const imagesTrashDir = path.join(IMAGES_DIR, '.trash');
+      if (!fs.existsSync(imagesTrashDir)) {
+        fs.mkdirSync(imagesTrashDir, { recursive: true });
       }
 
       let deletedCount = 0;
@@ -1703,22 +1731,36 @@ const server = http.createServer(async (req, res) => {
 
       for (const rawName of filenames) {
         if (typeof rawName !== 'string') continue;
-        const sanitized = path.basename(rawName).trim();
-        if (!sanitized || sanitized === '.' || sanitized === '..' || sanitized.includes('\0')) continue;
+        const normalized = path.normalize(rawName.trim()).replace(/\\/g, '/');
+        const sanitizedRel = normalized.replace(/^(\.\.[\/])+/g, '').replace(/^\/+/g, '');
+        if (!sanitizedRel || sanitizedRel === '.' || sanitizedRel === '..' || sanitizedRel.includes('\0')) continue;
 
-        const filePath = path.resolve(IMAGES_DIR, sanitized);
+        const filePath = path.resolve(IMAGES_DIR, sanitizedRel);
         if (!isPathInsideDocs(filePath, IMAGES_DIR) || !fs.existsSync(filePath)) continue;
+        if (isPathInsideDocs(filePath, imagesTrashDir)) continue;
 
         const stat = fs.statSync(filePath);
         freedBytes += stat.size;
 
-        const trashDest = path.join(trashImagesDir, `${Date.now()}_${sanitized}`);
+        const trashDest = path.join(imagesTrashDir, sanitizedRel);
+        const trashSubdir = path.dirname(trashDest);
+        if (!fs.existsSync(trashSubdir)) {
+          fs.mkdirSync(trashSubdir, { recursive: true });
+        }
+
+        let finalTrashDest = trashDest;
+        if (fs.existsSync(finalTrashDest)) {
+          const ext = path.extname(sanitizedRel);
+          const baseNoExt = path.basename(sanitizedRel, ext);
+          finalTrashDest = path.join(trashSubdir, `${baseNoExt}_${Date.now()}${ext}`);
+        }
+
         try {
-          fs.renameSync(filePath, trashDest);
+          fs.renameSync(filePath, finalTrashDest);
           deletedCount++;
         } catch (err) {
           try {
-            fs.cpSync(filePath, trashDest);
+            fs.cpSync(filePath, finalTrashDest);
             fs.unlinkSync(filePath);
             deletedCount++;
           } catch (e) {
@@ -1729,7 +1771,7 @@ const server = http.createServer(async (req, res) => {
 
       return sendJson(200, {
         success: true,
-        message: `Zabezpieczono w koszu ${deletedCount} osieroconych grafik (odzyskane: ${(freedBytes / 1024 / 1024).toFixed(2)} MB).`,
+        message: `Przeniesiono do kosza grafik (.trash) ${deletedCount} plików (odzyskane: ${(freedBytes / 1024 / 1024).toFixed(2)} MB).`,
         deletedCount,
         freedBytes
       });

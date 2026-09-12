@@ -92,7 +92,9 @@ export function exportWikiZip() {
       'public/images',
       '-x',
       'docs/.trash/*',
-      'docs/.trash'
+      'docs/.trash',
+      'public/images/.trash/*',
+      'public/images/.trash'
     ], { stdio: 'pipe' });
   }
 

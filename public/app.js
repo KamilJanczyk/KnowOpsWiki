@@ -4680,16 +4680,24 @@ window.openOrphanedImagesModal = async function() {
     let html = '';
     for (const img of data.orphaned) {
       const safeName = escapeHtml(img.filename);
+      const safeRel = escapeHtml(img.relPath || img.filename);
       const safeUrl = escapeHtml(img.url);
       const sizeKb = (img.size / 1024).toFixed(1);
       const dateStr = img.mtime ? new Date(img.mtime).toLocaleString('pl-PL') : 'Brak daty';
 
+      const folderBadge = img.relPath && img.relPath.includes('/')
+        ? `<span style="font-size:0.62rem; background:#27272a; color:#60a5fa; padding:1px 5px; border-radius:3px; font-family:monospace; margin-right:4px;">${escapeHtml(img.relPath.substring(0, img.relPath.lastIndexOf('/')))}</span>`
+        : `<span style="font-size:0.62rem; background:#27272a; color:#a1a1aa; padding:1px 5px; border-radius:3px; font-family:monospace; margin-right:4px;">katalog główny</span>`;
+
       html += `<div class="orphaned-img-card">
-        <input type="checkbox" class="orphaned-img-checkbox" value="${safeName}" style="cursor:pointer; width:16px; height:16px;">
+        <input type="checkbox" class="orphaned-img-checkbox" value="${safeRel}" style="cursor:pointer; width:16px; height:16px;">
         <img src="${safeUrl}" alt="${safeName}" class="orphaned-img-thumb" loading="lazy" onerror="this.style.display='none'">
         <div style="flex:1; min-width:0;">
-          <div style="font-size:0.75rem; font-weight:600; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${safeName}">${safeName}</div>
-          <div style="font-size:0.68rem; color:#888; margin-top:2px;">Rozmiar: <span style="color:#ddd;">${sizeKb} KB</span> | Zmodyfikowano: <span style="color:#aaa;">${dateStr}</span></div>
+          <div style="display:flex; align-items:center; gap:4px; overflow:hidden;">
+            ${folderBadge}
+            <span style="font-size:0.75rem; font-weight:600; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${safeRel}">${safeName}</span>
+          </div>
+          <div style="font-size:0.68rem; color:#888; margin-top:3px;">Rozmiar: <span style="color:#ddd;">${sizeKb} KB</span> | Zmodyfikowano: <span style="color:#aaa;">${dateStr}</span></div>
         </div>
       </div>`;
     }
@@ -4720,7 +4728,7 @@ window.submitDeleteOrphanedImages = async function() {
     return;
   }
 
-  if (!confirm(`Czy na pewno chcesz przenieść ${filenames.length} zaznaczonych grafik do kosza systemowego (.trash)?`)) {
+  if (!confirm(`Czy na pewno chcesz przenieść ${filenames.length} zaznaczonych grafik do kosza (public/images/.trash)?`)) {
     return;
   }
 
