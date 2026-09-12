@@ -167,10 +167,11 @@ docs/
     - Dedykowane okno modalne z podglądem miniaturek osieroconych plików, ścieżkami względnymi, kalkulatorem zajmowanego miejsca i opcjami masowego zaznaczania.
     - Zabezpieczenie przed bezpowrotną utratą danych: usuwane grafiki nie są bezpowrotnie kasowane, lecz bezpiecznie przenoszone do dedykowanego kosza `public/images/.trash/` z zachowaniem struktury podkatalogów źródłowych.
 
-14. **Narzędzia konsolowe i automatyzacja SSH / CLI:**
+14. **Narzędzia konsolowe i synchronizacja nazw plików (GUI i CLI):**
+    - **Interaktywny moduł synchronizacji nazw plików z H1 (GUI):** Dedykowany przycisk "Uporządkuj nazwy z H1" w lewym panelu bocznym oraz okno modalne prezentujące listę rozbieżności między nagłówkiem `# Tytuł` a fizyczną nazwą pliku. Moduł umożliwia selektywny wybór plików do zmiany, automatycznie zachowuje prefiksy numeryczne (`01_`, `02_`), transliteruje polskie znaki diakrytyczne oraz chroni przed kolizjami nazw (`/api/sync-filenames-preview`, `/api/sync-filenames-apply`).
     - **Szybkie tworzenie stron ([add_page.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/add_page.mjs)):** Narzędzie konsolowe pozwalające tworzyć nowe strony i podkatalogi bezpośrednio z wiersza poleceń lub sesji SSH (`node add_page.mjs "Tytuł Strony"`), z automatyczną rekompilacją bazy nawigacyjnej.
     - **Silnik kopii zapasowej CLI ([backup_wiki.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/backup_wiki.mjs)):** Narzędzie do tworzenia archiwów bazy wiedzy z poziomu konsoli lub zadań crona serwera, z opcjonalną synchronizacją z Dyskiem Google (`rclone copy`) przy zdefiniowaniu zmiennej `GOOGLE_DRIVE_REMOTE` w pliku `.env`.
-    - **Synchronizacja nazw plików Markdown z nagłówkiem H1 ([scripts/sync_markdown_filenames.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/scripts/sync_markdown_filenames.mjs)):** Narzędzie konsolowe weryfikujące spójność nazw plików `.md` z pierwszym nagłówkiem `# Tytuł` w treści dokumentu. Obsługuje transliterację polskich znaków diakrytycznych, usuwanie znaków specjalnych, zachowywanie istniejących prefiksów numerycznych (`01_`, `02_`) oraz weryfikację kolizji nazw. Domyślne uruchomienie wykonuje bezpieczny audyt (Dry Run): `node scripts/sync_markdown_filenames.mjs`, natomiast flaga `--apply` fizycznie nanosi zmiany w systemie plików: `node scripts/sync_markdown_filenames.mjs --apply`.
+    - **Skrypt konsolowy synchronizacji ([scripts/sync_markdown_filenames.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/scripts/sync_markdown_filenames.mjs)) oraz starter ([sync_markdown_filenames.sh](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/sync_markdown_filenames.sh)):** Narzędzie konsolowe z automatycznym wykrywaniem środowiska (lokalny Node.js lub kontener Docker `knowops-api`). Domyślne uruchomienie wykonuje bezpieczny audyt (Dry Run): `./sync_markdown_filenames.sh`, natomiast flaga `--apply` fizycznie nanosi zmiany w systemie plików: `./sync_markdown_filenames.sh --apply`.
 
 15. **Eksport pełnej kopii zapasowej do archiwum ZIP oraz rotacyjny harmonogram kopii:**
     - **Kopia ZIP w locie (`/api/export-wiki-zip`):** Możliwość natychmiastowego wygenerowania i pobrania pełnej kopii zapasowej bazy wiedzy bezpośrednio z lewego paska narzędziowego GUI oraz sekcji konserwacji na pulpicie (przycisk "Kopia ZIP"). Kompresuje katalogi `docs/`, `data/` oraz `public/images/` z automatycznym wykluczeniem kosza systemowego.
@@ -211,7 +212,7 @@ Projekt posiada zintegrowany zestaw automatycznych testów jednostkowych Node.js
 npm test
 ```
 
-Zestaw 24 testów automatycznych weryfikuje kluczowe mechanizmy bezpieczeństwa, integralności i funkcjonalności aplikacji:
+Zestaw 25 testów automatycznych weryfikuje kluczowe mechanizmy bezpieczeństwa, integralności i funkcjonalności aplikacji:
 1. Prawidłowe rozpoznawanie Magic Bytes dla plików graficznych PNG, JPEG, GIF, WebP,
 2. Skuteczne blokowanie fałszywych plików graficznych z podmienionym rozszerzeniem (ochrona przed Web Shell),
 3. Blokadę SSRF dla adresów pętli zwrotnej, sieci prywatnych RFC 1918 i metadanych chmurowych,
@@ -235,7 +236,8 @@ Zestaw 24 testów automatycznych weryfikuje kluczowe mechanizmy bezpieczeństwa,
 21. Integralność Menedżera Kosza Bazy Wiedzy (weryfikacja manifestu usunięcia, ochrona przed Path Traversal przy przywracaniu, blokada odtworzenia do korzenia lub wnętrza kosza),
 22. Transformację bloków wyróżnień Callouts / Admonitions (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) z obsługą niestandardowych tytułów i sanityzacją XSS,
 23. Rotację i retencję automatycznych kopii zapasowych (utrzymywanie 7 najnowszych archiwów, automatyczne usuwanie starszych plików ZIP),
-24. Synchronizację nazw plików Markdown z pierwszym nagłówkiem H1 (ekstrakcja tytułu H1, ignorowanie YAML frontmatter, transliteracja znaków diakrytycznych, zachowanie prefiksu numerycznego).
+24. Synchronizację nazw plików Markdown z pierwszym nagłówkiem H1 (ekstrakcja tytułu H1, ignorowanie YAML frontmatter, transliteracja znaków diakrytycznych, zachowanie prefiksu numerycznego),
+25. Bezpieczeństwo synchronizacji nazw plików Markdown (ochrona przed Path Traversal w ścieżkach źródłowych i docelowych, wymóg rozszerzenia .md, detekcja kolizji nazw i atomowa zmiana nazwy).
 
 ---
 
@@ -282,7 +284,7 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Uzupełniono opis silnika kopii zapasowej [backup_wiki.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/backup_wiki.mjs) z automatyczną synchronizacją z Google Drive (`rclone`).
 - Wprowadzono dokumentację wbudowanej interaktywnej instrukcji obsługi portalu (`#/tool/instrukcja` / `renderWikiInstruction`).
 - Zaktualizowano opis mechanizmu Self-Healing Toolbar w edytorze oraz autozapisu z ochroną przed utratą danych (Draft Recovery).
-- Rozszerzono pakiet testów jednostkowych do pełnej listy 24 zautomatyzowanych testów Node.js Test Runner.
+- Rozszerzono pakiet testów jednostkowych do pełnej listy 25 zautomatyzowanych testów Node.js Test Runner.
 - Zaktualizowano opis mechanizmów kryptograficznych (ochrona przed Timing Attack przez `crypto.timingSafeEqual`) oraz utwardzenia Nginx (`etag off`).
 - Wprowadzono opis mechanizmu bezpiecznego usuwania całych działów i podfolderów (`/api/delete-folder`) z zabezpieczeniem w koszu `.trash`.
 - Wprowadzono opis bezpiecznego przenoszenia całych folderów przez GUI i Drag & Drop (`/api/move-folder`) z walidacją antycykliczną i wyszukiwarką docelową.
@@ -291,7 +293,7 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Wdrożono parser bloków wyróżnień typu Callouts / Admonitions (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) z obsługą własnych nagłówków i sanityzacją XSS.
 - Wdrożono autonomiczny eksport procedur offline do pojedynczego, w pełni samowystarczalnego pliku HTML z grafikami zakodowanymi w Base64 Data URI i pełnymi stylami CSS Dark Theme (`exportArticleOfflineHtml`).
 - Wdrożono automatyczny rotacyjny harmonogram kopii zapasowych (co 24 godziny z retencją 7 kopii w dedykowanym wolumenie `./backups`) oraz interfejs GUI "Kopie Auto (7)".
-- Wdrożono narzędzie konsolowe [scripts/sync_markdown_filenames.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/scripts/sync_markdown_filenames.mjs) do audytu i automatycznej synchronizacji nazw plików Markdown z pierwszym nagłówkiem H1.
+- Wdrożono narzędzie konsolowe [scripts/sync_markdown_filenames.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/scripts/sync_markdown_filenames.mjs) oraz interaktywny moduł GUI „Uporządkuj nazwy z H1” z podglądem różnic, detekcją kolizji i selektywną akceptacją zmian nazw plików Markdown na podstawie nagłówka `# Tytuł`.
 - Zoptymalizowano tablicę Kanban i panel boczny: inteligentne opadanie ukończonych zadań 100%, sortowanie aktywnych podzadań na górze oraz ukrywanie ukończonych subtasków w bocznym pasku.
 - Zaktualizowano menedżera czyszczenia grafik: bezpieczne przenoszenie do kosza `public/images/.trash/` z zachowaniem struktury podkatalogów źródłowych.
 - Wdrożono dokumentację eksportu pełnej kopii zapasowej do archiwum ZIP (`/api/export-wiki-zip`) z poziomu paska narzędzi.
@@ -299,3 +301,4 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Uzupełniono specyfikację stałego paska akcji dokumentu (Sticky Action Header) w pozycjonowaniu CSS.
 - Wprowadzono szczegółowy opis zoptymalizowanego mechanizmu wydruku i generowania PDF w standardzie formatu A4.
 - Wdrożono moduł Podręcznego Notatnika Roboczego (Scratchpad / Quick Draft) z globalnym skrótem klawiszowym `Alt + N`, dwoma trybami roboczymi, autozapisem oraz opcją bezpośredniej konwersji do strony Wiki (`promoteScratchpadToWikiPage`).
+

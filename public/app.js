@@ -3028,7 +3028,7 @@ function renderWikiInstruction() {
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Eksport offline i narzędzia CLI</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
       <li><strong>Autonomiczny eksport offline (HTML z Base64):</strong> przycisk <strong>„Eksportuj offline”</strong> na pasku artykułu konwertuje procedurę do pojedynczego, w pełni samowystarczalnego pliku HTML. Wszystkie obrazy są automatycznie przekształcane do formatu Base64 Data URI, a w nagłówku osadzany jest kompletny arkusz stylów. Plik można bezpiecznie przenieść i otworzyć w dowolnej przeglądarce na odciętej od sieci stacji roboczej.</li>
-      <li><strong>Skrypt synchronizacji nazw plików z nagłówkiem H1 (CLI):</strong> narzędzie <code>node scripts/sync_markdown_filenames.mjs</code> analizuje pliki w <code>docs/</code> i porównuje nazwę pliku z pierwszym nagłówkiem <code># Tytuł</code>. Zapewnia czyste nazewnictwo bez znaków specjalnych, z zachowaniem prefiksów numerycznych. Flaga <code>--apply</code> automatycznie nanosi zmiany i przebudowuje nawigację.</li>
+      <li><strong>Synchronizacja nazw plików z nagłówkiem H1 (GUI oraz CLI):</strong> narzędzie dostępne bezpośrednio w lewym menu bocznym pod przyciskiem <strong>„Uporządkuj nazwy z H1”</strong> oraz w konsoli (<code>./sync_markdown_filenames.sh</code>). Porównuje fizyczne nazwy plików w <code>docs/</code> z pierwszym nagłówkiem <code># Tytuł</code>, zachowuje prefiksy numeryczne i transliteruje polskie znaki diakrytyczne. Okno modalne prezentuje podgląd różnic z wykrywaniem kolizji i pozwala na selektywne zatwierdzenie zmian jednym kliknięciem bez dotykania terminala.</li>
       <li><strong>Podręczny brudnopis (scratchpad – skrót Alt+N):</strong> wciśnięcie skrótu <code>Alt + N</code> wysuwa panel roboczy z autozapisem, edytorem monospaced, szybką checklistą i przyciskiem przekształcenia notatki w nowy dokument Wiki.</li>
       <li><strong>Import z adresu URL (web scraper):</strong> przycisk <strong>„Importuj plik (MD / HTML)”</strong> w lewym panelu umożliwia pobranie artykułu z zewnętrznego adresu URL i automatyczną konwersję do Markdown z filtrowaniem treści głównej i ochroną anty-SSRF.</li>
       <li><strong>Zoptymalizowany druk i eksport do PDF:</strong> przycisk <strong>„Drukuj / PDF”</strong> (lub skrót Ctrl+P) aktywuje arkusz stylów formatu A4 portrait z marginesami 12x15mm, zapewniając dopasowanie tabel i bloków kodu bez obcinania zawartości.</li>
@@ -5069,6 +5069,206 @@ window.triggerManualBackup = async function() {
     if (btn) {
       btn.disabled = false;
       btn.textContent = originalText;
+    }
+  }
+};
+
+// ================= SYNCHRONIZACJA NAZW PLIKÓW Z NAGŁÓWKIEM H1 ================= //
+
+let currentSyncItems = [];
+
+function ensureSyncFilenamesModalInDOM() {
+  let overlay = document.getElementById('syncFilenamesModalOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'syncFilenamesModalOverlay';
+    overlay.className = 'custom-modal-overlay';
+    overlay.style.display = 'none';
+    overlay.innerHTML = `
+    <div class="custom-modal" style="max-width: 840px; width: 95%;">
+      <div class="modal-header">
+        <h3 style="color:#6ee7b7;">SYNCHRONIZACJA NAZW PLIKÓW Z H1</h3>
+        <button class="modal-close-btn" onclick="closeSyncFilenamesModal()">X</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.8rem; color:#ccc; margin-bottom:12px; line-height:1.4;">
+          Poniższe pliki Markdown w folderze <code>docs/</code> posiadają nazwy różniące się od pierwszego nagłówka <code># Tytuł</code> w ich treści. Prefiksy numeryczne (np. <code>01_</code>) są automatycznie zachowywane, a polskie znaki diakrytyczne transliterowane. Zaznacz pozycje, które chcesz zaktualizować.
+        </p>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-size:0.75rem; color:#a1a1aa;">
+            Wykryto rozbieżności: <strong id="syncFilenamesCountDisplay" style="color:var(--sw-gold);">0</strong>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" style="font-size:0.68rem; padding:3px 8px;" onclick="toggleSelectAllSyncFilenames(true)">Zaznacz wszystkie</button>
+            <button class="btn-secondary" style="font-size:0.68rem; padding:3px 8px;" onclick="toggleSelectAllSyncFilenames(false)">Odznacz</button>
+          </div>
+        </div>
+        <div id="syncFilenamesList" style="max-height: 380px; overflow-y: auto; background: #0c0c0e; border: 1px solid #333336; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 8px;">
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <div id="syncFilenamesSelectedCount" style="font-size:0.75rem; color:#a1a1aa;">Zaznaczono: 0</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="closeSyncFilenamesModal()">Zamknij</button>
+          <button class="btn-action" id="btnApplySyncFilenames" style="background:#059669; border:1px solid #10b981; color:#ffffff; font-weight:bold; font-size:0.75rem; padding:6px 14px;" onclick="submitSyncFilenames()">Zastosuj zaznaczone zmiany</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+  return overlay;
+}
+
+window.openSyncFilenamesModal = async function() {
+  const overlay = ensureSyncFilenamesModalInDOM();
+  const listEl = document.getElementById('syncFilenamesList');
+  const countDisplay = document.getElementById('syncFilenamesCountDisplay');
+  const applyBtn = document.getElementById('btnApplySyncFilenames');
+  const selectedCountEl = document.getElementById('syncFilenamesSelectedCount');
+
+  if (!overlay || !listEl) return;
+  overlay.style.display = 'flex';
+  document.body.style.cursor = 'wait';
+  listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#a1a1aa; font-size:0.82rem;">Trwa skanowanie dokumentów Markdown i porównywanie z nagłówkami H1...</div>';
+  if (countDisplay) countDisplay.textContent = '...';
+  if (applyBtn) applyBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/sync-filenames-preview?t=' + Date.now());
+    if (!res.ok) throw new Error(`Błąd serwera: ${res.status}`);
+    const data = await res.json();
+    currentSyncItems = data.items || [];
+
+    if (countDisplay) countDisplay.textContent = currentSyncItems.length;
+
+    if (currentSyncItems.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#10b981; font-size:0.85rem; line-height:1.5;">Wszystkie pliki Markdown są w 100% zgodne z nagłówkami H1.<br><span style="color:#a1a1aa; font-size:0.75rem;">Brak nazw wymagających aktualizacji.</span></div>';
+      if (applyBtn) applyBtn.disabled = true;
+      if (selectedCountEl) selectedCountEl.textContent = 'Zaznaczono: 0';
+      return;
+    }
+
+    let html = '';
+    for (let idx = 0; idx < currentSyncItems.length; idx++) {
+      const item = currentSyncItems[idx];
+      const isCollision = item.status === 'KOLIZJA' || item.targetExists;
+      const safeRel = escapeHtml(item.relPath);
+      const safeCurrent = escapeHtml(item.currentName);
+      const safeH1 = escapeHtml(item.h1Title);
+      const safeTarget = escapeHtml(item.targetName);
+      const dirPath = item.relPath.includes('/') ? item.relPath.substring(0, item.relPath.lastIndexOf('/')) : 'katalog główny';
+
+      html += `<div style="background:#141416; border:1px solid ${isCollision ? '#ef4444' : '#27272a'}; border-radius:6px; padding:10px 12px; display:flex; align-items:flex-start; gap:10px;">
+        <input type="checkbox" class="sync-filename-checkbox" data-index="${idx}" ${isCollision ? 'disabled' : 'checked'} onchange="updateSyncFilenamesSelectedCount()" style="cursor:pointer; width:16px; height:16px; margin-top:3px;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span style="font-size:0.68rem; color:#60a5fa; background:#1e293b; padding:1px 6px; border-radius:3px; font-family:monospace;">${escapeHtml(dirPath)}</span>
+            ${isCollision ? '<span style="font-size:0.65rem; color:#ef4444; font-weight:700;">KOLIZJA: PLIK DOCELOWY JUŻ ISTNIEJE</span>' : '<span style="font-size:0.65rem; color:#10b981; font-weight:600;">GOTOWY DO ZMIANY</span>'}
+          </div>
+          <div style="font-size:0.78rem; font-weight:600; color:#e4e4e7; margin-bottom:4px;">
+            Nagłówek: <span style="color:#ffffff;"># ${safeH1}</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-family:monospace; font-size:0.72rem; margin-top:6px;">
+            <div style="background:#1f1f23; padding:4px 8px; border-radius:4px; border:1px solid #3f3f46; color:#f87171; word-break:break-all;">
+              <span style="font-size:0.62rem; color:#a1a1aa; display:block;">Aktualna nazwa:</span>
+              ${safeCurrent}
+            </div>
+            <div style="background:#064e3b; padding:4px 8px; border-radius:4px; border:1px solid #059669; color:#6ee7b7; word-break:break-all;">
+              <span style="font-size:0.62rem; color:#a7f3d0; display:block;">Sugerowana nowa nazwa:</span>
+              ${safeTarget}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    listEl.innerHTML = html;
+    if (applyBtn) applyBtn.disabled = false;
+    updateSyncFilenamesSelectedCount();
+  } catch (err) {
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Błąd skanowania bazy dokumentów: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    document.body.style.cursor = 'default';
+  }
+};
+
+window.closeSyncFilenamesModal = function() {
+  const overlay = document.getElementById('syncFilenamesModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.toggleSelectAllSyncFilenames = function(select) {
+  const checkboxes = document.querySelectorAll('.sync-filename-checkbox:not(:disabled)');
+  checkboxes.forEach(cb => cb.checked = Boolean(select));
+  updateSyncFilenamesSelectedCount();
+};
+
+window.updateSyncFilenamesSelectedCount = function() {
+  const checked = document.querySelectorAll('.sync-filename-checkbox:checked');
+  const countEl = document.getElementById('syncFilenamesSelectedCount');
+  const applyBtn = document.getElementById('btnApplySyncFilenames');
+  if (countEl) countEl.textContent = `Zaznaczono: ${checked.length}`;
+  if (applyBtn) applyBtn.disabled = (checked.length === 0);
+};
+
+window.submitSyncFilenames = async function() {
+  const checkedBoxes = Array.from(document.querySelectorAll('.sync-filename-checkbox:checked'));
+  if (checkedBoxes.length === 0) {
+    alert('Nie zaznaczono żadnych plików do zmiany nazwy.');
+    return;
+  }
+
+  const selectedItems = checkedBoxes.map(cb => {
+    const idx = parseInt(cb.getAttribute('data-index'), 10);
+    return currentSyncItems[idx];
+  }).filter(Boolean);
+
+  if (!confirm(`Czy na pewno chcesz zmienić nazwy ${selectedItems.length} zaznaczonych plików? Nazwy zostaną zaktualizowane na dysku, a drzewo nawigacji zrekompilowane.`)) {
+    return;
+  }
+
+  const applyBtn = document.getElementById('btnApplySyncFilenames');
+  if (applyBtn) {
+    applyBtn.disabled = true;
+    applyBtn.textContent = 'Trwa zmiana nazw...';
+  }
+
+  try {
+    const res = await fetch('/api/sync-filenames-apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: selectedItems.map(it => ({
+          relPath: it.relPath,
+          targetName: it.targetName
+        }))
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Błąd serwera');
+
+    const currentHash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
+    for (const item of selectedItems) {
+      if (currentHash === item.relPath) {
+        const dir = item.relPath.includes('/') ? item.relPath.substring(0, item.relPath.lastIndexOf('/')) : '';
+        const newDocRel = dir ? `${dir}/${item.targetName}` : item.targetName;
+        window.location.hash = `#/${newDocRel}`;
+        break;
+      }
+    }
+
+    alert(data.message || `Pomyślnie zaktualizowano nazwy ${data.renamedCount} plików.`);
+    window.closeSyncFilenamesModal();
+    if (typeof loadNavigation === 'function') {
+      await loadNavigation();
+    }
+  } catch (err) {
+    alert(`Błąd podczas aktualizacji nazw: ${err.message}`);
+  } finally {
+    if (applyBtn) {
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Zastosuj zaznaczone zmiany';
     }
   }
 };

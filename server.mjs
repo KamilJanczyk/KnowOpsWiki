@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR } from './backup_wiki.mjs';
 import { generateNavigation, extractMarkdownTags } from './build_navigation.mjs';
+import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -1857,6 +1858,97 @@ const server = http.createServer(async (req, res) => {
         message: `Przeniesiono do kosza grafik (.trash) ${deletedCount} plików (odzyskane: ${(freedBytes / 1024 / 1024).toFixed(2)} MB).`,
         deletedCount,
         freedBytes
+      });
+    }
+
+    if (normPath === '/api/sync-filenames-preview' && req.method === 'GET') {
+      try {
+        const allItems = analyzeDocsFilenames(DOCS_DIR);
+        const mismatches = allItems.filter(i => i.status === 'DO_ZMIANY' || i.status === 'KOLIZJA');
+        return sendJson(200, {
+          success: true,
+          totalScanned: allItems.length,
+          count: mismatches.length,
+          items: mismatches
+        });
+      } catch (err) {
+        console.error('[Wiki API] Błąd podczas audytu nazw plików:', err);
+        return sendJson(500, { error: `Błąd audytu: ${err.message}` });
+      }
+    }
+
+    if (normPath === '/api/sync-filenames-apply' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { items } = body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return sendJson(400, { error: 'Wymagana tablica elementów do zsynchronizowania (items)' });
+      }
+
+      let renamedCount = 0;
+      const errors = [];
+
+      for (const item of items) {
+        if (!item || typeof item.relPath !== 'string' || typeof item.targetName !== 'string') {
+          continue;
+        }
+        const cleanRel = path.normalize(item.relPath.trim()).replace(/\\/g, '/').replace(/^\/+/, '');
+        if (cleanRel.includes('..') || cleanRel.includes('\0')) {
+          errors.push({ relPath: item.relPath, error: 'Nieprawidłowa ścieżka' });
+          continue;
+        }
+
+        const sourcePath = path.resolve(DOCS_DIR, cleanRel);
+        if (!isPathInsideDocs(sourcePath, DOCS_DIR) || !fs.existsSync(sourcePath)) {
+          errors.push({ relPath: item.relPath, error: 'Plik źródłowy nie istnieje lub poza zakresem docs' });
+          continue;
+        }
+
+        const rawTarget = typeof item.targetName === 'string' ? item.targetName.trim() : '';
+        if (!rawTarget || rawTarget.includes('/') || rawTarget.includes('\\') || rawTarget.includes('..') || rawTarget.includes('\0')) {
+          errors.push({ relPath: item.relPath, error: 'Nazwa docelowa nie może zawierać ścieżek ani separatorów katalogów' });
+          continue;
+        }
+
+        const cleanTargetName = path.basename(rawTarget);
+        if (!cleanTargetName.endsWith('.md')) {
+          errors.push({ relPath: item.relPath, error: 'Nieprawidłowe rozszerzenie pliku docelowego (wymagane .md)' });
+          continue;
+        }
+
+        const targetPath = path.join(path.dirname(sourcePath), cleanTargetName);
+        if (!isPathInsideDocs(targetPath, DOCS_DIR)) {
+          errors.push({ relPath: item.relPath, error: 'Próba wyjścia poza katalog docs' });
+          continue;
+        }
+
+        if (fs.existsSync(targetPath) && sourcePath.toLowerCase() !== targetPath.toLowerCase()) {
+          errors.push({ relPath: item.relPath, error: `Plik docelowy ${cleanTargetName} już istnieje (kolizja)` });
+          continue;
+        }
+
+        try {
+          fs.renameSync(sourcePath, targetPath);
+          renamedCount++;
+        } catch (renameErr) {
+          console.error(`[Wiki API] Błąd zmiany nazwy ${sourcePath} -> ${targetPath}:`, renameErr);
+          errors.push({ relPath: item.relPath, error: renameErr.message });
+        }
+      }
+
+      if (renamedCount > 0) {
+        try {
+          generateNavigation();
+        } catch (navErr) {
+          console.error('[Wiki API] Błąd regeneracji nawigacji po synchronizacji nazw:', navErr);
+        }
+      }
+
+      return sendJson(200, {
+        success: true,
+        message: `Pomyślnie zmieniono nazwy ${renamedCount} plików.`,
+        renamedCount,
+        errors
       });
     }
 

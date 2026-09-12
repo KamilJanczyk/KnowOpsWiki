@@ -59,14 +59,17 @@ export function analyzeDocsFilenames(docsDir = DOCS_DIR) {
           const targetName = computeTargetFilename(entry.name, h1);
           const relPath = path.relative(docsDir, fullPath).replace(/\\/g, '/');
           const isMatch = entry.name.toLowerCase() === targetName.toLowerCase();
+          const targetFullPath = path.join(dir, targetName);
+          const targetExists = !isMatch && fs.existsSync(targetFullPath);
 
           results.push({
             fullPath,
             relPath,
             currentName: entry.name,
-            h1Title: h1 || '[Brak naglowka H1]',
+            h1Title: h1 || '[Brak nagłówka H1]',
             targetName,
-            status: !h1 ? 'BRAK_H1' : (isMatch ? 'ZGODNA' : 'DO_ZMIANY')
+            targetExists,
+            status: !h1 ? 'BRAK_H1' : (isMatch ? 'ZGODNA' : (targetExists ? 'KOLIZJA' : 'DO_ZMIANY'))
           });
         } catch (e) {
           console.error(`[Sync H1 Error] Blad odczytu ${fullPath}:`, e.message);

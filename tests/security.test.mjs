@@ -965,3 +965,69 @@ Treść procedury...`;
     'ogorek.md'
   );
 });
+
+// 25. Sync Filenames Security: Walidacja ścieżek, mitygacja Path Traversal i zapobieganie kolizjom nazw
+test('Sync Filenames Security: Walidacja ścieżek, mitygacja Path Traversal i zapobieganie kolizjom nazw', () => {
+  const tmpDir = path.join(os.tmpdir(), `wiki_test_sync_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  try {
+    const fileA = path.join(tmpDir, '01_Stara_Nazwa.md');
+    fs.writeFileSync(fileA, '# Nowy Tytuł Procedury\nTreść.', 'utf8');
+
+    const fileB = path.join(tmpDir, '02_Istniejacy.md');
+    fs.writeFileSync(fileB, '# Inna Procedura\nTreść.', 'utf8');
+
+    function validateAndRename(sourceRel, targetName, baseDir) {
+      if (!sourceRel || typeof sourceRel !== 'string' || !targetName || typeof targetName !== 'string') {
+        return { valid: false, error: 'Nieprawidłowe argumenty' };
+      }
+      const cleanRel = path.normalize(sourceRel.trim()).replace(/\\/g, '/').replace(/^\/+/, '');
+      if (cleanRel.includes('..') || cleanRel.includes('\0')) {
+        return { valid: false, error: 'Próba Path Traversal w ścieżce źródłowej' };
+      }
+      const sourcePath = path.resolve(baseDir, cleanRel);
+      if (!isPathInsideDocs(sourcePath, baseDir) || !fs.existsSync(sourcePath)) {
+        return { valid: false, error: 'Plik źródłowy poza zakresem lub nie istnieje' };
+      }
+
+      const rawTarget = targetName.trim();
+      if (!rawTarget || rawTarget.includes('/') || rawTarget.includes('\\') || rawTarget.includes('..') || rawTarget.includes('\0')) {
+        return { valid: false, error: 'Nieprawidłowa nazwa pliku docelowego (zawiera separatory ścieżki)' };
+      }
+      const cleanTarget = path.basename(rawTarget);
+      if (!cleanTarget.endsWith('.md')) {
+        return { valid: false, error: 'Nieprawidłowe rozszerzenie' };
+      }
+
+      const targetPath = path.join(path.dirname(sourcePath), cleanTarget);
+      if (!isPathInsideDocs(targetPath, baseDir)) {
+        return { valid: false, error: 'Próba wyjścia poza katalog' };
+      }
+
+      if (fs.existsSync(targetPath) && sourcePath.toLowerCase() !== targetPath.toLowerCase()) {
+        return { valid: false, error: 'Kolizja: plik docelowy już istnieje' };
+      }
+
+      fs.renameSync(sourcePath, targetPath);
+      return { valid: true, newPath: targetPath, newRel: path.relative(baseDir, targetPath).replace(/\\/g, '/') };
+    }
+
+    // 1. Próby ataków Path Traversal
+    assert.equal(validateAndRename('../../etc/passwd', 'hack.md', tmpDir).valid, false);
+    assert.equal(validateAndRename('01_Stara_Nazwa.md', '../hack.md', tmpDir).valid, false);
+
+    // 2. Wykrywanie kolizji (próba zmiany na nazwę pliku, który już istnieje)
+    const collisionResult = validateAndRename('01_Stara_Nazwa.md', '02_Istniejacy.md', tmpDir);
+    assert.equal(collisionResult.valid, false);
+    assert.equal(collisionResult.error.includes('Kolizja'), true);
+
+    // 3. Prawidłowa bezpieczna zmiana nazwy
+    const successResult = validateAndRename('01_Stara_Nazwa.md', '01_Nowy_Tytul_Procedury.md', tmpDir);
+    assert.equal(successResult.valid, true);
+    assert.equal(fs.existsSync(path.join(tmpDir, '01_Stara_Nazwa.md')), false);
+    assert.equal(fs.existsSync(path.join(tmpDir, '01_Nowy_Tytul_Procedury.md')), true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
