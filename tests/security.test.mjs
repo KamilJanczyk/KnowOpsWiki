@@ -729,3 +729,34 @@ test('Kanban Subtasks & Cards: Sortowanie otwartych na górze, opadanie zadań 1
   assert.equal(sortedCards[1].id, 'c3');
   assert.equal(sortedCards[2].id, 'c2');
 });
+
+// 20. Tree Navigation: Naprzemienne kolorowanie poziomów folderów (Wariant A)
+test('Tree Navigation: Naprzemienne przypisywanie stylów dla poziomów zagłębienia folderów', () => {
+  function getFolderStyle(depth) {
+    const isOdd = (depth % 2 !== 0);
+    return {
+      depthClass: isOdd ? 'depth-odd' : 'depth-even',
+      color: isOdd ? '#60a5fa' : 'var(--sw-gold)'
+    };
+  }
+
+  // Poziom 0: folder główny -> złoty
+  assert.equal(getFolderStyle(0).depthClass, 'depth-even');
+  assert.equal(getFolderStyle(0).color, 'var(--sw-gold)');
+
+  // Poziom 1: podfolder -> błękitny
+  assert.equal(getFolderStyle(1).depthClass, 'depth-odd');
+  assert.equal(getFolderStyle(1).color, '#60a5fa');
+
+  // Poziom 2: pod-podfolder -> powrót do złotego
+  assert.equal(getFolderStyle(2).depthClass, 'depth-even');
+  assert.equal(getFolderStyle(2).color, 'var(--sw-gold)');
+
+  // Poziom 3: głęboki podfolder -> błękitny
+  assert.equal(getFolderStyle(3).depthClass, 'depth-odd');
+  assert.equal(getFolderStyle(3).color, '#60a5fa');
+
+  // Poziom 4: kolejny podfolder -> złoty
+  assert.equal(getFolderStyle(4).depthClass, 'depth-even');
+  assert.equal(getFolderStyle(4).color, 'var(--sw-gold)');
+});
