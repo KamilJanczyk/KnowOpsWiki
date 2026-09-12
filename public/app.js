@@ -1051,7 +1051,18 @@ function renderKanbanCards() {
 
     const filtered = kanbanTasks.filter(t => t.status === status && !t.archived);
     const prioWeights = { high: 3, medium: 2, low: 1 };
-    filtered.sort((a, b) => (prioWeights[b.priority || 'medium'] || 2) - (prioWeights[a.priority || 'medium'] || 2));
+    filtered.sort((a, b) => {
+      const aTotal = (a.subtasks || []).length;
+      const aDone = (a.subtasks || []).filter(s => s.done).length;
+      const aFinished = aTotal > 0 && aDone === aTotal;
+
+      const bTotal = (b.subtasks || []).length;
+      const bDone = (b.subtasks || []).filter(s => s.done).length;
+      const bFinished = bTotal > 0 && bDone === bTotal;
+
+      if (aFinished !== bFinished) return aFinished ? 1 : -1;
+      return (prioWeights[b.priority || 'medium'] || 2) - (prioWeights[a.priority || 'medium'] || 2);
+    });
     if (filtered.length === 0) {
       container.innerHTML = `<div class="empty-card">Brak zadań w tej kolumnie</div>`;
       return;
@@ -1075,6 +1086,11 @@ function renderKanbanCards() {
 
       let subtasksHtml = '';
       if (totalSub > 0) {
+        const sortedSubtasks = [...subtasks].sort((a, b) => {
+          if (a.done === b.done) return 0;
+          return a.done ? 1 : -1;
+        });
+
         subtasksHtml = `<div class="subtasks-container">
           <div class="subtasks-header">
             <span>Podzadania (${doneSub}/${totalSub})</span>
@@ -1083,7 +1099,7 @@ function renderKanbanCards() {
           <div class="subtask-progress-bar">
             <div class="subtask-progress-fill" style="width: ${progressPercent}%;"></div>
           </div>
-          ${subtasks.map(s => {
+          ${sortedSubtasks.map(s => {
             const safeSubTitle = escapeHtml(s.title);
             const safeTaskId = escapeHtml(t.id);
             const safeSubId = escapeHtml(s.id);
@@ -3534,7 +3550,18 @@ async function loadRightSidebarKanban() {
 
     const activeTasks = tasks.filter(t => t.status === 'in_progress' && !t.archived);
     const prioWeights = { high: 3, medium: 2, low: 1 };
-    activeTasks.sort((a, b) => (prioWeights[b.priority || 'medium'] || 2) - (prioWeights[a.priority || 'medium'] || 2));
+    activeTasks.sort((a, b) => {
+      const aTotal = (a.subtasks || []).length;
+      const aDone = (a.subtasks || []).filter(s => s.done).length;
+      const aFinished = aTotal > 0 && aDone === aTotal;
+
+      const bTotal = (b.subtasks || []).length;
+      const bDone = (b.subtasks || []).filter(s => s.done).length;
+      const bFinished = bTotal > 0 && bDone === bTotal;
+
+      if (aFinished !== bFinished) return aFinished ? 1 : -1;
+      return (prioWeights[b.priority || 'medium'] || 2) - (prioWeights[a.priority || 'medium'] || 2);
+    });
 
     if (activeTasks.length === 0) {
       container.innerHTML = `<div style="font-size:0.68rem; color:#555; text-align:center; padding:10px;">Brak aktywnych zadań</div>`;
@@ -3552,6 +3579,49 @@ async function loadRightSidebarKanban() {
       
       let subtasksListHtml = '';
       if (total > 0) {
+        const pendingSubtasks = subtasks.filter(s => !s.done);
+        const completedSubtasks = subtasks.filter(s => s.done);
+
+        let checklistItemsHtml = '';
+        if (pendingSubtasks.length > 0) {
+          checklistItemsHtml = pendingSubtasks.map(s => {
+            const safeSubId = escapeHtml(s.id);
+            const safeSubTitle = escapeHtml(s.title);
+            return `
+              <label class="right-kanban-subtask-item">
+                <input type="checkbox" onchange="window.toggleSidebarSubtask('${safeTaskId}', '${safeSubId}')">
+                <span>${safeSubTitle}</span>
+              </label>
+            `;
+          }).join('');
+        } else {
+          checklistItemsHtml = `<div style="font-size:0.65rem; color:#10b981; font-style:italic; padding:2px 0;">Wszystkie podzadania ukończone</div>`;
+        }
+
+        let completedCollapseHtml = '';
+        if (completedSubtasks.length > 0) {
+          completedCollapseHtml = `
+            <details style="margin-top:4px;">
+              <summary style="font-size:0.62rem; color:#71717a; cursor:pointer; user-select:none;">Ukończone (${completedSubtasks.length})</summary>
+              <div style="margin-top:3px; display:flex; flex-direction:column; gap:3px;">
+                ${completedSubtasks.map(s => {
+                  const safeSubId = escapeHtml(s.id);
+                  const safeSubTitle = escapeHtml(s.title);
+                  const timeHtml = s.completedAt 
+                    ? `<span class="right-kanban-subtask-time" title="Ukończono: ${escapeHtml(s.completedAt)}">(${escapeHtml(s.completedAt)})</span>` 
+                    : '';
+                  return `
+                    <label class="right-kanban-subtask-item" style="opacity:0.75;">
+                      <input type="checkbox" checked onchange="window.toggleSidebarSubtask('${safeTaskId}', '${safeSubId}')">
+                      <span class="right-kanban-subtask-done" title="${s.completedAt ? 'Ukończono: ' + escapeHtml(s.completedAt) : ''}">${safeSubTitle}</span>${timeHtml}
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </details>
+          `;
+        }
+
         subtasksListHtml = `
           <div class="right-kanban-subtasks">
             <div class="right-kanban-item-progress">
@@ -3562,19 +3632,8 @@ async function loadRightSidebarKanban() {
               <div class="right-kanban-progress-fill" style="width: ${progress}%;"></div>
             </div>
             <div class="right-kanban-checklist">
-              ${subtasks.map(s => {
-                const safeSubId = escapeHtml(s.id);
-                const safeSubTitle = escapeHtml(s.title);
-                const timeHtml = s.done && s.completedAt 
-                  ? `<span class="right-kanban-subtask-time" title="Ukończono: ${escapeHtml(s.completedAt)}">(${escapeHtml(s.completedAt)})</span>` 
-                  : '';
-                return `
-                  <label class="right-kanban-subtask-item">
-                    <input type="checkbox" ${s.done ? 'checked' : ''} onchange="window.toggleSidebarSubtask('${safeTaskId}', '${safeSubId}')">
-                    <span class="${s.done ? 'right-kanban-subtask-done' : ''}" title="${s.done && s.completedAt ? 'Ukończono: ' + escapeHtml(s.completedAt) : ''}">${safeSubTitle}</span>${timeHtml}
-                  </label>
-                `;
-              }).join('')}
+              ${checklistItemsHtml}
+              ${completedCollapseHtml}
             </div>
           </div>
         `;

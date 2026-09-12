@@ -281,10 +281,36 @@
     .col-review-title { background: #7c2d12; }
     .col-done-title { background: #064e3b; }
 
-    .task-cards-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; min-height: auto; justify-content: start; }
-    .empty-card { grid-column: 1 / -1; font-size: 0.72rem; color: #666; text-align: center; padding: 14px; background: #090909; border: 1px dashed #222; border-radius: 4px; }
+    .task-cards-container {
+      columns: 3 280px;
+      column-gap: 12px;
+      width: 100%;
+      min-height: auto;
+    }
+    .empty-card {
+      column-span: all;
+      font-size: 0.72rem;
+      color: #666;
+      text-align: center;
+      padding: 14px;
+      background: #090909;
+      border: 1px dashed #222;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
 
-    .kanban-card { background: #18181b; border: 1px solid #27272a; padding: 10px; border-radius: 5px; display: flex; flex-direction: column; gap: 6px; }
+    .kanban-card {
+      break-inside: avoid;
+      page-break-inside: avoid;
+      background: #18181b;
+      border: 1px solid #27272a;
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
     .kanban-card.prio-high { border-left: 3px solid #ef4444; }
     .kanban-card.prio-medium { border-left: 3px solid #f59e0b; }
     .kanban-card.prio-low { border-left: 3px solid #10b981; }

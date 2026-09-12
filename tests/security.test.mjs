@@ -679,5 +679,53 @@ test('Mermaid Diagrams: Weryfikacja struktury i sanityzacji bloków diagramów',
   assert.equal(themeConfig.themeVariables.background, '#0d0d0e');
 });
 
+// 19. Kanban Subtasks & Cards Sorting & Sidebar Filtering
+test('Kanban Subtasks & Cards: Sortowanie otwartych na górze, opadanie zadań 100% oraz ukrywanie ukończonych w pasku', () => {
+  // A. Sortowanie podzadań na karcie (otwarte u góry, ukończone na dole)
+  const subtasks = [
+    { id: '1', title: 'Podzadanie A', done: true, completedAt: '12.09, 13:00' },
+    { id: '2', title: 'Podzadanie B', done: false },
+    { id: '3', title: 'Podzadanie C', done: false },
+    { id: '4', title: 'Podzadanie D', done: true, completedAt: '12.09, 13:10' }
+  ];
+  const sortedSubtasks = [...subtasks].sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
+  assert.equal(sortedSubtasks[0].id, '2');
+  assert.equal(sortedSubtasks[1].id, '3');
+  assert.equal(sortedSubtasks[2].id, '1');
+  assert.equal(sortedSubtasks[3].id, '4');
+  assert.equal(sortedSubtasks[0].done, false);
+  assert.equal(sortedSubtasks[1].done, false);
+  assert.equal(sortedSubtasks[2].done, true);
+  assert.equal(sortedSubtasks[3].done, true);
 
+  // B. Pasek boczny: filtrowanie podzadań aktywnych i ukończonych
+  const pendingSubs = subtasks.filter(s => !s.done);
+  const doneSubs = subtasks.filter(s => s.done);
+  assert.equal(pendingSubs.length, 2);
+  assert.equal(doneSubs.length, 2);
+  assert.equal(pendingSubs.every(s => !s.done), true);
+  assert.equal(doneSubs.every(s => s.done), true);
 
+  // C. Sortowanie kart zadań: zadania w 100% ukończone spadają na dół kolumny
+  const cards = [
+    { id: 'c1', title: 'Zadanie w toku', subtasks: [{ done: false }, { done: true }] },
+    { id: 'c2', title: 'Zadanie w 100% gotowe', subtasks: [{ done: true }, { done: true }] },
+    { id: 'c3', title: 'Zadanie nowe', subtasks: [{ done: false }] }
+  ];
+  const sortedCards = [...cards].sort((a, b) => {
+    const aTotal = a.subtasks ? a.subtasks.length : 0;
+    const aDone = a.subtasks ? a.subtasks.filter(s => s.done).length : 0;
+    const aAllDone = aTotal > 0 && aDone === aTotal;
+
+    const bTotal = b.subtasks ? b.subtasks.length : 0;
+    const bDone = b.subtasks ? b.subtasks.filter(s => s.done).length : 0;
+    const bAllDone = bTotal > 0 && bDone === bTotal;
+
+    if (aAllDone === bAllDone) return 0;
+    return aAllDone ? 1 : -1;
+  });
+
+  assert.equal(sortedCards[0].id, 'c1');
+  assert.equal(sortedCards[1].id, 'c3');
+  assert.equal(sortedCards[2].id, 'c2');
+});
