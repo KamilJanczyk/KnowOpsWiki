@@ -101,9 +101,9 @@ docs/
 
 3. **Zarządzanie dokumentacją, folderami i nawigacją:**
    - **Dwuetapowe deterministyczne sortowanie numeryczne i hierarchia kolorów:** Pełne zachowanie kolejności według fizycznych prefiksów numerycznych (`01`, `02`, `03`...) pobieranych ze ścieżek fizycznych (`relPath`). W każdym folderze pliki Markdown prezentowane są zawsze na początku (w kolejności numerycznej/alfabetycznej), a podkatalogi pod nimi (również w ścisłym porządku numerycznym), przy zachowaniu oczyszczonych, czytelnych tytułów w interfejsie. Drzewo nawigacji stosuje naprzemienne kolorowanie poziomów zagłębienia (złoty dla folderu głównego, błękitny dla podfolderu, powrót do złotego dla pod-podfolderu), co ułatwia orientację w rozbudowanych strukturach.
-   - **Menedżer Kosza Bazy Wiedzy (Kosz Wiki):** Usunięte artykuły i katalogi są bezpiecznie archiwizowane w koszu systemowym (`docs/.trash/`) i rejestrowane w trwałym manifeście `trash_manifest.json` wraz z datą, typem i oryginalną ścieżką. Dedykowane okno modalne "Kosz Wiki" umożliwia przeglądanie usuniętych elementów, weryfikację ich rozmiaru i ścieżki pierwotnej, przywrócenie ich do bazy z automatycznym odtworzeniem brakujących katalogów nadrzędnych oraz trwałe opróżnianie kosza (`/api/trash-documents`, `/api/restore-document`, `/api/purge-trash`).
+   - **Menedżer kosza bazy wiedzy (Kosz Wiki):** Usunięte artykuły i katalogi są bezpiecznie archiwizowane w koszu systemowym (`docs/.trash/`) i rejestrowane w trwałym manifeście `trash_manifest.json` wraz z datą, typem i oryginalną ścieżką. Dedykowane okno modalne "Kosz Wiki" umożliwia przeglądanie usuniętych elementów, weryfikację ich rozmiaru i ścieżki pierwotnej, przywrócenie ich do bazy z automatycznym odtworzeniem brakujących katalogów nadrzędnych oraz trwałe opróżnianie kosza (`/api/trash-documents`, `/api/restore-document`, `/api/purge-trash`).
    - **Bezpieczne usuwanie całych katalogów i podfolderów:** Możliwość usunięcia dowolnego działu lub zagnieżdżonego podfolderu z poziomu drzewa nawigacyjnego lub nagłówka. Dedykowane okno modalne dynamicznie kalkuluje i wyświetla liczbę zawartych plików oraz podkatalogów (`/api/delete-folder`).
-   - **Bezpieczne przenoszenie folderów i działów (GUI & Drag and Drop):** Zaawansowane okno modalne z wyszukiwarką i filtrem lokalizacji docelowych w czasie rzeczywistym oraz pełna obsługa przeciągania myszą (Drag & Drop) dla katalogów. Architektura zawiera rygorystyczną walidację antycykliczną (blokada przeniesienia folderu do samego siebie lub do któregokolwiek z jego podfolderów potomnych) oraz detekcję kolizji nazw (`409 Conflict`, `/api/move-folder`).
+   - **Bezpieczne przenoszenie folderów i działów (GUI oraz Drag and Drop):** Zaawansowane okno modalne z wyszukiwarką i filtrem lokalizacji docelowych w czasie rzeczywistym oraz pełna obsługa przeciągania myszą (Drag & Drop) dla katalogów. Architektura zawiera rygorystyczną walidację antycykliczną (blokada przeniesienia folderu do samego siebie lub do któregokolwiek z jego podfolderów potomnych) oraz detekcję kolizji nazw (`409 Conflict`, `/api/move-folder`).
    - **Przenoszenie i zmiana nazwy dokumentów:** Przeciąganie dokumentów `.md` w drzewie bocznym, modal przenoszenia z wyszukiwarką istniejących ścieżek (`/api/move-page`) oraz możliwość zmiany nazwy pliku w locie (`/api/rename-file`).
    - **Kreator nowych stron i działów:** Dedykowany modal dodawania stron (`createItemModal`, `/api/create-page`) z dynamicznym wyborem kategorii, tworzeniem nowych podfolderów w locie i natychmiastową rekompilacją drzewa nawigacji.
    - **Obsługa wielopoziomowych podkatalogów:** Pełne wsparcie dla dowolnie zagnieżdżonych struktur podkatalogów (1., 2., 3., N-ty poziom).
@@ -144,8 +144,8 @@ docs/
     - Wywoływany za pomocą skrótu klawiszowego `Alt + N` (lub `Alt + S`) oraz dyskretnego uchwytu na prawej krawędzi okna.
     - Autozapis w czasie rzeczywistym w `localStorage` oraz asynchroniczna synchronizacja w tle z serwerem API (`/api/scratchpad`, plik `data/scratchpad_data.json`).
     - Dwie zakładki robocze:
-      - *Brudnopis (Tekst / Kod)*: wielowierszowy edytor monospaced z automatycznym licznikiem znaków i linii, idealny do agregacji poleceń i wycinków konfiguracji.
-      - *Szybka Checklista*: lista zadań do odhaczenia (`Enter` dodaje zadanie, kliknięcie oznacza stan ukończenia).
+      - *Brudnopis (tekst / kod)*: wielowierszowy edytor monospaced z automatycznym licznikiem znaków i linii, idealny do agregacji poleceń i wycinków konfiguracji.
+      - *Szybka checklista*: lista zadań do odhaczenia (`Enter` dodaje zadanie, kliknięcie oznacza stan ukończenia).
     - Zintegrowany przycisk **Przekształć w stronę Wiki**: błyskawicznie przenosi treść brudnopisu do kreatora nowej strony Markdown bez konieczności ręcznego kopiowania.
     - Szybkie kopiowanie całej treści do schowka systemowego jednym kliknięciem.
 
@@ -153,12 +153,12 @@ docs/
     - **Hasłomat SecOps:** Generator bezpiecznych haseł i losowych fraz passphrase Diceware o wysokiej entropii z oceną siły.
     - **Kalkulator CIDR:** Zaawansowany kalkulator podsieci IPv4 z wyliczaniem maski, wildcard, adresu sieci, broadcastu, puli użytecznych hostów oraz reprezentacji binarnej.
     - **Kalkulator RAID & ZFS:** Analiza macierzy dyskowych RAID (RAID 0, 1, 5, 6, 10) oraz pul pamięci ZFS z wyliczaniem pojemności netto, narzutu parzystości i odporności na jednoczesne awarie dysków.
-    - **Monitor Zasobów Serwera:** Monitorowanie parametrów systemowych hosta w czasie rzeczywistym (CPU, RAM, Dysk, Uptime, jądro systemu) odczytywanych przez endpoint `/api/server-stats`.
+    - **Monitor zasobów serwera:** Monitorowanie parametrów systemowych hosta w czasie rzeczywistym (CPU, RAM, Dysk, Uptime, jądro systemu) odczytywanych przez endpoint `/api/server-stats`.
     - **Biuletyn RSS SecOps:** Agregator i czytnik biuletynów bezpieczeństwa oraz kanałów RSS CyberSec (CERT Polska, CISA, The Hacker News) z możliwością zarządzania subskrypcjami.
-    - **Wbudowana Interaktywna Instrukcja Portalu (`#/tool/instrukcja`):** Kompletny, wbudowany podręcznik inżynierski dostępny bezpośrednio z poziomu Pulpitu, prezentujący zasady formatowania Markdown, tabel, diagramów Mermaid, definicji tagów YAML oraz skrótów klawiszowych.
+    - **Wbudowana interaktywna instrukcja portalu (`#/tool/instrukcja`):** Kompletny, wbudowany podręcznik inżynierski dostępny bezpośrednio z poziomu Pulpitu, prezentujący zasady formatowania Markdown, tabel, diagramów Mermaid, definicji tagów YAML oraz skrótów klawiszowych.
 
 12. **Import plików zewnętrznych i Web Scraper (HTML to Markdown):**
-    - Dedykowane okno modalne "Importuj Plik (MD / HTML)" dostępne bezpośrednio z lewego panelu bocznego.
+    - Dedykowane okno modalne "Importuj plik (MD / HTML)" dostępne bezpośrednio z lewego panelu bocznego.
     - **Zakładka "Z dysku":** Import lokalnych plików `.md`, `.html`, `.htm` oraz `.txt` do wybranego działu bazy wiedzy.
     - **Zakładka "Z linku / URL":** Wbudowany Web Scraper (`/api/scrape-url`) pobierający artykuły ze stron internetowych, oczyszczający kod HTML i konwertujący treść na czysty Markdown z restrykcyjną ochroną anty-SSRF.
 
@@ -174,14 +174,14 @@ docs/
 
 15. **Eksport pełnej kopii zapasowej do archiwum ZIP oraz rotacyjny harmonogram kopii:**
     - **Kopia ZIP w locie (`/api/export-wiki-zip`):** Możliwość natychmiastowego wygenerowania i pobrania pełnej kopii zapasowej bazy wiedzy bezpośrednio z lewego paska narzędziowego GUI oraz sekcji konserwacji na pulpicie (przycisk "Kopia ZIP"). Kompresuje katalogi `docs/`, `data/` oraz `public/images/` z automatycznym wykluczeniem kosza systemowego.
-    - **Automatyczny harmonogram rotacyjny (Kopie Auto 7):** Wbudowany mechanizm serwera Node.js wykonujący pełną kopię zapasową co 24 godziny z automatyczną rotacją i retencją 7 najnowszych archiwów. Kopie składowane są w wolumenie `./backups` (zamontowanym w kontenerze jako `/app/backups`), co zapewnia ich trwałość na dysku maszyny hosta.
+    - **Automatyczny harmonogram rotacyjny (kopie auto 7):** Wbudowany mechanizm serwera Node.js wykonujący pełną kopię zapasową co 24 godziny z automatyczną rotacją i retencją 7 najnowszych archiwów. Kopie składowane są w wolumenie `./backups` (zamontowanym w kontenerze jako `/app/backups`), co zapewnia ich trwałość na dysku maszyny hosta.
     - **Interfejs zarządzania kopiami automatycznymi:** Dedykowany modal "Kopie Auto (7)" na pulpicie i w menu nawigacyjnym (`/api/backups-list`, `/api/backups-download`, `/api/backups-trigger`) pozwalający na weryfikację listy archiwów, ich rozmiaru, daty utworzenia, pobranie wybranego archiwum lub wymuszenie natychmiastowego wykonania kopii.
 
 16. **Autonomiczny eksport procedur offline do samowystarczalnego HTML (`exportArticleOfflineHtml`):**
-    - Przycisk **"EKSPORTUJ OFFLINE"** umieszczony w stałym pasku akcji (Sticky Action Header) każdego czytanego dokumentu.
+    - Przycisk **„Eksportuj offline”** umieszczony w stałym pasku akcji (Sticky Action Header) każdego czytanego dokumentu.
     - Generuje pojedynczy, całkowicie samowystarczalny plik `.html` gotowy do pracy w środowiskach bez dostępu do sieci (Air-gapped, disaster recovery, stacje bastionowe).
     - Wszystkie powiązane z dokumentem grafiki lokalne (`/public/images/...`) są automatycznie pobierane, konwertowane i osadzane wewnątrz pliku HTML jako Base64 Data URI (`data:image/png;base64,...`).
-    - Plik zawiera pełny, wbudowany arkusz stylów CSS Dark Theme, zachowując wierne formatowanie tabel, wyróżnień Callouts, bloków kodu i schematów.
+    - Plik zawiera pełny, wbudowany arkusz stylów CSS Dark Theme, zachowując wierne formatowanie tabel, wyróżnień callout, bloków kodu i schematów.
 
 ---
 
