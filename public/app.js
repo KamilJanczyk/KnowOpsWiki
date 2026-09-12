@@ -675,6 +675,33 @@ async function handleHashNavigation() {
 function renderMermaidDiagrams(container = null) {
   if (typeof mermaid === 'undefined') return;
 
+  if (!window._mermaidInitialized) {
+    try {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+          darkMode: true,
+          background: '#0d0d0e',
+          mainBkg: '#18181b',
+          nodeBorder: '#3b82f6',
+          lineColor: '#eab308',
+          textColor: '#f4f4f5',
+          primaryColor: '#1e3a8a',
+          primaryTextColor: '#f4f4f5',
+          primaryBorderColor: '#3b82f6',
+          secondaryColor: '#27272a',
+          tertiaryColor: '#18181b',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        },
+        securityLevel: 'loose'
+      });
+      window._mermaidInitialized = true;
+    } catch (e) {
+      console.warn('[Mermaid Init Warning]', e);
+    }
+  }
+
   const target = container || document;
   const mermaidBlocks = target.querySelectorAll('pre code.language-mermaid, pre code.lang-mermaid, div.mermaid, pre.mermaid, code.language-mermaid');
 
@@ -691,14 +718,6 @@ function renderMermaidDiagrams(container = null) {
 
     const div = document.createElement('div');
     div.className = 'mermaid';
-    div.style.background = '#0d0d0e';
-    div.style.padding = '12px';
-    div.style.borderRadius = '6px';
-    div.style.border = '1px solid #27272a';
-    div.style.margin = '12px 0';
-    div.style.display = 'flex';
-    div.style.justifyContent = 'center';
-    div.style.overflowX = 'auto';
     div.id = 'mermaid-id-' + Date.now() + '-' + Math.floor(Math.random() * 1000) + '-' + index;
     div.textContent = rawCode;
 
@@ -1046,6 +1065,14 @@ function renderKanbanCards() {
       const doneSub = subtasks.filter(s => s.done).length;
       const progressPercent = totalSub > 0 ? Math.round((doneSub / totalSub) * 100) : 0;
 
+      const safeId = escapeHtml(t.id);
+      const quickSubtaskHtml = `
+        <div class="card-quick-subtask">
+          <input type="text" id="quickSubtaskInput_${safeId}" placeholder="+ Dodaj podzadanie..." class="quick-subtask-input" onkeydown="if(event.key==='Enter'){ event.preventDefault(); window.addQuickSubtask('${safeId}'); }">
+          <button class="btn-quick-subtask" onclick="window.addQuickSubtask('${safeId}')" title="Dodaj podzadanie">+</button>
+        </div>
+      `;
+
       let subtasksHtml = '';
       if (totalSub > 0) {
         subtasksHtml = `<div class="subtasks-container">
@@ -1066,6 +1093,11 @@ function renderKanbanCards() {
               <span class="${s.done ? 'subtask-done' : ''}">${safeSubTitle}</span>
             </label>
           `;}).join('')}
+          ${quickSubtaskHtml}
+        </div>`;
+      } else {
+        subtasksHtml = `<div class="subtasks-container" style="padding:6px 8px; margin-top:6px;">
+          ${quickSubtaskHtml}
         </div>`;
       }
 
@@ -1074,7 +1106,6 @@ function renderKanbanCards() {
       const safeTitle = escapeHtml(t.title);
       const safeDesc = t.description ? `<div class="card-desc">${escapeHtml(t.description)}</div>` : '';
       const safeDate = escapeHtml(t.createdAt || '');
-      const safeId = escapeHtml(t.id);
 
       cardsHtml += `<div class="kanban-card ${priorityClass}">
         <div class="card-head">
@@ -1112,6 +1143,27 @@ async function toggleSubtask(taskId, subtaskId) {
     }
   }
 }
+
+window.addQuickSubtask = async function(taskId) {
+  const input = document.getElementById(`quickSubtaskInput_${taskId}`);
+  if (!input) return;
+  const title = input.value.trim();
+  if (!title) return;
+
+  const task = kanbanTasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  if (!task.subtasks) task.subtasks = [];
+  task.subtasks.push({
+    id: 'sub-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    title: title,
+    done: false
+  });
+
+  input.value = '';
+  await saveKanbanTasks();
+  renderKanbanCards();
+};
 
 async function openAddTaskModal() {
   await loadTaskTemplates();
@@ -3467,6 +3519,8 @@ async function loadRightSidebarKanban() {
       const res = await fetch('/api/kanban?t=' + Date.now());
       const data = await res.json();
       tasks = data.tasks || [];
+      kanbanTasks = tasks;
+      window.kanbanTasks = tasks;
     }
 
     const activeTasks = tasks.filter(t => t.status === 'in_progress' && !t.archived);
@@ -3485,12 +3539,40 @@ async function loadRightSidebarKanban() {
       const total = subtasks.length;
       const done = subtasks.filter(s => s.done).length;
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+      const safeTaskId = escapeHtml(t.id);
       
+      let subtasksListHtml = '';
+      if (total > 0) {
+        subtasksListHtml = `
+          <div class="right-kanban-subtasks">
+            <div class="right-kanban-item-progress">
+              <span>Podzadania (${done}/${total})</span>
+              <span>${progress}%</span>
+            </div>
+            <div class="right-kanban-progress-bar">
+              <div class="right-kanban-progress-fill" style="width: ${progress}%;"></div>
+            </div>
+            <div class="right-kanban-checklist">
+              ${subtasks.map(s => {
+                const safeSubId = escapeHtml(s.id);
+                const safeSubTitle = escapeHtml(s.title);
+                return `
+                  <label class="right-kanban-subtask-item">
+                    <input type="checkbox" ${s.done ? 'checked' : ''} onchange="window.toggleSidebarSubtask('${safeTaskId}', '${safeSubId}')">
+                    <span class="${s.done ? 'right-kanban-subtask-done' : ''}">${safeSubTitle}</span>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
       html += `
         <div class="right-kanban-item ${prioClass}">
-          <div class="right-kanban-item-title">${t.title}</div>
-          ${t.description ? `<div class="right-kanban-item-desc">${t.description}</div>` : ''}
-          ${total > 0 ? `<div class="right-kanban-item-progress">Podzadania: ${done}/${total} (${progress}%)</div>` : ''}
+          <div class="right-kanban-item-title">${escapeHtml(t.title)}</div>
+          ${t.description ? `<div class="right-kanban-item-desc">${escapeHtml(t.description)}</div>` : ''}
+          ${subtasksListHtml}
         </div>
       `;
     }
@@ -3500,6 +3582,32 @@ async function loadRightSidebarKanban() {
     container.innerHTML = `<div style="font-size:0.65rem; color:#ef4444; text-align:center;">Błąd ładowania</div>`;
   }
 }
+
+window.toggleSidebarSubtask = async function(taskId, subtaskId) {
+  let tasks = window.kanbanTasks || kanbanTasks;
+  if (!tasks || tasks.length === 0) {
+    try {
+      const res = await fetch('/api/kanban?t=' + Date.now());
+      const data = await res.json();
+      tasks = data.tasks || [];
+      kanbanTasks = tasks;
+      window.kanbanTasks = tasks;
+    } catch (e) {}
+  }
+  const task = tasks.find(t => t.id === taskId);
+  if (task && task.subtasks) {
+    const sub = task.subtasks.find(s => s.id === subtaskId);
+    if (sub) {
+      sub.done = !sub.done;
+      await saveKanbanTasks();
+      const cardsInProgress = document.getElementById('cards-in_progress');
+      if (cardsInProgress && typeof renderKanbanCards === 'function') {
+        renderKanbanCards();
+      }
+      await loadRightSidebarKanban();
+    }
+  }
+};
 
 // --- ZMIANY: Tabulator oraz zmiana nazwy ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -3988,7 +4096,9 @@ window.insertEditorText = function(type) {
       textarea.setSelectionRange(11, 11 + defaultTags.length);
       if (typeof updateEditorPreview === 'function') updateEditorPreview();
       return;
-    }
+    case 'mermaid':
+      replacement = `\n\`\`\`mermaid\nflowchart TD\n  Client["Docker Client (CLI)"] -->|/var/run/docker.sock| Daemon["Docker Daemon (dockerd)"]\n  Daemon -->|gRPC| Containerd["containerd"]\n  Containerd --> Runc["runc (OCI Runtime)"]\n  Runc --> Kernel["Linux Kernel: cgroups v2 / Namespaces"]\n\`\`\`\n`;
+      break;
     case 'mermaid_flow':
       replacement = `\n\`\`\`mermaid\ngraph TD\n  A[Start] --> B{Decyzja?}\n  B -- Tak --> C[Proces A]\n  B -- Nie --> D[Proces B]\n  C --> E[Koniec]\n  D --> E\n\`\`\`\n`;
       break;

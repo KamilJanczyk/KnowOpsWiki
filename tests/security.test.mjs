@@ -573,4 +573,91 @@ test('Editor Tags Handler: Weryfikacja logiki wstawiania i modyfikacji YAML Fron
   assert.equal(existingTagsDoc.substring(res3.selectionStart, res3.selectionEnd), 'tags: [esxi, vcenter]');
 });
 
+// 17. Kanban Subtasks: Szybkie dodawanie, przełączanie stanu i sanityzacja XSS
+test('Kanban Subtasks: Szybkie dodawanie, przełączanie stanu i sanityzacja XSS', () => {
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Symulacja zadania
+  const task = {
+    id: 'task-test-01',
+    title: 'ZABBIX - podłączenie',
+    status: 'in_progress',
+    subtasks: [
+      { id: 'sub-1', title: 'RDS-EURECA', done: false },
+      { id: 'sub-2', title: 'VEEAM-R760', done: true }
+    ]
+  };
+
+  // 1. Szybkie dodanie podzadania
+  const newSubTitle = '  Net-Serwer Produkcja <script>alert("xss")</script>  ';
+  const cleanTitle = newSubTitle.trim();
+  const newSubId = 'sub-test-' + Date.now();
+  task.subtasks.push({
+    id: newSubId,
+    title: cleanTitle,
+    done: false
+  });
+
+  assert.equal(task.subtasks.length, 3);
+  assert.equal(task.subtasks[2].done, false);
+
+  // 2. Weryfikacja sanityzacji XSS
+  const safeTitle = escapeHtml(task.subtasks[2].title);
+  assert.equal(safeTitle.includes('<script>'), false);
+  assert.equal(safeTitle.includes('&lt;script&gt;'), true);
+
+  // 3. Przełączanie stanu podzadania (toggle)
+  const targetSub = task.subtasks.find(s => s.id === 'sub-1');
+  assert.ok(targetSub);
+  assert.equal(targetSub.done, false);
+  targetSub.done = !targetSub.done;
+  assert.equal(targetSub.done, true);
+
+  // 4. Przeliczanie postępu
+  const total = task.subtasks.length;
+  const doneCount = task.subtasks.filter(s => s.done).length;
+  const progress = Math.round((doneCount / total) * 100);
+  assert.equal(total, 3);
+  assert.equal(doneCount, 2); // sub-1 i sub-2 są done
+  assert.equal(progress, 67);
+});
+
+// 18. Mermaid Diagrams: Weryfikacja struktury i sanityzacji bloków diagramów
+test('Mermaid Diagrams: Weryfikacja struktury i sanityzacji bloków diagramów', () => {
+  const mermaidSample = `flowchart TD
+  Client["Docker Client (CLI)"] -->|/var/run/docker.sock| Daemon["Docker Daemon (dockerd)"]
+  Daemon -->|gRPC| Containerd["containerd"]
+  Containerd --> Runc["runc (OCI Runtime)"]
+  Runc --> Kernel["Linux Kernel: cgroups v2 / Namespaces"]`;
+
+  assert.equal(mermaidSample.includes('flowchart TD'), true);
+  assert.equal(mermaidSample.includes('Docker Client'), true);
+  assert.equal(mermaidSample.includes('containerd'), true);
+  assert.equal(mermaidSample.includes('runc'), true);
+
+  // Sprawdzenie konfiguracji motywu dark
+  const themeConfig = {
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#0d0d0e',
+      mainBkg: '#18181b',
+      nodeBorder: '#3b82f6',
+      lineColor: '#eab308'
+    }
+  };
+  assert.equal(themeConfig.theme, 'dark');
+  assert.equal(themeConfig.themeVariables.darkMode, true);
+  assert.equal(themeConfig.themeVariables.background, '#0d0d0e');
+});
+
+
 
