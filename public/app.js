@@ -978,8 +978,6 @@ async function loadKanbanBoard() {
       <div class="tool-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <h2 style="margin:0;">TABLICA ZADAŃ SYSTEMOWYCH KANBAN</h2>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-          <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-size:0.72rem; padding:5px 10px;" onclick="downloadWikiZip()" title="Pobierz pełną kopię zapasową bazy wiedzy jako archiwum ZIP">Kopia ZIP</button>
-          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#e4e4e7; font-size:0.72rem; padding:5px 10px;" onclick="openOrphanedImagesModal()" title="Skanuj i usuń nieużywane grafiki">Oczyść grafiki</button>
           <button class="btn-action" onclick="openAddTaskModal()">+ Nowe Zadanie</button>
           <button class="btn-action btn-archive" onclick="openArchiveModal()">Archiwum Zadań (${archivedCount})</button>
         </div>
