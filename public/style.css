@@ -84,14 +84,14 @@
 
     /* Layout Main Grid */
     .layout-container { display: flex; min-height: calc(100vh - 44px); }
-    .left-topics-box { width: 250px; background: #0c0c0c; border-right: 1px solid var(--sw-border); padding: 12px 10px; flex-shrink: 0; max-height: calc(100vh - 44px); overflow-y: auto; }
+    .left-topics-box { width: 300px; background: #0c0c0c; border-right: 1px solid var(--sw-border); padding: 12px 10px; flex-shrink: 0; max-height: calc(100vh - 44px); overflow-y: auto; }
     .left-topics-header { font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; }
     .left-topics-list { list-style: none; }
     .topic-group-header { font-size: 0.75rem; font-weight: 700; color: #e5e7eb; margin-top: 8px; margin-bottom: 3px; }
     .topic-group-header a { color: var(--sw-gold); text-decoration: none; }
     .topic-item { font-size: 0.72rem; margin: 0; }
     .topic-item a {
-      color: #aaaaaa; text-decoration: none; display: block; padding: 2px 4px; border-radius: 3px;
+      color: #aaaaaa; text-decoration: none; display: block; padding: 3px 6px; border-radius: 3px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .topic-item a:hover, .topic-item.active a { background: #1f2937; color: #ffffff; }

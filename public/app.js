@@ -233,7 +233,7 @@ function renderTopCategories(categories) {
             
             return `
               <a href="${subHref}" class="top-dropdown-item font-semibold" onclick="selectCategory('${cat.id}', '${sub.id}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${sub.relPath}')" style="display: flex; align-items: center; gap: 6px;">
-                [Dział] ${sub.title}
+                ${sub.title}
               </a>
             `;
           }).join('')}
@@ -427,7 +427,7 @@ async function renderSidebar() {
         const isExpanded = expandedDirs[item.relPath] || false;
         const dirId = 'dir-' + item.relPath.replace(/[^a-zA-Z0-9]/g, '-');
         subHtml += `<li class="topic-group-header" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: var(--sw-gold); margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'directory')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">[Dział] ${item.title}</span>
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${item.title}</span>
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
             <button type="button" class="btn-move-folder-tree" title="Przenieś ten folder" onclick="event.stopPropagation(); window.openMoveFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">P</button>
             <button type="button" class="btn-delete-folder-tree" title="Usuń ten folder i jego zawartość" onclick="event.stopPropagation(); window.openDeleteFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">×</button>
@@ -440,7 +440,7 @@ async function renderSidebar() {
       } else {
         const isFileActive = (currentHash === item.relPath);
         subHtml += `<li class="topic-item ${isFileActive ? 'active' : ''}" style="padding-left: ${indent + 8}px;" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'file')">
-          <a href="#/${item.relPath}">${item.title}</a>
+          <a href="#/${item.relPath}" title="${escapeHtml(item.title)}">${item.title}</a>
         </li>`;
       }
     }
@@ -3011,7 +3011,7 @@ window.openMovePageModal = function() {
           type: 'Dział',
           depth: 1
         });
-        optionsHtml += `<option value="${sub.relPath}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
+        optionsHtml += `<option value="${sub.relPath}">&nbsp;&nbsp;${sub.title}</option>`;
 
         if (sub.items && sub.items.length > 0) {
           const subRecursive = collectMoveFoldersRecursive(sub.items, `${cat.title} > ${sub.title}`, 2);
@@ -3110,7 +3110,7 @@ window.openCreateItemModal = async function(presetParentPath = null) {
       optionsHtml += `<option value="${cat.id}">[KATEGORIA GŁÓWNA] ${cat.title}</option>`;
       for (const sub of (cat.subcategories || [])) {
         if (sub.id === 'glowne') continue;
-        optionsHtml += `<option value="${sub.relPath}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
+        optionsHtml += `<option value="${sub.relPath}">&nbsp;&nbsp;${sub.title}</option>`;
         if (sub.items && sub.items.length > 0) {
           optionsHtml += buildRecursiveFolderOptions(sub.items, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
         }
@@ -3264,7 +3264,7 @@ function populateImportFolders() {
     if (cat.subcategories) {
       for (const sub of cat.subcategories) {
         if (sub.id === 'glowne') continue;
-        html += `<option value="${sub.relPath}">&nbsp;&nbsp;[Dział] ${sub.title}</option>`;
+        html += `<option value="${sub.relPath}">&nbsp;&nbsp;${sub.title}</option>`;
         if (sub.items) {
           function addSubfolders(itemsList, prefix = '&nbsp;&nbsp;&nbsp;&nbsp;') {
             for (const item of itemsList) {
