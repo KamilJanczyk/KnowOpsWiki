@@ -351,6 +351,7 @@ async function renderSidebar() {
 
   const btnDeleteDept = document.getElementById('btnDeleteCurrentDept');
   const btnMoveDept = document.getElementById('btnMoveCurrentDept');
+  const btnRenameDept = document.getElementById('btnRenameCurrentDept');
   if (sidebarTitle) {
     sidebarTitle.innerText = (targetSub ? targetSub.title : cat.title).toUpperCase();
     if (targetSub && targetSub.relPath) {
@@ -358,6 +359,17 @@ async function renderSidebar() {
       sidebarTitle.setAttribute('ondragleave', 'window.handleSidebarDragLeave(event)');
       sidebarTitle.setAttribute('ondrop', `window.handleSidebarDrop(event, '${targetSub.relPath}')`);
       sidebarTitle.setAttribute('title', `Katalog główny działu: ${targetSub.title} (możesz upuścić plik lub folder tutaj)`);
+    }
+  }
+  if (btnRenameDept) {
+    if (targetSub && targetSub.relPath && targetSub.id !== 'glowne') {
+      btnRenameDept.style.display = 'inline-block';
+      btnRenameDept.onclick = (e) => {
+        e.stopPropagation();
+        window.openRenameFolderModal(targetSub.relPath, targetSub.title);
+      };
+    } else {
+      btnRenameDept.style.display = 'none';
     }
   }
   if (btnMoveDept) {
@@ -423,6 +435,7 @@ async function renderSidebar() {
         subHtml += `<li class="topic-group-header ${depthClass}" data-depth="${depth}" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: ${folderColor}; margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'directory')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${item.title}</span>
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+            <button type="button" class="btn-rename-folder-tree" title="Zmień nazwę tego folderu" onclick="event.stopPropagation(); window.openRenameFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">R</button>
             <button type="button" class="btn-move-folder-tree" title="Przenieś ten folder" onclick="event.stopPropagation(); window.openMoveFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">P</button>
             <button type="button" class="btn-delete-folder-tree" title="Usuń ten folder i jego zawartość" onclick="event.stopPropagation(); window.openDeleteFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">×</button>
             <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 2px;">${isExpanded ? 'v' : '>'}</span>
@@ -4777,6 +4790,116 @@ window.submitMoveFolder = async function() {
     await loadNavigation();
   } catch (err) {
     alert(`Błąd podczas przenoszenia folderu: ${err.message}`);
+  }
+};
+
+// ================= ZMIANA NAZWY FOLDERU / DZIAŁU [dodane] ================= //
+
+let currentRenameSourcePath = '';
+
+window.openRenameFolderModal = function(sourceRelPath, folderTitle) {
+  const modal = document.getElementById('renameFolderModalOverlay');
+  const pathInput = document.getElementById('renameFolderCurrentPath');
+  const nameInput = document.getElementById('renameFolderNameInput');
+
+  if (!modal || !pathInput || !nameInput) return;
+
+  currentRenameSourcePath = sourceRelPath;
+  pathInput.value = sourceRelPath;
+
+  const folderBaseName = sourceRelPath.split('/').pop();
+  nameInput.value = folderBaseName;
+
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    nameInput.focus();
+    nameInput.select();
+  }, 50);
+};
+
+window.closeRenameFolderModal = function() {
+  const modal = document.getElementById('renameFolderModalOverlay');
+  if (modal) modal.style.display = 'none';
+  currentRenameSourcePath = '';
+};
+
+window.submitRenameFolder = async function() {
+  const nameInput = document.getElementById('renameFolderNameInput');
+  const newName = nameInput ? nameInput.value.trim() : '';
+
+  if (!currentRenameSourcePath) {
+    alert('Brak wskazanej ścieżki folderu do zmiany nazwy.');
+    return;
+  }
+
+  if (!newName) {
+    alert('Proszę podać nową nazwę folderu.');
+    return;
+  }
+
+  const oldBaseName = currentRenameSourcePath.split('/').pop();
+  if (newName === oldBaseName) {
+    alert('Nowa nazwa jest identyczna z dotychczasową.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/rename-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceRelPath: currentRenameSourcePath,
+        newFolderName: newName
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
+
+    const oldRel = data.oldRelPath || currentRenameSourcePath;
+    const newRel = data.newRelPath;
+
+    window.closeRenameFolderModal();
+
+    // Aktualizacja rozwiniętych katalogów w localStorage
+    if (expandedDirs[oldRel]) {
+      delete expandedDirs[oldRel];
+      expandedDirs[newRel] = true;
+    }
+    for (const key of Object.keys(expandedDirs)) {
+      if (key.startsWith(oldRel + '/')) {
+        const updatedKey = key.replace(oldRel, newRel);
+        expandedDirs[updatedKey] = expandedDirs[key];
+        delete expandedDirs[key];
+      }
+    }
+    saveExpandedDirs();
+
+    // Aktualizacja bieżącej kategorii lub działu jeśli dotyczyło zmienianego folderu
+    if (currentCategory === oldRel || currentCategory === oldBaseName) {
+      currentCategory = newRel;
+    }
+    if (currentSubcategory === oldRel || currentSubcategory === oldBaseName) {
+      currentSubcategory = newRel.includes('/') ? newRel.split('/').pop() : newRel;
+    }
+
+    // Jeśli użytkownik jest w pliku z tego folderu, zaktualizuj hash URL
+    const currentHash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
+    if (currentHash === oldRel || currentHash.startsWith(oldRel + '/')) {
+      const newHashRel = currentHash.replace(oldRel, newRel);
+      window.location.hash = `#/${newHashRel}`;
+    }
+
+    await loadNavigation();
+    if (navigationData && navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    if (typeof renderSidebar === 'function') {
+      await renderSidebar();
+    }
+    alert(data.message || 'Nazwa folderu została pomyślnie zmieniona.');
+  } catch (err) {
+    alert(`Błąd podczas zmiany nazwy folderu: ${err.message}`);
   }
 };
 

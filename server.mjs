@@ -1150,6 +1150,101 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // Zmiana nazwy folderu / działu [dodane: bezpieczna edycja nazwy katalogu]
+    if (normPath === '/api/rename-folder' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { sourceRelPath, newFolderName } = body;
+
+      if (!sourceRelPath || typeof sourceRelPath !== 'string') {
+        return sendJson(400, { error: 'Wymagany parametr sourceRelPath' });
+      }
+
+      const decodedSource = decodeURIComponent(sourceRelPath).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+      const sourceParts = decodedSource.split('/').map(p => p.trim()).filter(Boolean);
+
+      if (sourceParts.length === 0 || sourceParts.some(p => p === '..' || p === '.' || p.includes('\0') || /[<>:"|?*]/.test(p))) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka źródłowa folderu' });
+      }
+
+      const docsBase = path.resolve(DOCS_DIR);
+      const trashBase = path.resolve(TRASH_DIR);
+      const sourcePath = path.resolve(DOCS_DIR, ...sourceParts);
+
+      if (!isPathInsideDocs(sourcePath, docsBase)) {
+        return sendJson(403, { error: 'Dostęp zablokowany: ścieżka źródłowa poza katalogiem bazy wiedzy' });
+      }
+      if (sourcePath === docsBase) {
+        return sendJson(403, { error: 'Niedozwolona operacja: nie można zmienić nazwy katalogu głównego bazy wiedzy' });
+      }
+      if (sourcePath === trashBase || sourcePath.startsWith(trashBase + path.sep)) {
+        return sendJson(403, { error: 'Niedozwolona operacja: nie można modyfikować kosza systemowego' });
+      }
+      if (!fs.existsSync(sourcePath)) {
+        return sendJson(404, { error: 'Folder źródłowy nie istnieje' });
+      }
+      const sourceStat = fs.statSync(sourcePath);
+      if (!sourceStat.isDirectory()) {
+        return sendJson(400, { error: 'Wskazana ścieżka źródłowa nie jest katalogiem' });
+      }
+
+      let cleanNewName = (newFolderName && typeof newFolderName === 'string' ? decodeURIComponent(newFolderName) : '').trim();
+      cleanNewName = cleanNewName.replace(/[<>:"|?*\x00/\\]/g, '_').trim().replace(/\s+/g, '_');
+
+      if (!cleanNewName || cleanNewName === '.' || cleanNewName === '..') {
+        return sendJson(400, { error: 'Nowa nazwa folderu nie może być pusta ani zawierać znaków specjalnych' });
+      }
+
+      const parentDir = path.dirname(sourcePath);
+      const targetPath = path.resolve(parentDir, cleanNewName);
+
+      if (!isPathInsideDocs(targetPath, docsBase)) {
+        return sendJson(403, { error: 'Nieprawidłowa ścieżka docelowa' });
+      }
+
+      if (sourcePath === targetPath) {
+        return sendJson(400, { error: 'Folder posiada już podaną nazwę' });
+      }
+
+      if (fs.existsSync(targetPath)) {
+        return sendJson(409, { error: 'Katalog o podanej nazwie już istnieje w tej lokalizacji' });
+      }
+
+      isApiSaving = true;
+      try {
+        fs.renameSync(sourcePath, targetPath);
+        console.log(`[Wiki API] Zmieniono nazwę folderu: ${decodedSource} -> ${cleanNewName}`);
+      } catch (renameErr) {
+        console.warn(`[Wiki API] renameSync folderu nie powiodło się, próba cpSync i rmSync: ${renameErr.message}`);
+        try {
+          fs.cpSync(sourcePath, targetPath, { recursive: true });
+          fs.rmSync(sourcePath, { recursive: true, force: true });
+          console.log(`[Wiki API] Skopiowano i usunięto źródłowy folder: ${decodedSource}`);
+        } catch (copyErr) {
+          isApiSaving = false;
+          console.error('[Wiki API] Błąd podczas zmiany nazwy katalogu:', copyErr);
+          return sendJson(500, { error: `Błąd operacji na plikach: ${copyErr.message}` });
+        }
+      }
+
+      try {
+        await rebuildWiki();
+        rebuildSearchCache();
+      } catch (buildErr) {
+        console.error('[Wiki API] Błąd rekompilacji po zmianie nazwy folderu:', buildErr);
+      } finally {
+        setTimeout(() => { isApiSaving = false; }, 1500);
+      }
+
+      const finalRelPath = path.relative(DOCS_DIR, targetPath).replace(/\\/g, '/');
+      return sendJson(200, {
+        success: true,
+        message: `Nazwa katalogu została pomyślnie zmieniona na "${cleanNewName}".`,
+        oldRelPath: decodedSource,
+        newRelPath: finalRelPath
+      });
+    }
+
     if (normPath === '/api/kanban' && req.method === 'POST') {
       const body = await getBody();
       if (!body.tasks || !Array.isArray(body.tasks)) {

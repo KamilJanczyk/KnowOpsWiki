@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.3.8">
+  <link rel="stylesheet" href="/public/style.css?v=2.3.9">
 </head>
 <body>
 
@@ -64,6 +64,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222;">
         <div class="left-topics-header" id="sidebarTitle" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">NAWIGACJA</div>
         <div style="display: flex; align-items: center; gap: 4px;">
+          <button id="btnRenameCurrentDept" class="btn-rename-current-dept" style="display: none; background: none; border: 1px solid #eab308; color: #facc15; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-weight: 600;" title="Zmień nazwę tego działu">Zmień nazwę</button>
           <button id="btnMoveCurrentDept" class="btn-move-current-dept" style="display: none; background: none; border: 1px solid #3b82f6; color: #60a5fa; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-weight: 600;" title="Przenieś ten dział do innej kategorii">Przenieś dział</button>
           <button id="btnDeleteCurrentDept" class="btn-delete-current-dept" style="display: none; background: none; border: 1px solid #3f3f46; color: #ef4444; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-weight: 600;" title="Usuń ten dział i jego zawartość">Usuń dział</button>
         </div>
@@ -213,7 +214,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.6.4"></script>
+  <script src="/public/app.js?v=2.6.5"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
@@ -440,6 +441,34 @@
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeMoveFolderModal()">Anuluj</button>
         <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#fff; font-weight:bold;" onclick="submitMoveFolder()">Zapisz i przenieś folder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Zmiany Nazwy Folderu / Działu [dodane] -->
+  <div id="renameFolderModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal" style="max-width: 520px; width: 95%;">
+      <div class="modal-header">
+        <h3 style="color:#facc15;">ZMIANA NAZWY FOLDERU / DZIAŁU</h3>
+        <button class="modal-close-btn" onclick="closeRenameFolderModal()">X</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px;">
+          <label class="modal-label">Lokalizacja w systemie</label>
+          <input type="text" id="renameFolderCurrentPath" readonly style="width:100%; background:#1c1c1f; color:#888; border:1px solid #333; padding:8px; border-radius:4px; font-size:0.78rem; outline:none; font-family:monospace;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="modal-label">Nowa nazwa folderu *</label>
+          <input type="text" id="renameFolderNameInput" class="modal-input" placeholder="Wprowadź nową nazwę folderu..." style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px 10px; border-radius:4px; font-size:0.85rem; outline:none;">
+          <div style="font-size:0.7rem; color:#888; margin-top:4px;">Nazwa nie powinna zawierać znaków specjalnych ani ukośników.</div>
+        </div>
+        <div style="background:rgba(234,179,8,0.08); border:1px solid rgba(234,179,8,0.25); border-radius:4px; padding:8px 10px; font-size:0.72rem; color:#fde047; line-height:1.4;">
+          Zmiana nazwy folderu automatycznie zaktualizuje ścieżki wszystkich zawartych w nim dokumentów oraz drzewo nawigacji.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeRenameFolderModal()">Anuluj</button>
+        <button class="btn-action" style="background:#ca8a04; border:1px solid #eab308; color:#000; font-weight:bold;" onclick="submitRenameFolder()">Zapisz nową nazwę</button>
       </div>
     </div>
   </div>

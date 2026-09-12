@@ -207,6 +207,32 @@
       background: rgba(59, 130, 246, 0.15) !important;
       border-color: #3b82f6 !important;
     }
+
+    /* Przycisk zmiany nazwy folderu w lewym drzewku [dodane] */
+    .btn-rename-folder-tree {
+      background: none;
+      border: none;
+      color: #71717a;
+      font-size: 0.65rem;
+      font-weight: bold;
+      padding: 1px 4px;
+      border-radius: 3px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+      line-height: 1.1;
+    }
+    .topic-group-header:hover .btn-rename-folder-tree {
+      opacity: 1;
+    }
+    .btn-rename-folder-tree:hover {
+      color: #facc15;
+      background: rgba(234, 179, 8, 0.2);
+    }
+    .btn-rename-current-dept:hover {
+      background: rgba(234, 179, 8, 0.15) !important;
+      border-color: #eab308 !important;
+    }
     .topic-group-header[draggable="true"] {
       cursor: grab;
     }

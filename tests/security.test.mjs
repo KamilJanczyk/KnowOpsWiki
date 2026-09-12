@@ -1155,3 +1155,74 @@ test('Auto Refresh & Routing: Poprawne wyznaczanie podkategorii ("glowne" vs pod
   assert.equal(deepDoc.expandedDirs['02_SysAdmin/03_Sieci/VLANy'], true);
 });
 
+// 28. Folder Renaming Security & Validation
+test('Folder Renaming Security: Sanityzacja nazw, blokada Path Traversal i ochrona katalogu bazowego docs/', () => {
+  const docsBase = path.resolve('docs');
+  const trashBase = path.resolve('docs', '.trash');
+
+  function validateFolderRename(sourceRelPath, newFolderName) {
+    if (!sourceRelPath || typeof sourceRelPath !== 'string') {
+      return { valid: false, error: 'Wymagany parametr sourceRelPath' };
+    }
+
+    const decodedSource = decodeURIComponent(sourceRelPath).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const sourceParts = decodedSource.split('/').map(p => p.trim()).filter(Boolean);
+
+    if (sourceParts.length === 0 || sourceParts.some(p => p === '..' || p === '.' || p.includes('\0') || /[<>:"|?*]/.test(p))) {
+      return { valid: false, error: 'Nieprawidłowa ścieżka źródłowa folderu' };
+    }
+
+    const sourcePath = path.resolve(docsBase, ...sourceParts);
+    if (!isPathInsideDocs(sourcePath, docsBase)) {
+      return { valid: false, error: 'Dostęp zablokowany: ścieżka źródłowa poza katalogiem bazy wiedzy' };
+    }
+    if (sourcePath === docsBase) {
+      return { valid: false, error: 'Niedozwolona operacja: nie można zmienić nazwy katalogu głównego' };
+    }
+    if (sourcePath === trashBase || sourcePath.startsWith(trashBase + path.sep)) {
+      return { valid: false, error: 'Niedozwolona operacja: nie można modyfikować kosza' };
+    }
+
+    let cleanNewName = (newFolderName && typeof newFolderName === 'string' ? decodeURIComponent(newFolderName) : '').trim();
+    cleanNewName = cleanNewName.replace(/[<>:"|?*\x00/\\]/g, '_').trim().replace(/\s+/g, '_');
+
+    if (!cleanNewName || cleanNewName === '.' || cleanNewName === '..') {
+      return { valid: false, error: 'Nowa nazwa folderu nie może być pusta' };
+    }
+
+    const parentDir = path.dirname(sourcePath);
+    const targetPath = path.resolve(parentDir, cleanNewName);
+
+    if (!isPathInsideDocs(targetPath, docsBase)) {
+      return { valid: false, error: 'Nieprawidłowa ścieżka docelowa' };
+    }
+    if (sourcePath === targetPath) {
+      return { valid: false, error: 'Folder posiada już podaną nazwę' };
+    }
+
+    return { valid: true, cleanNewName, targetPath, sourcePath };
+  }
+
+  // 1. Blokada Path Traversal w ścieżce źródłowej
+  assert.equal(validateFolderRename('../../../etc', 'NowaNazwa').valid, false);
+  assert.equal(validateFolderRename('01_Sciagi/../../etc', 'NowaNazwa').valid, false);
+
+  // 2. Blokada próby zmiany nazwy katalogu głównego docs/ lub kosza
+  assert.equal(validateFolderRename('', 'NowaNazwa').valid, false);
+  assert.equal(validateFolderRename('.trash', 'NowaNazwa').valid, false);
+
+  // 3. Sanityzacja niedozwolonych znaków w nowej nazwie folderu
+  const sanitizedRes = validateFolderRename('01_Cyberbezpieczenstwo/01_SOC', 'Nowy:Nazwa/Folderu*Test?');
+  assert.equal(sanitizedRes.valid, true);
+  assert.equal(sanitizedRes.cleanNewName, 'Nowy_Nazwa_Folderu_Test_');
+
+  // 4. Blokada identycznej nazwy
+  assert.equal(validateFolderRename('01_Cyberbezpieczenstwo/01_SOC', '01_SOC').valid, false);
+
+  // 5. Poprawna walidacja prawidłowej ścieżki i nazwy
+  const validRes = validateFolderRename('01_Cyberbezpieczenstwo/01_SOC', '01_SOC_Incident_Response');
+  assert.equal(validRes.valid, true);
+  assert.equal(validRes.cleanNewName, '01_SOC_Incident_Response');
+  assert.equal(path.basename(validRes.targetPath), '01_SOC_Incident_Response');
+});
+
