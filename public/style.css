@@ -1003,6 +1003,30 @@
       border-radius: 2px;
     }
 
+    .editor-code-block {
+      background-color: rgba(16, 185, 129, 0.10);
+      outline: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 3px;
+    }
+    .editor-code-ticks {
+      color: #71717a !important;
+      opacity: 0.85;
+    }
+    .editor-code-lang {
+      color: #facc15 !important;
+    }
+    .editor-code-body {
+      color: #6ee7b7 !important;
+    }
+    .editor-code-inline {
+      background-color: rgba(244, 114, 182, 0.12);
+      outline: 1px solid rgba(244, 114, 182, 0.30);
+      border-radius: 2px;
+    }
+    .editor-code-inline-body {
+      color: #f472b6 !important;
+    }
+
     /* Style dla etykiet i tagów */
     .article-tags-bar {
       display: flex;

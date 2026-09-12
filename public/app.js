@@ -3003,7 +3003,8 @@ function renderWikiInstruction() {
         <br><code>&gt; [!CAUTION]</code> – ryzyko awarii lub utraty danych (kolor czerwony).
         <br>Obsługiwane są również własne tytuły w pierwszej linii, np. <code>&gt; [!WARNING] Zanim zrestartujesz klaster</code>.
       </li>
-      <li><strong>Pasek narzędziowy:</strong> błyskawiczne wstawianie pogrubienia (<strong>B</strong>), kursywy (<em>I</em>), nagłówków (<strong>H1</strong>, <strong>H2</strong>), bloków kodu (<strong>Kod</strong>), tabel Markdown (<strong>Tabela</strong>) oraz schematów <strong>Diagram Mermaid</strong> (Flowchart, Sequence, Git Graph, Pie Chart, Gantt, State, Class, Active Directory, drzewo OU).</li>
+      <li><strong>Pasek narzędziowy i szablony kodu:</strong> błyskawiczne wstawianie pogrubienia (<strong>B</strong>), kursywy (<em>I</em>), nagłówków (<strong>H1</strong>, <strong>H2</strong>), bloków kodu (<strong>Kod</strong>) z selektorem języków (Bash, PowerShell, YAML, JSON, Python, SQL, Dockerfile, Nginx), tabel Markdown (<strong>Tabela</strong>) oraz schematów <strong>Diagram Mermaid</strong>. Wstawienie kodu z paska automatycznie zaznacza ciało polecenia, co pozwala na natychmiastowe nadpisanie go nową zawartością lub wklejenie ze schowka (Ctrl + V). Zaznaczenie tekstu przed kliknięciem automatycznie otacza go blokiem wybranego języka.</li>
+      <li><strong>Wyróżnianie składni w nakładce edytora:</strong> bloki kodu wieloliniowego (<code>```język ... ```</code>) oraz jednoliniowego (<code>`polecenie`</code>) posiadają wyraźne wyróżnienie kolorystyczne (szmaragdowe tło, bursztynowy identyfikator interpretera, przyciemnione grawisy) analogicznie do grafik (błękitny akcent). Zapewnia to natychmiastową lokalizację poleceń i parametrów konfiguracyjnych w edytowanym tekście z zachowaniem pełnej synchronizacji pozycji kursora.</li>
       <li><strong>Przycisk „Tagi” w edytorze:</strong> umożliwia wstawienie lub edycję metadanych tagów YAML Frontmatter na samej górze pliku za pomocą jednego kliknięcia. Kursor automatycznie zaznacza sekcję tagów, co pozwala na natychmiastowe wpisanie słów kluczowych.</li>
       <li><strong>Wklejanie grafik ze schowka (Ctrl + V) oraz Drag & Drop:</strong> zrzuty ekranu ze schowka systemowego oraz pliki przeciągnięte na pole edytora są automatycznie przesyłane na serwer i wklejane w formacie <code>![opis](/public/images/...)</code>. Wbudowany walidator Magic Bytes dopuszcza formaty PNG, JPEG, GIF, WebP (do 5 MB).</li>
       <li><strong>Stały pasek akcji artykułu (sticky action header):</strong> podczas czytania dokumentu górna belka pozostaje stale zakotwiczona, wyświetlając czas modyfikacji oraz przyciski: <strong>„Eksportuj offline”</strong>, <strong>„+ Dodaj stronę w tym folderze”</strong>, <strong>„Przenieś dokument”</strong> oraz <strong>„Edytuj ten dokument”</strong>.</li>
@@ -3972,10 +3973,19 @@ function updateEditorHighlights() {
   // Bezpieczne kodowanie encji HTML
   let escaped = escapeHtml(text);
 
-  // Podświetlenie formatki Markdown dla obrazów: ![alt](url)
+  // 1. Podświetlenie bloków kodu wieloliniowego (fenced code blocks): ```język ... ```
+  escaped = escaped.replace(/(```)([a-zA-Z0-9_\-]+)?([\s\S]*?)(```)/g, (match, openTicks, lang, body, closeTicks) => {
+    const langSpan = lang ? `<span class="editor-code-lang">${lang}</span>` : '';
+    return `<span class="editor-code-block"><span class="editor-code-ticks">${openTicks}</span>${langSpan}<span class="editor-code-body">${body}</span><span class="editor-code-ticks">${closeTicks}</span></span>`;
+  });
+
+  // 2. Podświetlenie kodu jednoliniowego (inline code): `polecenie` (z wykluczeniem wielokrotnych backtickow)
+  escaped = escaped.replace(/(?<!`)(`)([^`\r\n]+)(`)(?!`)/g, '<span class="editor-code-inline"><span class="editor-code-ticks">$1</span><span class="editor-code-inline-body">$2</span><span class="editor-code-ticks">$3</span></span>');
+
+  // 3. Podświetlenie formatki Markdown dla obrazów: ![alt](url)
   escaped = escaped.replace(/(!\[[^\]\r\n]*\]\([^\)\r\n]+\))/g, '<span class="editor-img-highlight">$1</span>');
 
-  // Podświetlenie formatki HTML dla obrazów: <img ... src="..." ...>
+  // 4. Podświetlenie formatki HTML dla obrazów: <img ... src="..." ...>
   escaped = escaped.replace(/(&lt;img\s+[^&>]*src=[^&>]*&gt;)/gi, '<span class="editor-img-highlight">$1</span>');
 
   highlights.innerHTML = escaped;
@@ -4205,6 +4215,39 @@ function ensureEditorToolbarTagsButton() {
 }
 window.ensureEditorToolbarTagsButton = ensureEditorToolbarTagsButton;
 
+window.insertEditorCodeLang = function(lang = 'bash') {
+  const textarea = document.getElementById('editorTextarea');
+  if (!textarea) return;
+
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selectedText = text.substring(start, end);
+
+  if (lang === 'inline') {
+    const codeSnippet = selectedText || 'polecenie';
+    const replacement = `\`${codeSnippet}\``;
+    textarea.value = text.substring(0, start) + replacement + text.substring(end);
+    textarea.focus();
+    if (!selectedText) {
+      textarea.setSelectionRange(start + 1, start + 1 + codeSnippet.length);
+    } else {
+      textarea.setSelectionRange(start, start + replacement.length);
+    }
+  } else {
+    const codeBody = selectedText || 'polecenie / kod';
+    const langHeader = lang ? lang : 'bash';
+    const replacement = `\n\`\`\`${langHeader}\n${codeBody}\n\`\`\`\n`;
+    textarea.value = text.substring(0, start) + replacement + text.substring(end);
+    textarea.focus();
+    const codeStart = start + 1 + 3 + langHeader.length + 1;
+    const codeEnd = codeStart + codeBody.length;
+    textarea.setSelectionRange(codeStart, codeEnd);
+  }
+
+  if (typeof updateEditorPreview === 'function') updateEditorPreview();
+};
+
 window.insertEditorText = function(type) {
   const textarea = document.getElementById('editorTextarea');
   if (!textarea) return;
@@ -4233,8 +4276,8 @@ window.insertEditorText = function(type) {
       replacement = `\n## ${selectedText || 'Nagłówek 2'}\n`;
       break;
     case 'code':
-      replacement = `\n\`\`\`\n${selectedText || 'kod'}\n\`\`\`\n`;
-      break;
+      window.insertEditorCodeLang('bash');
+      return;
     case 'table':
       replacement = `\n| Nagłówek 1 | Nagłówek 2 |\n| --- | --- |\n| Dane 1 | Dane 2 |\n`;
       break;

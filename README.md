@@ -90,9 +90,9 @@ docs/
 1. **Wbudowany edytor Markdown z podglądem na żywo i odpornością (Live Preview & Self-Healing):**
    - Pełne wsparcie dla formatowania tekstu, tabel, bloków kodu i składni Markdown (`markdown-it`).
    - **Ramki wyróżnień typu Callouts / Admonitions (GitHub / Obsidian):** Pełne wsparcie dla bloków wyróżnień w składni Markdown z automatycznym kolorowaniem lewej krawędzi (4px) i dopasowanym tłem: `> [!NOTE]` (informacja, błękitny), `> [!TIP]` (wskazówka, szmaragdowy), `> [!IMPORTANT]` (ważne, fioletowy), `> [!WARNING]` (ostrzeżenie, bursztynowy), `> [!CAUTION]` (uwaga krytyczna, czerwony). Parser obsługuje również opcjonalne własne nagłówki w pierwszej linii (np. `> [!WARNING] Zanim zrestartujesz klaster`) oraz bezpieczną sanityzację XSS (`escapeHtml`).
-   - Pasek narzędzi z szybkimi wzorcami formatowania, wstawianiem tabel, bloków kodu, diagramów Mermaid oraz dedykowanym przyciskiem **Tagi** (wyróżnionym złotym kolorem) do natychmiastowego definiowania i edycji metadanych YAML Frontmatter na początku dokumentu.
+   - Pasek narzędzi z szybkimi wzorcami formatowania, wstawianiem tabel, dedykowanym selektorem języków bloków kodu (`bash`, `powershell`, `yaml`, `json`, `python`, `sql`, `dockerfile`, `nginx`, `inline`) z automatycznym zaznaczaniem ciała kodu (ułatwiającym natychmiastowe nadpisanie lub wklejenie ze schowka Ctrl+V) i inteligentnym otaczaniem zaznaczonego tekstu, diagramami Mermaid oraz dedykowanym przyciskiem **Tagi** (wyróżnionym złotym kolorem) do natychmiastowego definiowania i edycji metadanych YAML Frontmatter na początku dokumentu.
    - Mechanizm **Self-Healing Toolbar** (`ensureEditorToolbarTagsButton`): dynamiczna weryfikacja i automatyczne wstrzykiwanie kontrolek paska narzędziowego w warstwie JavaScript przy każdym otwarciu edytora, eliminujące błędy spowodowane agresywną pamięcią podręczną przeglądarki.
-   - Nakładka podświetlania składni w polu edycji (`Highlight Overlay`) z automatyczną walidacją i synchronizacją przewijania.
+   - Nakładka podświetlania składni w polu edycji (`Highlight Overlay`) z automatyczną walidacją i synchronizacją przewijania: wyraźne kolorowanie bloków kodu wieloliniowego (szmaragdowe tło, bursztynowy identyfikator interpretera, przyciemnione grawisy) oraz jednoliniowego (akcent różowy/fioletowy), analogicznie do wyróżnień formatki grafik (błękitny akcent), z zachowaniem geometrii tekstu 1:1.
    - **Autozapis i ochrona przed utratą danych (Draft Recovery):** Ciągły autozapis wprowadzanego tekstu w czasie rzeczywistym w pamięci podręcznej `localStorage` (`knowops_draft_...`) wraz ze wskaźnikiem statusu zapisu oraz automatycznym przywracaniem wersji roboczej w przypadku nagłego zamknięcia karty lub przeglądarki.
 
 2. **Diagramy i schematy wektorowe (Mermaid.js):**
@@ -237,7 +237,8 @@ Zestaw 25 testów automatycznych weryfikuje kluczowe mechanizmy bezpieczeństwa,
 22. Transformację bloków wyróżnień Callouts / Admonitions (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) z obsługą niestandardowych tytułów i sanityzacją XSS,
 23. Rotację i retencję automatycznych kopii zapasowych (utrzymywanie 7 najnowszych archiwów, automatyczne usuwanie starszych plików ZIP),
 24. Synchronizację nazw plików Markdown z pierwszym nagłówkiem H1 (ekstrakcja tytułu H1, ignorowanie YAML frontmatter, transliteracja znaków diakrytycznych, zachowanie prefiksu numerycznego),
-25. Bezpieczeństwo synchronizacji nazw plików Markdown (ochrona przed Path Traversal w ścieżkach źródłowych i docelowych, wymóg rozszerzenia .md, detekcja kolizji nazw i atomowa zmiana nazwy).
+25. Bezpieczeństwo synchronizacji nazw plików Markdown (ochrona przed Path Traversal w ścieżkach źródłowych i docelowych, wymóg rozszerzenia .md, detekcja kolizji nazw i atomowa zmiana nazwy),
+26. Reguły nakładki podświetlania składni bloków kodu wieloliniowego i jednoliniowego w edytorze oraz mechanizm szablonów języków kodu i automatycznego zaznaczania wewnętrznej treści.
 
 ---
 
@@ -284,7 +285,7 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Uzupełniono opis silnika kopii zapasowej [backup_wiki.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/backup_wiki.mjs) z automatyczną synchronizacją z Google Drive (`rclone`).
 - Wprowadzono dokumentację wbudowanej interaktywnej instrukcji obsługi portalu (`#/tool/instrukcja` / `renderWikiInstruction`).
 - Zaktualizowano opis mechanizmu Self-Healing Toolbar w edytorze oraz autozapisu z ochroną przed utratą danych (Draft Recovery).
-- Rozszerzono pakiet testów jednostkowych do pełnej listy 25 zautomatyzowanych testów Node.js Test Runner.
+- Rozszerzono pakiet testów jednostkowych do pełnej listy 26 zautomatyzowanych testów Node.js Test Runner.
 - Zaktualizowano opis mechanizmów kryptograficznych (ochrona przed Timing Attack przez `crypto.timingSafeEqual`) oraz utwardzenia Nginx (`etag off`).
 - Wprowadzono opis mechanizmu bezpiecznego usuwania całych działów i podfolderów (`/api/delete-folder`) z zabezpieczeniem w koszu `.trash`.
 - Wprowadzono opis bezpiecznego przenoszenia całych folderów przez GUI i Drag & Drop (`/api/move-folder`) z walidacją antycykliczną i wyszukiwarką docelową.
@@ -294,6 +295,7 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Wdrożono autonomiczny eksport procedur offline do pojedynczego, w pełni samowystarczalnego pliku HTML z grafikami zakodowanymi w Base64 Data URI i pełnymi stylami CSS Dark Theme (`exportArticleOfflineHtml`).
 - Wdrożono automatyczny rotacyjny harmonogram kopii zapasowych (co 24 godziny z retencją 7 kopii w dedykowanym wolumenie `./backups`) oraz interfejs GUI "Kopie Auto (7)".
 - Wdrożono narzędzie konsolowe [scripts/sync_markdown_filenames.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/scripts/sync_markdown_filenames.mjs) oraz interaktywny moduł GUI „Uporządkuj nazwy z H1” z podglądem różnic, detekcją kolizji i selektywną akceptacją zmian nazw plików Markdown na podstawie nagłówka `# Tytuł`.
+- Wdrożono wyróżnianie składni bloków kodu wieloliniowego i jednoliniowego w nakładce edytora Markdown (`#editorHighlights`) z zachowaniem geometrii tekstu 1:1, selektorem języków w pasku narzędzi oraz funkcją automatycznego zaznaczania ciała kodu do szybkiej podmiany (Ctrl+V).
 - Zoptymalizowano tablicę Kanban i panel boczny: inteligentne opadanie ukończonych zadań 100%, sortowanie aktywnych podzadań na górze oraz ukrywanie ukończonych subtasków w bocznym pasku.
 - Zaktualizowano menedżera czyszczenia grafik: bezpieczne przenoszenie do kosza `public/images/.trash/` z zachowaniem struktury podkatalogów źródłowych.
 - Wdrożono dokumentację eksportu pełnej kopii zapasowej do archiwum ZIP (`/api/export-wiki-zip`) z poziomu paska narzędzi.

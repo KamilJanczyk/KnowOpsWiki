@@ -113,7 +113,19 @@
         <button type="button" class="toolbar-btn" onclick="insertEditorText('h1')" title="Nagłówek H1">H1</button>
         <button type="button" class="toolbar-btn" onclick="insertEditorText('h2')" title="Nagłówek H2">H2</button>
         <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>
-        <button type="button" class="toolbar-btn" onclick="insertEditorText('code')" title="Blok kodu">Kod</button>
+        <button type="button" class="toolbar-btn" onclick="insertEditorText('code')" title="Wstaw blok kodu (domyślnie bash) lub otocz zaznaczony tekst">Kod</button>
+        <select class="toolbar-btn" onchange="if(this.value){insertEditorCodeLang(this.value); this.value='';}" style="background:#27272a; color:#6ee7b7; border:1px solid #059669; padding:3px 6px; font-size:0.68rem; border-radius:4px; cursor:pointer; outline:none;" title="Wstaw blok kodu w wybranym języku lub kod jednoliniowy">
+          <option value="">Język kodu...</option>
+          <option value="bash">Bash / Shell</option>
+          <option value="powershell">PowerShell</option>
+          <option value="yaml">YAML</option>
+          <option value="json">JSON</option>
+          <option value="python">Python</option>
+          <option value="sql">SQL</option>
+          <option value="dockerfile">Dockerfile</option>
+          <option value="nginx">Nginx</option>
+          <option value="inline">Jednoliniowy (`kod`)</option>
+        </select>
         <button type="button" class="toolbar-btn" onclick="insertEditorText('table')" title="Tabela">Tabela</button>
         <button type="button" class="toolbar-btn" onclick="insertEditorText('tags')" title="Wstaw lub edytuj tagi dokumentu (YAML Frontmatter)" style="color:var(--sw-gold); font-weight:700;">Tagi</button>
         <div class="toolbar-separator" style="width:1px; height:18px; background:#333; margin:0 4px;"></div>

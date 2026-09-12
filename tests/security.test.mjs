@@ -1031,3 +1031,87 @@ test('Sync Filenames Security: Walidacja ścieżek, mitygacja Path Traversal i z
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+// 26. Editor Code Highlighting: Weryfikacja reguł nakładki dla bloków wieloliniowych, jednoliniowych oraz szablonów języków kodu
+test('Editor Code Highlighting: Weryfikacja reguł nakładki dla bloków wieloliniowych, jednoliniowych oraz szablonów języków kodu', () => {
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function simulateEditorHighlights(text) {
+    let escaped = escapeHtml(text);
+    // 1. Podświetlenie bloków kodu wieloliniowego (fenced code blocks): ```język ... ```
+    escaped = escaped.replace(/(```)([a-zA-Z0-9_\-]+)?([\s\S]*?)(```)/g, (match, openTicks, lang, body, closeTicks) => {
+      const langSpan = lang ? `<span class="editor-code-lang">${lang}</span>` : '';
+      return `<span class="editor-code-block"><span class="editor-code-ticks">${openTicks}</span>${langSpan}<span class="editor-code-body">${body}</span><span class="editor-code-ticks">${closeTicks}</span></span>`;
+    });
+
+    // 2. Podświetlenie kodu jednoliniowego (inline code): `polecenie`
+    escaped = escaped.replace(/(?<!`)(`)([^`\r\n]+)(`)(?!`)/g, '<span class="editor-code-inline"><span class="editor-code-ticks">$1</span><span class="editor-code-inline-body">$2</span><span class="editor-code-ticks">$3</span></span>');
+
+    // 3. Podświetlenie formatki Markdown dla obrazów: ![alt](url)
+    escaped = escaped.replace(/(!\[[^\]\r\n]*\]\([^\)\r\n]+\))/g, '<span class="editor-img-highlight">$1</span>');
+
+    // 4. Podświetlenie formatki HTML dla obrazów: <img ... src="..." ...>
+    escaped = escaped.replace(/(&lt;img\s+[^&>]*src=[^&>]*&gt;)/gi, '<span class="editor-img-highlight">$1</span>');
+
+    return escaped;
+  }
+
+  function simulateInsertCodeLang(text, selectionStart, selectionEnd, lang = 'bash') {
+    const selectedText = text.substring(selectionStart, selectionEnd);
+    if (lang === 'inline') {
+      const codeSnippet = selectedText || 'polecenie';
+      const replacement = `\`${codeSnippet}\``;
+      const newText = text.substring(0, selectionStart) + replacement + text.substring(selectionEnd);
+      const selStart = !selectedText ? selectionStart + 1 : selectionStart;
+      const selEnd = !selectedText ? selStart + codeSnippet.length : selectionStart + replacement.length;
+      return { newText, selStart, selEnd };
+    } else {
+      const codeBody = selectedText || 'polecenie / kod';
+      const langHeader = lang ? lang : 'bash';
+      const replacement = `\n\`\`\`${langHeader}\n${codeBody}\n\`\`\`\n`;
+      const newText = text.substring(0, selectionStart) + replacement + text.substring(selectionEnd);
+      const selStart = selectionStart + 1 + 3 + langHeader.length + 1;
+      const selEnd = selStart + codeBody.length;
+      return { newText, selStart, selEnd };
+    }
+  }
+
+  // 1. Weryfikacja formatowania bloku wieloliniowego z etykietą języka i sanityzacją XSS
+  const mdInput = '# Tytuł\n\n```bash\necho "<script>alert(1)</script>"\n```\n\nKoniec.';
+  const highlighted = simulateEditorHighlights(mdInput);
+  assert.equal(highlighted.includes('class="editor-code-block"'), true);
+  assert.equal(highlighted.includes('class="editor-code-lang">bash</span>'), true);
+  assert.equal(highlighted.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), true);
+  assert.equal(highlighted.includes('<script>'), false);
+
+  // 2. Weryfikacja formatowania kodu jednoliniowego
+  const inlineInput = 'Uruchom polecenie `systemctl restart nginx` na hoście.';
+  const inlineHighlighted = simulateEditorHighlights(inlineInput);
+  assert.equal(inlineHighlighted.includes('class="editor-code-inline"'), true);
+  assert.equal(inlineHighlighted.includes('systemctl restart nginx'), true);
+
+  // 3. Weryfikacja współistnienia grafik i bloków kodu
+  const mixedInput = '![arch](test.png)\n\n```yaml\nversion: "3"\n```';
+  const mixedHighlighted = simulateEditorHighlights(mixedInput);
+  assert.equal(mixedHighlighted.includes('class="editor-img-highlight"'), true);
+  assert.equal(mixedHighlighted.includes('class="editor-code-block"'), true);
+
+  // 4. Weryfikacja szablonu wstawiania i zaznaczania wnętrza kodu (szybka podmiana)
+  const templateResult = simulateInsertCodeLang('', 0, 0, 'powershell');
+  assert.equal(templateResult.newText, '\n```powershell\npolecenie / kod\n```\n');
+  assert.equal(templateResult.newText.substring(templateResult.selStart, templateResult.selEnd), 'polecenie / kod');
+
+  // 5. Weryfikacja otaczania istniejącego zaznaczenia (Wrap Selection)
+  const wrapResult = simulateInsertCodeLang('uptime', 0, 6, 'bash');
+  assert.equal(wrapResult.newText, '\n```bash\nuptime\n```\n');
+  assert.equal(wrapResult.newText.substring(wrapResult.selStart, wrapResult.selEnd), 'uptime');
+});
+
