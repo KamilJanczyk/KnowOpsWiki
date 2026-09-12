@@ -3251,6 +3251,72 @@ window.submitCreateItemForm = async function() {
   }
 };
 
+let currentImportTab = 'file';
+
+function switchImportTab(tab) {
+  currentImportTab = tab;
+  const fileContent = document.getElementById('importTabFileContent');
+  const urlContent = document.getElementById('importTabUrlContent');
+  const fileBtn = document.getElementById('importTabFileBtn');
+  const urlBtn = document.getElementById('importTabUrlBtn');
+
+  if (tab === 'file') {
+    if (fileContent) fileContent.style.display = 'block';
+    if (urlContent) urlContent.style.display = 'none';
+    if (fileBtn) { fileBtn.style.background = '#222'; fileBtn.style.color = '#fff'; fileBtn.style.fontWeight = '700'; }
+    if (urlBtn) { urlBtn.style.background = 'none'; urlBtn.style.color = '#888'; urlBtn.style.fontWeight = 'normal'; }
+  } else {
+    if (fileContent) fileContent.style.display = 'none';
+    if (urlContent) urlContent.style.display = 'block';
+    if (fileBtn) { fileBtn.style.background = 'none'; fileBtn.style.color = '#888'; fileBtn.style.fontWeight = 'normal'; }
+    if (urlBtn) { urlBtn.style.background = '#222'; urlBtn.style.color = '#fff'; urlBtn.style.fontWeight = '700'; }
+  }
+}
+window.switchImportTab = switchImportTab;
+
+function closeImportFileModal() {
+  const modal = document.getElementById('importFileModalOverlay');
+  if (modal) modal.style.display = 'none';
+}
+window.closeImportFileModal = closeImportFileModal;
+
+async function openImportFileModal() {
+  const modal = document.getElementById('importFileModalOverlay');
+  if (!modal) return;
+
+  if (!navigationData || !navigationData.categories || navigationData.categories.length === 0) {
+    await loadNavigation();
+  }
+
+  populateImportFolders();
+
+  const select = document.getElementById('importFolderSelect');
+  if (select && currentCategory && currentCategory !== 'kanban_board') {
+    const preferred = currentSubcategory ? `${currentCategory}/${currentSubcategory}` : currentCategory;
+    const hasOption = Array.from(select.options).some(o => o.value === preferred);
+    if (hasOption) {
+      select.value = preferred;
+    } else {
+      const hasCat = Array.from(select.options).some(o => o.value === currentCategory);
+      if (hasCat) {
+        select.value = currentCategory;
+      }
+    }
+  }
+
+  switchImportTab('file');
+
+  const fileInput = document.getElementById('importFileInput');
+  if (fileInput) fileInput.value = '';
+  const urlInput = document.getElementById('importUrlInput');
+  if (urlInput) urlInput.value = '';
+  const urlFilename = document.getElementById('importUrlFilename');
+  if (urlFilename) urlFilename.value = '';
+
+  modal.style.display = 'flex';
+}
+window.openImportFileModal = openImportFileModal;
+
 function populateImportFolders() {
   const select = document.getElementById('importFolderSelect');
   if (!select || !navigationData) return;
