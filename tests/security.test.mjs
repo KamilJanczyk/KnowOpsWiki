@@ -753,35 +753,38 @@ test('Kanban Subtasks & Cards: Sortowanie otwartych na górze, opadanie zadań 1
   assert.equal(sortedCards[2].id, 'c2');
 });
 
-// 20. Tree Navigation: Naprzemienne kolorowanie poziomów folderów (Wariant A)
-test('Tree Navigation: Naprzemienne przypisywanie stylów dla poziomów zagłębienia folderów', () => {
+// 20. Tree Navigation: Wielopoziomowe kolorowanie poziomów folderów (Wariant 1)
+test('Tree Navigation: Wielopoziomowe przypisywanie stylów dla poziomów zagłębienia folderów (Wariant 1)', () => {
+  const depthColors = ['var(--sw-gold)', '#60a5fa', '#34d399', '#a78bfa', '#cbd5e1'];
   function getFolderStyle(depth) {
-    const isOdd = (depth % 2 !== 0);
-    return {
-      depthClass: isOdd ? 'depth-odd' : 'depth-even',
-      color: isOdd ? '#60a5fa' : 'var(--sw-gold)'
-    };
+    const depthClass = `depth-${Math.min(depth, 4)}`;
+    const color = depthColors[depth] || depthColors[depthColors.length - 1];
+    return { depthClass, color };
   }
 
   // Poziom 0: folder główny -> złoty
-  assert.equal(getFolderStyle(0).depthClass, 'depth-even');
+  assert.equal(getFolderStyle(0).depthClass, 'depth-0');
   assert.equal(getFolderStyle(0).color, 'var(--sw-gold)');
 
   // Poziom 1: podfolder -> błękitny
-  assert.equal(getFolderStyle(1).depthClass, 'depth-odd');
+  assert.equal(getFolderStyle(1).depthClass, 'depth-1');
   assert.equal(getFolderStyle(1).color, '#60a5fa');
 
-  // Poziom 2: pod-podfolder -> powrót do złotego
-  assert.equal(getFolderStyle(2).depthClass, 'depth-even');
-  assert.equal(getFolderStyle(2).color, 'var(--sw-gold)');
+  // Poziom 2: pod-podfolder -> szmaragdowy / zielony
+  assert.equal(getFolderStyle(2).depthClass, 'depth-2');
+  assert.equal(getFolderStyle(2).color, '#34d399');
 
-  // Poziom 3: głęboki podfolder -> błękitny
-  assert.equal(getFolderStyle(3).depthClass, 'depth-odd');
-  assert.equal(getFolderStyle(3).color, '#60a5fa');
+  // Poziom 3: głęboki podfolder -> fioletowy
+  assert.equal(getFolderStyle(3).depthClass, 'depth-3');
+  assert.equal(getFolderStyle(3).color, '#a78bfa');
 
-  // Poziom 4: kolejny podfolder -> złoty
-  assert.equal(getFolderStyle(4).depthClass, 'depth-even');
-  assert.equal(getFolderStyle(4).color, 'var(--sw-gold)');
+  // Poziom 4: kolejny podfolder -> neutralny stalowy
+  assert.equal(getFolderStyle(4).depthClass, 'depth-4');
+  assert.equal(getFolderStyle(4).color, '#cbd5e1');
+
+  // Poziom 5: fallback -> neutralny stalowy
+  assert.equal(getFolderStyle(5).depthClass, 'depth-4');
+  assert.equal(getFolderStyle(5).color, '#cbd5e1');
 });
 
 // 21. Kosz Dokumentacji: Walidacja manifestu usunięcia i ochrona przed Path Traversal przy przywracaniu

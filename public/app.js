@@ -429,9 +429,9 @@ async function renderSidebar() {
       if (item.type === 'directory') {
         const isExpanded = expandedDirs[item.relPath] || false;
         const dirId = 'dir-' + item.relPath.replace(/[^a-zA-Z0-9]/g, '-');
-        const isOdd = (depth % 2 !== 0);
-        const depthClass = isOdd ? 'depth-odd' : 'depth-even';
-        const folderColor = isOdd ? '#60a5fa' : 'var(--sw-gold)';
+        const depthColors = ['var(--sw-gold)', '#60a5fa', '#34d399', '#a78bfa', '#cbd5e1'];
+        const folderColor = depthColors[depth] || depthColors[depthColors.length - 1];
+        const depthClass = `depth-${Math.min(depth, 4)}`;
         subHtml += `<li class="topic-group-header ${depthClass}" data-depth="${depth}" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: ${folderColor}; margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'directory')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${item.title}</span>
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">

@@ -89,8 +89,11 @@
     .left-topics-list { list-style: none; }
     .topic-group-header { font-size: 0.75rem; font-weight: 700; color: #e5e7eb; margin-top: 8px; margin-bottom: 3px; }
     .topic-group-header a { color: var(--sw-gold); text-decoration: none; }
-    .topic-group-header.depth-even { color: var(--sw-gold) !important; }
-    .topic-group-header.depth-odd { color: #60a5fa !important; }
+    .topic-group-header.depth-0 { color: var(--sw-gold) !important; }
+    .topic-group-header.depth-1 { color: #60a5fa !important; }
+    .topic-group-header.depth-2 { color: #34d399 !important; }
+    .topic-group-header.depth-3 { color: #a78bfa !important; }
+    .topic-group-header.depth-4 { color: #cbd5e1 !important; }
     .topic-item { font-size: 0.72rem; margin: 0; }
     .topic-item a {
       color: #aaaaaa; text-decoration: none; display: block; padding: 3px 6px; border-radius: 3px;
