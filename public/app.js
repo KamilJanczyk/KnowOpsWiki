@@ -4096,6 +4096,7 @@ window.insertEditorText = function(type) {
       textarea.setSelectionRange(11, 11 + defaultTags.length);
       if (typeof updateEditorPreview === 'function') updateEditorPreview();
       return;
+    }
     case 'mermaid':
       replacement = `\n\`\`\`mermaid\nflowchart TD\n  Client["Docker Client (CLI)"] -->|/var/run/docker.sock| Daemon["Docker Daemon (dockerd)"]\n  Daemon -->|gRPC| Containerd["containerd"]\n  Containerd --> Runc["runc (OCI Runtime)"]\n  Runc --> Kernel["Linux Kernel: cgroups v2 / Namespaces"]\n\`\`\`\n`;
       break;
