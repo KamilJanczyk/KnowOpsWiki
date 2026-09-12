@@ -19,23 +19,20 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.3.7">
+  <link rel="stylesheet" href="/public/style.css?v=2.3.8">
 </head>
 <body>
 
-  <!-- Top Sticky Navigation Bar -->
-  <header class="top-nav">
-    <div class="nav-left">
-      <div class="site-title-container">
-        <a href="#/home" class="site-title-link">
-          <span class="site-title">KNOWOPS WIKI</span>
-        </a>
-      </div>
+  <!-- Top Header Navigation -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="#/kanban" class="logo"><span>KnowOps</span> <span style="color:#ffffff; font-size:0.75rem;">Wiki</span></a>
     </div>
-    <div class="nav-right">
-      <nav class="main-sections">
+
+    <div class="cat-nav-bar">
+      <ul class="top-cat-nav" id="topCatNav">
         <!-- Dynamically rendered via app.js -->
-      </nav>
+      </ul>
     </div>
   </header>
 
@@ -216,7 +213,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.6.2"></script>
+  <script src="/public/app.js?v=2.6.3"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
