@@ -38,6 +38,7 @@ Aplikacja została zaprojektowana w oparciu o architekturę izolacji i trwałoś
 - **`./docs`** -> Montowany pod `/usr/share/nginx/html/docs` (Nginx) oraz `/app/docs` (API). Przechowuje strukturę i pliki dokumentacji Markdown. Środowisko automatycznie inicjalizuje ten katalog z szablonu `./docs.example` przy pierwszym uruchomieniu, a właściwy plik `./docs` jest wykluczony w `.gitignore` dla ochrony produkcyjnej dokumentacji.
 - **`./data`** -> Montowany pod `/app/data`. Przechowuje bazy zadań Kanban (`kanban_data.json`), procedur operacyjnych (`playbooks_data.json`), notatek (`quick_notes.json`) oraz szablonów zadań (`task_templates.json`).
 - **`./public/images`** -> Montowany pod `/usr/share/nginx/html/public/images` oraz `/app/public/images`. Przechowuje przesłane i wklejone obrazy po rygorystycznej walidacji binarnej.
+- **`./backups`** -> Montowany pod `/app/backups`. Przechowuje automatyczne rotacyjne archiwa kopii zapasowych bazy wiedzy (polityka retencji 7 kopii), zapewniając ich pełną trwałość na dysku hosta.
 
 Dzięki tej strukturze rekompilacja obrazów Docker (`docker compose up -d --build`) oraz restarty kontenerów nigdy nie naruszają ani nie usuwają treści wprowadzonych przez użytkownika.
 
@@ -88,6 +89,7 @@ docs/
 
 1. **Wbudowany edytor Markdown z podglądem na żywo i odpornością (Live Preview & Self-Healing):**
    - Pełne wsparcie dla formatowania tekstu, tabel, bloków kodu i składni Markdown (`markdown-it`).
+   - **Ramki wyróżnień typu Callouts / Admonitions (GitHub / Obsidian):** Pełne wsparcie dla bloków wyróżnień w składni Markdown z automatycznym kolorowaniem lewej krawędzi (4px) i dopasowanym tłem: `> [!NOTE]` (informacja, błękitny), `> [!TIP]` (wskazówka, szmaragdowy), `> [!IMPORTANT]` (ważne, fioletowy), `> [!WARNING]` (ostrzeżenie, bursztynowy), `> [!CAUTION]` (uwaga krytyczna, czerwony). Parser obsługuje również opcjonalne własne nagłówki w pierwszej linii (np. `> [!WARNING] Zanim zrestartujesz klaster`) oraz bezpieczną sanityzację XSS (`escapeHtml`).
    - Pasek narzędzi z szybkimi wzorcami formatowania, wstawianiem tabel, bloków kodu, diagramów Mermaid oraz dedykowanym przyciskiem **Tagi** (wyróżnionym złotym kolorem) do natychmiastowego definiowania i edycji metadanych YAML Frontmatter na początku dokumentu.
    - Mechanizm **Self-Healing Toolbar** (`ensureEditorToolbarTagsButton`): dynamiczna weryfikacja i automatyczne wstrzykiwanie kontrolek paska narzędziowego w warstwie JavaScript przy każdym otwarciu edytora, eliminujące błędy spowodowane agresywną pamięcią podręczną przeglądarki.
    - Nakładka podświetlania składni w polu edycji (`Highlight Overlay`) z automatyczną walidacją i synchronizacją przewijania.
@@ -98,13 +100,14 @@ docs/
    - Wbudowane wzorce dla architektury systemowej: dedykowane szablony diagramów sieci Active Directory oraz drzew struktur organizacyjnych jednostek OU.
 
 3. **Zarządzanie dokumentacją, folderami i nawigacją:**
-   - **Dwuetapowe deterministyczne sortowanie numeryczne:** Pełne zachowanie kolejności według fizycznych prefiksów numerycznych (`01`, `02`, `03`...) pobieranych ze ścieżek fizycznych (`relPath`). W każdym folderze pliki Markdown prezentowane są zawsze na początku (w kolejności numerycznej/alfabetycznej), a podkatalogi pod nimi (również w ścisłym porządku numerycznym), przy zachowaniu oczyszczonych, czytelnych tytułów w interfejsie.
-   - **Bezpieczne usuwanie całych katalogów i podfolderów:** Możliwość usunięcia dowolnego działu lub zagnieżdżonego podfolderu z poziomu drzewa nawigacyjnego lub nagłówka. Dedykowane okno modalne dynamicznie kalkuluje i wyświetla liczbę zawartych plików oraz podkatalogów. Usunięte katalogi są bezpiecznie archiwizowane w koszu systemowym (`docs/.trash/`) z unikalną sygnaturą czasową (`/api/delete-folder`).
+   - **Dwuetapowe deterministyczne sortowanie numeryczne i hierarchia kolorów:** Pełne zachowanie kolejności według fizycznych prefiksów numerycznych (`01`, `02`, `03`...) pobieranych ze ścieżek fizycznych (`relPath`). W każdym folderze pliki Markdown prezentowane są zawsze na początku (w kolejności numerycznej/alfabetycznej), a podkatalogi pod nimi (również w ścisłym porządku numerycznym), przy zachowaniu oczyszczonych, czytelnych tytułów w interfejsie. Drzewo nawigacji stosuje naprzemienne kolorowanie poziomów zagłębienia (złoty dla folderu głównego, błękitny dla podfolderu, powrót do złotego dla pod-podfolderu), co ułatwia orientację w rozbudowanych strukturach.
+   - **Menedżer Kosza Bazy Wiedzy (Kosz Wiki):** Usunięte artykuły i katalogi są bezpiecznie archiwizowane w koszu systemowym (`docs/.trash/`) i rejestrowane w trwałym manifeście `trash_manifest.json` wraz z datą, typem i oryginalną ścieżką. Dedykowane okno modalne "Kosz Wiki" umożliwia przeglądanie usuniętych elementów, weryfikację ich rozmiaru i ścieżki pierwotnej, przywrócenie ich do bazy z automatycznym odtworzeniem brakujących katalogów nadrzędnych oraz trwałe opróżnianie kosza (`/api/trash-documents`, `/api/restore-document`, `/api/purge-trash`).
+   - **Bezpieczne usuwanie całych katalogów i podfolderów:** Możliwość usunięcia dowolnego działu lub zagnieżdżonego podfolderu z poziomu drzewa nawigacyjnego lub nagłówka. Dedykowane okno modalne dynamicznie kalkuluje i wyświetla liczbę zawartych plików oraz podkatalogów (`/api/delete-folder`).
    - **Bezpieczne przenoszenie folderów i działów (GUI & Drag and Drop):** Zaawansowane okno modalne z wyszukiwarką i filtrem lokalizacji docelowych w czasie rzeczywistym oraz pełna obsługa przeciągania myszą (Drag & Drop) dla katalogów. Architektura zawiera rygorystyczną walidację antycykliczną (blokada przeniesienia folderu do samego siebie lub do któregokolwiek z jego podfolderów potomnych) oraz detekcję kolizji nazw (`409 Conflict`, `/api/move-folder`).
    - **Przenoszenie i zmiana nazwy dokumentów:** Przeciąganie dokumentów `.md` w drzewie bocznym, modal przenoszenia z wyszukiwarką istniejących ścieżek (`/api/move-page`) oraz możliwość zmiany nazwy pliku w locie (`/api/rename-file`).
    - **Kreator nowych stron i działów:** Dedykowany modal dodawania stron (`createItemModal`, `/api/create-page`) z dynamicznym wyborem kategorii, tworzeniem nowych podfolderów w locie i natychmiastową rekompilacją drzewa nawigacji.
    - **Obsługa wielopoziomowych podkatalogów:** Pełne wsparcie dla dowolnie zagnieżdżonych struktur podkatalogów (1., 2., 3., N-ty poziom).
-   - **Stały pasek akcji artykułu (Sticky Action Header):** Belka nagłówkowa ze ścieżką pliku, datą ostatniej modyfikacji oraz przyciskami szybkiej edycji, dodawania podstrony w bieżącym dziale, przenoszenia dokumentu i druku. Pozycjonowanie lepkie (`position: sticky; top: 0;`) sprawia, że pasek pozostaje stale zakotwiczony na górze okna podczas przewijania długich procedur.
+   - **Stały pasek akcji artykułu (Sticky Action Header):** Belka nagłówkowa ze ścieżką pliku, datą ostatniej modyfikacji oraz przyciskami: eksportu offline, dodawania podstrony w bieżącym dziale, przenoszenia dokumentu i edycji. Pozycjonowanie lepkie (`position: sticky; top: 0;`) sprawia, że pasek pozostaje stale zakotwiczony na górze okna podczas przewijania długich procedur.
    - **Zoptymalizowany tryb druku i eksportu A4 / PDF:** Dedykowany arkusz stylów `@media print` wraz z dyrektywą `@page { size: A4 portrait; margin: 12mm 15mm; }`. Gwarantuje idealne dopasowanie w skali 100% ("Rozmiar rzeczywisty") bez obcinania prawej krawędzi, automatyczne zawijanie wierszy w kodzie (`pre`), dopasowanie tabel, ochronę przed łamaniem nagłówków między stronami oraz ukrywanie elementów interfejsu.
 
 4. **Bezpieczne wgrywanie mediów i weryfikacja binarna (Magic Bytes):**
@@ -122,9 +125,10 @@ docs/
    - Automatyczne wyciąganie unikalnych tagów i ich prezentacja w postaci estetycznych pigułek (`#tag`) bezpośrednio pod nagłówkiem czytanego dokumentu.
    - Chmura tagów w lewym menu nawigacyjnym z licznikiem wystąpień oraz pełna integracja z wyszukiwarką pełnotekstową (błyskawiczne filtrowanie po wpisaniu lub kliknięciu frazy `#tag`).
 
-7. **Tablica Kanban i szablony zadań administracyjnych (Task Templates):**
+7. **Tablica Kanban, szablony zadań (Task Templates) i inteligentne sortowanie:**
    - Wizualne zarządzanie zadaniami technicznymi w 4 kolumnach (Do zrobienia, W trakcie, Do weryfikacji, Zrobione).
    - Podział zadań na checklisty (subtaski), trzystopniowa priorytetyzacja (Wysoki, Średni, Niski), archiwizacja zadań.
+   - **Inteligentne sortowanie kart i subtasków:** Zadania z aktywnymi, nieukończonymi podzadaniami pozycjonowane są na górze kolumny, natomiast zadania w 100% zrealizowane automatycznie opadają na spód. W prawym bocznym panelu aktywnych zadań ukończone podzadania są automatycznie ukrywane dla zachowania maksymalnej przejrzystości.
    - **Baza gotowych szablonów zadań systemowych:** Wbudowane wzorce inżynierskie (Wdrożenie Maszyny Wirtualnej VM, Audyt Bezpieczeństwa Serwera Linux, Konfiguracja Tunelu VPN WireGuard, Analiza Incydentu Bezpieczeństwa SOC Alert).
    - **Tworzenie własnych szablonów zadań:** Możliwość zapisania dowolnie zdefiniowanego zadania (z tytułem, kategorią, priorytetem, opisem i checklistą) jako trwały szablon w `data/task_templates.json` za pomocą przycisku "Zapamiętaj jako Szablon" w oknie dodawania zadania.
 
@@ -159,18 +163,25 @@ docs/
     - **Zakładka "Z linku / URL":** Wbudowany Web Scraper (`/api/scrape-url`) pobierający artykuły ze stron internetowych, oczyszczający kod HTML i konwertujący treść na czysty Markdown z restrykcyjną ochroną anty-SSRF.
 
 13. **Menedżer czyszczenia osieroconych grafik (`/api/orphaned-images`, `/api/delete-orphaned-images`):**
-    - Zautomatyzowany skaner analizujący odwołania do plików graficznych we wszystkich dokumentach Markdown w katalogu `docs/` i porównujący je z zawartością `public/images/`.
-    - Dedykowane okno modalne z podglądem miniaturek osieroconych plików, kalkulatorem zajmowanego miejsca i opcjami masowego zaznaczania.
-    - Zabezpieczenie przed bezpowrotną utratą danych: usuwane grafiki są bezpiecznie archiwizowane w koszu systemowym (`docs/.trash/orphaned_images/`) z unikalnym znacznikiem czasu.
+    - Zautomatyzowany skaner analizujący odwołania do plików graficznych we wszystkich dokumentach Markdown w katalogu `docs/` i porównujący je z całą strukturą katalogu `public/images/` (łącznie ze wszystkimi podkatalogami).
+    - Dedykowane okno modalne z podglądem miniaturek osieroconych plików, ścieżkami względnymi, kalkulatorem zajmowanego miejsca i opcjami masowego zaznaczania.
+    - Zabezpieczenie przed bezpowrotną utratą danych: usuwane grafiki nie są bezpowrotnie kasowane, lecz bezpiecznie przenoszone do dedykowanego kosza `public/images/.trash/` z zachowaniem struktury podkatalogów źródłowych.
 
 14. **Narzędzia konsolowe i automatyzacja SSH / CLI:**
     - **Szybkie tworzenie stron ([add_page.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/add_page.mjs)):** Narzędzie konsolowe pozwalające tworzyć nowe strony i podkatalogi bezpośrednio z wiersza poleceń lub sesji SSH (`node add_page.mjs "Tytuł Strony"`), z automatyczną rekompilacją bazy nawigacyjnej.
     - **Silnik kopii zapasowej CLI ([backup_wiki.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/backup_wiki.mjs)):** Narzędzie do tworzenia archiwów bazy wiedzy z poziomu konsoli lub zadań crona serwera, z opcjonalną synchronizacją z Dyskiem Google (`rclone copy`) przy zdefiniowaniu zmiennej `GOOGLE_DRIVE_REMOTE` w pliku `.env`.
+    - **Synchronizacja nazw plików Markdown z nagłówkiem H1 ([scripts/sync_markdown_filenames.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/scripts/sync_markdown_filenames.mjs)):** Narzędzie konsolowe weryfikujące spójność nazw plików `.md` z pierwszym nagłówkiem `# Tytuł` w treści dokumentu. Obsługuje transliterację polskich znaków diakrytycznych, usuwanie znaków specjalnych, zachowywanie istniejących prefiksów numerycznych (`01_`, `02_`) oraz weryfikację kolizji nazw. Domyślne uruchomienie wykonuje bezpieczny audyt (Dry Run): `node scripts/sync_markdown_filenames.mjs`, natomiast flaga `--apply` fizycznie nanosi zmiany w systemie plików: `node scripts/sync_markdown_filenames.mjs --apply`.
 
-15. **Eksport pełnej kopii zapasowej do archiwum ZIP (`/api/export-wiki-zip`):**
-    - Możliwość natychmiastowego wygenerowania i pobrania pełnej kopii zapasowej bazy wiedzy bezpośrednio z lewego paska narzędziowego GUI oraz sekcji konserwacji na pulpicie (przycisk "Kopia ZIP").
-    - Archiwum kompresuje katalogi dokumentacji (`docs/`), baz danych JSON (`data/`) oraz zasobów graficznych (`public/images/`), z automatycznym wykluczeniem kosza systemowego (`docs/.trash/`).
-    - Strumieniowe przesyłanie archiwum z automatycznym usuwaniem pliku tymczasowego po zakończeniu transmisji eliminuje ryzyko zapełnienia przestrzeni dyskowej serwera.
+15. **Eksport pełnej kopii zapasowej do archiwum ZIP oraz rotacyjny harmonogram kopii:**
+    - **Kopia ZIP w locie (`/api/export-wiki-zip`):** Możliwość natychmiastowego wygenerowania i pobrania pełnej kopii zapasowej bazy wiedzy bezpośrednio z lewego paska narzędziowego GUI oraz sekcji konserwacji na pulpicie (przycisk "Kopia ZIP"). Kompresuje katalogi `docs/`, `data/` oraz `public/images/` z automatycznym wykluczeniem kosza systemowego.
+    - **Automatyczny harmonogram rotacyjny (Kopie Auto 7):** Wbudowany mechanizm serwera Node.js wykonujący pełną kopię zapasową co 24 godziny z automatyczną rotacją i retencją 7 najnowszych archiwów. Kopie składowane są w wolumenie `./backups` (zamontowanym w kontenerze jako `/app/backups`), co zapewnia ich trwałość na dysku maszyny hosta.
+    - **Interfejs zarządzania kopiami automatycznymi:** Dedykowany modal "Kopie Auto (7)" na pulpicie i w menu nawigacyjnym (`/api/backups-list`, `/api/backups-download`, `/api/backups-trigger`) pozwalający na weryfikację listy archiwów, ich rozmiaru, daty utworzenia, pobranie wybranego archiwum lub wymuszenie natychmiastowego wykonania kopii.
+
+16. **Autonomiczny eksport procedur offline do samowystarczalnego HTML (`exportArticleOfflineHtml`):**
+    - Przycisk **"EKSPORTUJ OFFLINE"** umieszczony w stałym pasku akcji (Sticky Action Header) każdego czytanego dokumentu.
+    - Generuje pojedynczy, całkowicie samowystarczalny plik `.html` gotowy do pracy w środowiskach bez dostępu do sieci (Air-gapped, disaster recovery, stacje bastionowe).
+    - Wszystkie powiązane z dokumentem grafiki lokalne (`/public/images/...`) są automatycznie pobierane, konwertowane i osadzane wewnątrz pliku HTML jako Base64 Data URI (`data:image/png;base64,...`).
+    - Plik zawiera pełny, wbudowany arkusz stylów CSS Dark Theme, zachowując wierne formatowanie tabel, wyróżnień Callouts, bloków kodu i schematów.
 
 ---
 
@@ -200,7 +211,7 @@ Projekt posiada zintegrowany zestaw automatycznych testów jednostkowych Node.js
 npm test
 ```
 
-Zestaw 16 testów automatycznych weryfikuje kluczowe mechanizmy bezpieczeństwa, integralności i funkcjonalności aplikacji:
+Zestaw 24 testów automatycznych weryfikuje kluczowe mechanizmy bezpieczeństwa, integralności i funkcjonalności aplikacji:
 1. Prawidłowe rozpoznawanie Magic Bytes dla plików graficznych PNG, JPEG, GIF, WebP,
 2. Skuteczne blokowanie fałszywych plików graficznych z podmienionym rozszerzeniem (ochrona przed Web Shell),
 3. Blokadę SSRF dla adresów pętli zwrotnej, sieci prywatnych RFC 1918 i metadanych chmurowych,
@@ -213,10 +224,18 @@ Zestaw 16 testów automatycznych weryfikuje kluczowe mechanizmy bezpieczeństwa,
 10. Bezpieczeństwo usuwania folderów (ochrona korzenia `docs/`, kosza `.trash/` i mitygacja Path Traversal),
 11. Bezpieczeństwo przenoszenia folderów (ochrona przed cyklami samozagnieżdżenia, kolizjami nazw i ucieczką poza strukturę),
 12. Ekstrakcję i normalizację tagów YAML Frontmatter z plików Markdown (format inline, lista pionowa, rozdzielanie przecinkami),
-13. Wykrywanie osieroconych grafik i mitygację Path Traversal przy usuwaniu nieużywanych zasobów mediów,
+13. Wykrywanie osieroconych grafik w podkatalogach i mitygację Path Traversal przy przenoszeniu do kosza,
 14. Weryfikację integralności silnika eksportu pełnego archiwum ZIP bazy wiedzy (`exportWikiZip`),
 15. Walidację danych wejściowych, limitów rozmiaru payloadu i sanityzację brudnopisu Scratchpad,
-16. Weryfikację logiki edytora tagów YAML Frontmatter (wstawianie nowego nagłówka, uzupełnianie istniejącego frontmattera i lokalizacja istniejących tagów).
+16. Weryfikację logiki edytora tagów YAML Frontmatter (wstawianie nowego nagłówka, uzupełnianie istniejącego frontmattera i lokalizacja istniejących tagów),
+17. Dynamiczne zarządzanie podzadaniami Kanban (szybkie dodawanie, przełączanie stanu ukończenia z sygnaturą czasu, przeliczanie paska postępu, sanityzacja XSS),
+18. Poprawność struktury, definicji motywu ciemnego i sanityzacji bloków diagramów wektorowych Mermaid.js,
+19. Inteligentne sortowanie kart i podzadań Kanban (aktywne subtaski u góry, opadanie zadań w 100% gotowych na spód kolumny oraz ukrywanie ukończonych w bocznym pasku),
+20. Deterministyczne naprzemienne przypisywanie stylów dla poziomów zagłębienia folderów w drzewie nawigacyjnym (złoty dla poziomów parzystych, błękitny dla nieparzystych),
+21. Integralność Menedżera Kosza Bazy Wiedzy (weryfikacja manifestu usunięcia, ochrona przed Path Traversal przy przywracaniu, blokada odtworzenia do korzenia lub wnętrza kosza),
+22. Transformację bloków wyróżnień Callouts / Admonitions (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) z obsługą niestandardowych tytułów i sanityzacją XSS,
+23. Rotację i retencję automatycznych kopii zapasowych (utrzymywanie 7 najnowszych archiwów, automatyczne usuwanie starszych plików ZIP),
+24. Synchronizację nazw plików Markdown z pierwszym nagłówkiem H1 (ekstrakcja tytułu H1, ignorowanie YAML frontmatter, transliteracja znaków diakrytycznych, zachowanie prefiksu numerycznego).
 
 ---
 
@@ -263,14 +282,20 @@ Niniejsza dokumentacja została zaktualizowana i zweryfikowana pod kątem pełne
 - Uzupełniono opis silnika kopii zapasowej [backup_wiki.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/backup_wiki.mjs) z automatyczną synchronizacją z Google Drive (`rclone`).
 - Wprowadzono dokumentację wbudowanej interaktywnej instrukcji obsługi portalu (`#/tool/instrukcja` / `renderWikiInstruction`).
 - Zaktualizowano opis mechanizmu Self-Healing Toolbar w edytorze oraz autozapisu z ochroną przed utratą danych (Draft Recovery).
-- Rozszerzono pakiet testów jednostkowych do pełnej listy 16 zautomatyzowanych testów Node.js Test Runner.
+- Rozszerzono pakiet testów jednostkowych do pełnej listy 24 zautomatyzowanych testów Node.js Test Runner.
 - Zaktualizowano opis mechanizmów kryptograficznych (ochrona przed Timing Attack przez `crypto.timingSafeEqual`) oraz utwardzenia Nginx (`etag off`).
 - Wprowadzono opis mechanizmu bezpiecznego usuwania całych działów i podfolderów (`/api/delete-folder`) z zabezpieczeniem w koszu `.trash`.
 - Wprowadzono opis bezpiecznego przenoszenia całych folderów przez GUI i Drag & Drop (`/api/move-folder`) z walidacją antycykliczną i wyszukiwarką docelową.
-- Zaktualizowano zasady dwuetapowego, deterministycznego sortowania elementów lewego menu z priorytetem prefiksów numerycznych (`01`, `02`, `03`...).
+- Zaktualizowano zasady dwuetapowego, deterministycznego sortowania elementów lewego menu z priorytetem prefiksów numerycznych (`01`, `02`, `03`...) oraz naprzemienną kolorystyką poziomów folderów (złoty / błękitny).
+- Wdrożono Menedżera Kosza Bazy Wiedzy (`docs/.trash/`) z trwałym rejestrem `trash_manifest.json`, modalem "Kosz Wiki", przywracaniem dokumentów i folderów do pierwotnych ścieżek oraz bezpiecznym opróżnianiem kosza.
+- Wdrożono parser bloków wyróżnień typu Callouts / Admonitions (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`) z obsługą własnych nagłówków i sanityzacją XSS.
+- Wdrożono autonomiczny eksport procedur offline do pojedynczego, w pełni samowystarczalnego pliku HTML z grafikami zakodowanymi w Base64 Data URI i pełnymi stylami CSS Dark Theme (`exportArticleOfflineHtml`).
+- Wdrożono automatyczny rotacyjny harmonogram kopii zapasowych (co 24 godziny z retencją 7 kopii w dedykowanym wolumenie `./backups`) oraz interfejs GUI "Kopie Auto (7)".
+- Wdrożono narzędzie konsolowe [scripts/sync_markdown_filenames.mjs](file:///c:/Users/kjaki/Desktop/GIT/KnowOpsWiki/scripts/sync_markdown_filenames.mjs) do audytu i automatycznej synchronizacji nazw plików Markdown z pierwszym nagłówkiem H1.
+- Zoptymalizowano tablicę Kanban i panel boczny: inteligentne opadanie ukończonych zadań 100%, sortowanie aktywnych podzadań na górze oraz ukrywanie ukończonych subtasków w bocznym pasku.
+- Zaktualizowano menedżera czyszczenia grafik: bezpieczne przenoszenie do kosza `public/images/.trash/` z zachowaniem struktury podkatalogów źródłowych.
 - Wdrożono dokumentację eksportu pełnej kopii zapasowej do archiwum ZIP (`/api/export-wiki-zip`) z poziomu paska narzędzi.
 - Wdrożono dokumentację obsługi tagów YAML Frontmatter, pigułek tagów pod artykułami, chmury tagów i wyszukiwarki z filtrem `#tag`.
-- Wdrożono dokumentację menedżera czyszczenia osieroconych grafik (`/api/orphaned-images`, `/api/delete-orphaned-images`) z zabezpieczeniem w koszu systemowym.
 - Uzupełniono specyfikację stałego paska akcji dokumentu (Sticky Action Header) w pozycjonowaniu CSS.
 - Wprowadzono szczegółowy opis zoptymalizowanego mechanizmu wydruku i generowania PDF w standardzie formatu A4.
 - Wdrożono moduł Podręcznego Notatnika Roboczego (Scratchpad / Quick Draft) z globalnym skrótem klawiszowym `Alt + N`, dwoma trybami roboczymi, autozapisem oraz opcją bezpośredniej konwersji do strony Wiki (`promoteScratchpadToWikiPage`).

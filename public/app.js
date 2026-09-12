@@ -2949,11 +2949,11 @@ function renderWikiInstruction() {
 
   contentArea.innerHTML = `<div class="instruction-box" style="max-width:880px; background:#111113; border:1px solid #27272a; padding:24px; border-radius:8px; line-height:1.6;">
     <h2 style="color:var(--sw-gold); font-size:1.15rem; margin-bottom:8px; letter-spacing:0.5px;">INSTRUKCJA OBSŁUGI PORTALU KNOWOPS WIKI</h2>
-    <p style="font-size:0.84rem; color:#a1a1aa; margin-bottom:18px;">Kompleksowy podręcznik inżynierski opisujący architekturę, nawigację, zarządzanie dokumentacją, system tagów oraz wbudowane narzędzia administracyjne SecOps.</p>
+    <p style="font-size:0.84rem; color:#a1a1aa; margin-bottom:18px;">Kompleksowy podręcznik inżynierski opisujący architekturę, nawigację, zarządzanie dokumentacją, system tagów, mechanizmy kopii zapasowych oraz wbudowane narzędzia administracyjne SecOps.</p>
     
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">1. Główne Moduły Systemu</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong>Pulpit (Tablica Kanban):</strong> Wizualne zarządzanie zadaniami technicznymi w 4 kolumnach (Do zrobienia, W trakcie, Zrobione, Archiwum). Każde zadanie obsługuje podzadania (checklisty subtasków), 3 poziomy priorytetów (Wysoki, Średni, Niski) oraz gotowe szablony procedur (Wdrożenie VM, Audyt serwera Linux, Konfiguracja tunelu VPN, Analiza incydentu SOC).</li>
+      <li><strong>Pulpit (Tablica Kanban):</strong> Wizualne zarządzanie zadaniami technicznymi w 4 kolumnach (Do zrobienia, W trakcie, Zrobione, Archiwum). Każde zadanie obsługuje podzadania (checklisty subtasków), 3 poziomy priorytetów (Wysoki, Średni, Niski) oraz gotowe szablony procedur. Inteligentne sortowanie pozycjonuje zadania z aktywnymi podzadaniami na górze kolumny, natomiast zadania w 100% ukończone opadają na spód. W prawym pasku zadań zakończone podzadania są automatycznie ukrywane dla zachowania czytelności.</li>
       <li><strong>Szybkie Notatki (Quick Notes):</strong> Podręczny notatnik inżynierski z natychmiastowym filtrowaniem kafelków w czasie rzeczywistym i synchronizacją w tle (plik <code>data/quick_notes.json</code>).</li>
       <li><strong>Wieloetapowe Procedury Operacyjne (Playbooks SOP):</strong> Interaktywne procedury krok po kroku z checklistami, opisem technicznym i automatycznym zapisem stanu wykonania (plik <code>data/playbooks_data.json</code>).</li>
       <li><strong>Biuletyn RSS SecOps:</strong> Automatyczny agregator podatności i biuletynów bezpieczeństwa (CERT Polska, CISA, The Hacker News) z możliwością włączania/wyłączania źródeł, dodawania własnych kanałów RSS i oznaczania wpisów jako przeczytane.</li>
@@ -2965,15 +2965,15 @@ function renderWikiInstruction() {
     
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
       <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
-        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Dwuetapowe Sortowanie Numeryczne</h4>
+        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Dwuetapowe Sortowanie i Hierarchia Kolorów</h4>
         <p style="font-size:0.75rem; color:#a1a1aa; line-height:1.4;">
-          Kolejność w menu nawigacyjnym jest ściśle deterministyczna i opiera się na fizycznych prefiksach w nazwach plików i folderów (np. <code>01_</code>, <code>02_</code>, <code>03_</code>). W każdym katalogu pliki Markdown wyświetlane są zawsze na początku, a podkatalogi pod nimi (również według kolejności numerycznej). Prefiksy są automatycznie maskowane na czytelne tytuły w interfejsie.
+          Kolejność w menu opiera się na prefiksach numerycznych (<code>01_</code>, <code>02_</code>). Pliki Markdown wyświetlane są zawsze przed podkatalogami. Drzewo nawigacji stosuje naprzemienne kolorowanie poziomów zagłębienia (złoty dla folderu głównego, błękitny dla podfolderu, powrót do złotego dla pod-podfolderu), co ułatwia orientację w rozbudowanych strukturach.
         </p>
       </div>
       <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
-        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Bezpieczne Usuwanie Folderów i Działów</h4>
+        <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Menedżer Kosza Bazy Wiedzy (Kosz Wiki)</h4>
         <p style="font-size:0.75rem; color:#a1a1aa; line-height:1.4;">
-          Możliwość usunięcia całego działu lub zagnieżdżonego podfolderu za pomocą przycisku usuwania w drzewie lub na pasku działu. Dedykowane okno modalne dynamicznie kalkuluje liczbę zawartych plików i podkatalogów. Usunięte katalogi są bezpiecznie archiwizowane w koszu systemowym <code>docs/.trash/</code> z unikalnym znacznikiem czasu.
+          Usuwane artykuły i katalogi nie przepadają bezpowrotnie – trafiają do <code>docs/.trash/</code> i są rejestrowane w manifeście <code>trash_manifest.json</code>. Okno modalne <strong>Kosz Wiki</strong> pozwala na podgląd usuniętych elementów, weryfikację ich pierwotnej ścieżki i rozmiaru oraz przywrócenie ich do bazy jednym kliknięciem z automatycznym odtworzeniem brakujących folderów nadrzędnych.
         </p>
       </div>
     </div>
@@ -2982,7 +2982,7 @@ function renderWikiInstruction() {
       <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
         <h4 style="color:var(--sw-gold); font-size:0.8rem; margin-bottom:6px;">Bezpieczne Przenoszenie Folderów (GUI & Drag and Drop)</h4>
         <p style="font-size:0.75rem; color:#a1a1aa; line-height:1.4;">
-          Foldery można przenosić klikając przycisk <strong>[P]</strong> w drzewie lub przeciągając myszą (Drag & Drop) na docelowy folder. Okno modalne zawiera wyszukiwarkę lokalizacji docelowych w czasie rzeczywistym. Architektura blokuje cykle (przeniesienie folderu do samego siebie lub podkatalogu) oraz kolizje nazw (kod 409 Conflict).
+          Foldery można przenosić przyciskiem <strong>[P]</strong> w drzewie lub przeciągając myszą (Drag & Drop) na docelowy folder. Okno modalne zawiera wyszukiwarkę lokalizacji w czasie rzeczywistym. Architektura blokuje cykle (przeniesienie folderu do samego siebie lub podkatalogu) oraz kolizje nazw (kod 409 Conflict).
         </p>
       </div>
       <div style="background:#18181b; padding:12px; border:1px solid #27272a; border-radius:6px;">
@@ -2993,12 +2993,20 @@ function renderWikiInstruction() {
       </div>
     </div>
 
-    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">3. Edytor Dokumentów i Pasek Narzędziowy</h3>
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">3. Edytor Dokumentów, Pasek Narzędziowy i Callouts</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong>Ramki Wyróżnień typu Callouts (GitHub / Obsidian Admonitions):</strong> Pełne wsparcie dla bloków wyróżnień w składni Markdown z automatycznym kolorowaniem lewej krawędzi i nagłówkiem:
+        <br><code>&gt; [!NOTE]</code> – Informacja techniczna (błękitny),
+        <br><code>&gt; [!TIP]</code> – Praktyczna wskazówka (szmaragdowy/zielony),
+        <br><code>&gt; [!IMPORTANT]</code> – Istotny warunek operacyjny (fioletowy),
+        <br><code>&gt; [!WARNING]</code> – Ostrzeżenie przed błędem (bursztynowy),
+        <br><code>&gt; [!CAUTION]</code> – Ryzyko awarii lub utraty danych (czerwony).
+        <br>Obsługiwane są również własne tytuły w pierwszej linii, np. <code>&gt; [!WARNING] Zanim zrestartujesz klaster</code>.
+      </li>
       <li><strong>Pasek Narzędziowy (Toolbar):</strong> Błyskawiczne wstawianie pogrubienia (<strong>B</strong>), kursywy (<em>I</em>), nagłówków (<strong>H1</strong>, <strong>H2</strong>), bloków kodu (<strong>Kod</strong>), tabel Markdown (<strong>Tabela</strong>) oraz schematów <strong>Diagram Mermaid</strong> (Flowchart, Sequence, Git Graph, Pie Chart, Gantt, State, Class, Active Directory, drzewo OU).</li>
       <li><strong>Przycisk „Tagi” w Edytorze:</strong> Umożliwia wstawienie lub edycję metadanych tagów YAML Frontmatter na samej górze pliku za pomocą jednego kliknięcia. Kursor automatycznie zaznacza sekcję tagów, co pozwala na natychmiastowe wpisanie słów kluczowych.</li>
       <li><strong>Wklejanie Grafik ze Schowka (Ctrl + V) i Drag & Drop:</strong> Zrzuty ekranu ze schowka systemowego oraz pliki przeciągnięte na pole edytora są automatycznie przesyłane na serwer i wklejane w formacie <code>![alt](/public/images/...)</code>. Wbudowany walidator Magic Bytes dopuszcza formaty PNG, JPEG, GIF, WebP (do 5 MB).</li>
-      <li><strong>Stały Pasek Akcji (Sticky Action Header):</strong> Podczas czytania dokumentu górna belka pozostaje stale zakotwiczona, wyświetlając czas ostatniej modyfikacji oraz przyciski szybkiej edycji, przenoszenia i dodawania podstrony.</li>
+      <li><strong>Stały Pasek Akcji (Sticky Action Header):</strong> Podczas czytania dokumentu górna belka pozostaje stale zakotwiczona, wyświetlając czas modyfikacji oraz przyciski: <strong>EKSPORTUJ OFFLINE</strong>, <strong>+ DODAJ STRONĘ W TYM FOLDERZE</strong>, <strong>PRZENIEŚ DOKUMENT</strong> oraz <strong>EDYTUJ TEN DOKUMENT</strong>.</li>
       <li><strong>Autozapis (Auto-Save):</strong> Wszelkie zmiany wprowadzone w edytorze są automatycznie zapisywane na serwerze po 1.5 sekundy od zakończenia wprowadzania tekstu.</li>
     </ul>
 
@@ -3010,17 +3018,20 @@ function renderWikiInstruction() {
       <li><strong>Precyzyjne Wyszukiwanie po Tagach:</strong> Wpisanie frazy rozpoczynającej się od znaku hash (np. <code>#soc</code> lub <code>#proxmox</code>) w globalnej wyszukiwarce wykonuje natychmiastowe filtrowanie wyłącznie po indeksie metadanych tagów.</li>
     </ul>
 
-    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">5. Kopia Zapasowa ZIP i Oczyszczanie Bazy</h3>
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">5. Kopie Zapasowe, Retencja i Czyszczenie Grafik</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong>Pobieranie Kopii Zapasowej ZIP:</strong> Przycisk <strong>„Kopia ZIP”</strong> (dostępny w lewym panelu narzędziowym pod przyciskami skanowania i druku) pakuje w locie całą bazę wiedzy (katalogi <code>docs/</code>, <code>data/</code>, <code>public/images/</code>) z automatycznym wykluczeniem kosza systemowego i przesyła strumieniowo plik <code>.zip</code> do przeglądarki. Plik tymczasowy jest automatycznie usuwany po transmisji.</li>
-      <li><strong>Menedżer Osieroconych Grafik:</strong> Przycisk <strong>„Oczyść grafiki”</strong> (dostępny w lewym panelu narzędziowym obok przycisku Kopii ZIP) uruchamia rekurencyjny skan bazy dokumentów w poszukiwaniu odwołań do obrazów. Okno modalne prezentuje listę nieużywanych grafik z miniaturkami, rozmiarem i datą, umożliwia selekcję zbiorczą i bezpiecznie przenosi zbędne pliki do <code>docs/.trash/orphaned_images/</code> (bez ryzyka bezpowrotnej utraty).</li>
+      <li><strong>Automatyczny Harmonogram Rotacyjny (Kopie Auto 7):</strong> Serwer w tle co 24 godziny wykonuje pełną kopię bazy wiedzy. Silnik retencji utrzymuje 7 najnowszych archiwów, automatycznie usuwając starsze pliki. W oknie <strong>Kopie Auto (7)</strong> administrator może sprawdzić listę archiwów, wygenerować kopię na żądanie lub pobrać dowolne archiwum na dysk. Dzięki montowaniu wolumenu <code>./backups</code> kopie są trwale zachowywane na maszynie hosta.</li>
+      <li><strong>Szybka Kopia ZIP w Locie:</strong> Przycisk <strong>„Kopia ZIP”</strong> generuje i natychmiast przesyła strumieniowo do przeglądarki pełne archiwum bazy wiedzy (katalogi <code>docs/</code>, <code>data/</code>, <code>public/images/</code>) z automatycznym wykluczeniem kosza systemowego.</li>
+      <li><strong>Menedżer Osieroconych Grafik:</strong> Przycisk <strong>„Oczyść grafiki”</strong> uruchamia rekurencyjny skan wszystkich podfolderów <code>public/images/</code> w poszukiwaniu nieużywanych plików. Nieużywane obrazy są bezpiecznie przenoszone do <code>public/images/.trash/</code> z odtworzeniem struktury podfolderów (bez ryzyka bezpowrotnego skasowania).</li>
     </ul>
 
-    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Zaawansowane Funkcje Operacyjne</h3>
+    <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Eksport Offline i Narzędzia CLI</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong>Podręczny Brudnopis (Scratchpad - Alt+N):</strong> Wciśnięcie skrótu klawiszowego <code>Alt + N</code> (lub kliknięcie bocznego uchwytu NOTATNIK na prawej krawędzi ekranu) wysuwa globalny panel roboczy z autozapisem w czasie rzeczywistym. Zawiera edytor tekstu/kodu, szybką checklistę zadań, natychmiastowe kopiowanie oraz przycisk <strong>„Przekształć w stronę Wiki”</strong> do bezpośredniej konwersji brudnopisu w nowy plik dokumentacji.</li>
-      <li><strong>Import z URL (Web Scraper):</strong> Przycisk <strong>„Importuj Plik (MD / HTML)”</strong> w lewym panelu umożliwia pobranie artykułu z zewnętrznego adresu URL. Silnik wycina treść główną, ignoruje reklamy i stopki, konwertuje HTML na czysty Markdown i zapisuje we wskazanym dziale.</li>
-      <li><strong>Zoptymalizowany Druk i Eksport PDF:</strong> Przycisk <strong>„Drukuj / PDF”</strong> (lub skrót Ctrl+P) aktywuje arkusz stylów w standardzie formatu A4 portrait z marginesami 12x15mm, automatycznym dopasowaniem szerokich tabel i bloków kodu bez obcinania prawej krawędzi oraz ukryciem elementów interfejsu.</li>
+      <li><strong>Autonomiczny Eksport Offline (HTML z Base64):</strong> Przycisk <strong>„EKSPORTUJ OFFLINE”</strong> na pasku artykułu konwertuje procedurę do pojedynczego, w pełni samowystarczalnego pliku HTML. Wszystkie obrazy są automatycznie przekształcane do formatu Base64 Data URI, a w nagłówku osadzany jest kompletny arkusz stylów. Plik można bezpiecznie przenieść i otworzyć w dowolnej przeglądarce na odciętej od sieci stacji roboczej.</li>
+      <li><strong>Skrypt Synchronizacji Nazw Plików z H1 (CLI):</strong> Narzędzie <code>node scripts/sync_markdown_filenames.mjs</code> analizuje pliki w <code>docs/</code> i porównuje nazwę pliku z pierwszym nagłówkiem <code># Tytuł</code>. Zapewnia czyste nazewnictwo bez znaków specjalnych, z zachowaniem prefiksów numerycznych. Flaga <code>--apply</code> automatycznie nanosi zmiany i przebudowuje nawigację.</li>
+      <li><strong>Podręczny Brudnopis (Scratchpad - Alt+N):</strong> Wciśnięcie skrótu <code>Alt + N</code> wysuwa panel roboczy z autozapisem, edytorem monospaced, szybką checklistą i przyciskiem przekształcenia notatki w nowy dokument Wiki.</li>
+      <li><strong>Import z URL (Web Scraper):</strong> Przycisk <strong>„Importuj Plik (MD / HTML)”</strong> w lewym panelu umożliwia pobranie artykułu z zewnętrznego adresu URL i automatyczną konwersję do Markdown z filtrowaniem treści głównej i ochroną anty-SSRF.</li>
+      <li><strong>Zoptymalizowany Druk i PDF:</strong> Przycisk <strong>„Drukuj / PDF”</strong> (lub Ctrl+P) aktywuje arkusz stylów formatu A4 portrait z marginesami 12x15mm, idealnym dopasowaniem tabel i bloków kodu.</li>
     </ul>
   </div>`;
 }
