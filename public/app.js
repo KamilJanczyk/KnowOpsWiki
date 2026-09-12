@@ -1087,10 +1087,13 @@ function renderKanbanCards() {
             const safeSubTitle = escapeHtml(s.title);
             const safeTaskId = escapeHtml(t.id);
             const safeSubId = escapeHtml(s.id);
+            const completedAtHtml = s.done && s.completedAt 
+              ? `<span class="subtask-completed-at" title="Ukończono: ${escapeHtml(s.completedAt)}">(${escapeHtml(s.completedAt)})</span>` 
+              : '';
             return `
             <label class="subtask-checkbox-item">
               <input type="checkbox" ${s.done ? 'checked' : ''} onchange="toggleSubtask('${safeTaskId}', '${safeSubId}')">
-              <span class="${s.done ? 'subtask-done' : ''}">${safeSubTitle}</span>
+              <span class="${s.done ? 'subtask-done' : ''}">${safeSubTitle}</span>${completedAtHtml}
             </label>
           `;}).join('')}
           ${quickSubtaskHtml}
@@ -1138,6 +1141,11 @@ async function toggleSubtask(taskId, subtaskId) {
     const sub = task.subtasks.find(s => s.id === subtaskId);
     if (sub) {
       sub.done = !sub.done;
+      if (sub.done) {
+        sub.completedAt = new Date().toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      } else {
+        delete sub.completedAt;
+      }
       await saveKanbanTasks();
       renderKanbanCards();
     }
@@ -1245,8 +1253,9 @@ function renderModalSubtasks() {
 
   let html = '';
   modalDraftSubtasks.forEach((sub, idx) => {
+    const timeLabel = sub.done && sub.completedAt ? ` <small style="color:#71717a;">(${escapeHtml(sub.completedAt)})</small>` : '';
     html += `<div class="modal-subtask-item">
-      <span>${sub.title}</span>
+      <span>${escapeHtml(sub.title)}${timeLabel}</span>
       <button type="button" class="note-del-btn" onclick="removeSubtaskFromModal(${idx})">X</button>
     </div>`;
   });
@@ -3556,10 +3565,13 @@ async function loadRightSidebarKanban() {
               ${subtasks.map(s => {
                 const safeSubId = escapeHtml(s.id);
                 const safeSubTitle = escapeHtml(s.title);
+                const timeHtml = s.done && s.completedAt 
+                  ? `<span class="right-kanban-subtask-time" title="Ukończono: ${escapeHtml(s.completedAt)}">(${escapeHtml(s.completedAt)})</span>` 
+                  : '';
                 return `
                   <label class="right-kanban-subtask-item">
                     <input type="checkbox" ${s.done ? 'checked' : ''} onchange="window.toggleSidebarSubtask('${safeTaskId}', '${safeSubId}')">
-                    <span class="${s.done ? 'right-kanban-subtask-done' : ''}">${safeSubTitle}</span>
+                    <span class="${s.done ? 'right-kanban-subtask-done' : ''}" title="${s.done && s.completedAt ? 'Ukończono: ' + escapeHtml(s.completedAt) : ''}">${safeSubTitle}</span>${timeHtml}
                   </label>
                 `;
               }).join('')}
@@ -3599,6 +3611,11 @@ window.toggleSidebarSubtask = async function(taskId, subtaskId) {
     const sub = task.subtasks.find(s => s.id === subtaskId);
     if (sub) {
       sub.done = !sub.done;
+      if (sub.done) {
+        sub.completedAt = new Date().toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      } else {
+        delete sub.completedAt;
+      }
       await saveKanbanTasks();
       const cardsInProgress = document.getElementById('cards-in_progress');
       if (cardsInProgress && typeof renderKanbanCards === 'function') {

@@ -267,6 +267,7 @@
     .right-kanban-subtask-item { display: flex; align-items: flex-start; gap: 6px; font-size: 0.68rem; color: #d4d4d8; cursor: pointer; line-height: 1.25; }
     .right-kanban-subtask-item input[type="checkbox"] { accent-color: var(--sw-gold); cursor: pointer; margin-top: 1px; flex-shrink: 0; }
     .right-kanban-subtask-done { text-decoration: line-through; color: #71717a; }
+    .right-kanban-subtask-time { font-size: 0.60rem; color: #71717a; margin-left: auto; flex-shrink: 0; font-family: monospace; }
 
     /* Kanban Styles */
     .tool-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 10px; }
@@ -393,6 +394,7 @@
     .subtask-checkbox-item { display: flex; align-items: center; gap: 6px; font-size: 0.73rem; color: #d4d4d8; cursor: pointer; user-select: none; }
     .subtask-checkbox-item input[type="checkbox"] { accent-color: var(--sw-gold); cursor: pointer; }
     .subtask-done { text-decoration: line-through; color: #71717a; }
+    .subtask-completed-at { font-size: 0.64rem; color: #71717a; margin-left: 4px; font-weight: normal; font-family: monospace; }
     .modal-subtask-item { display: flex; justify-content: space-between; align-items: center; background: #09090b; border: 1px solid #27272a; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; color: #e4e4e7; }
     .card-quick-subtask { display: flex; align-items: center; gap: 4px; margin-top: 6px; padding-top: 4px; border-top: 1px dashed #27272a; }
     .quick-subtask-input { flex: 1; background: #09090b; border: 1px solid #27272a; color: #f4f4f5; padding: 4px 8px; font-size: 0.68rem; border-radius: 4px; outline: none; transition: border-color 0.15s ease; }

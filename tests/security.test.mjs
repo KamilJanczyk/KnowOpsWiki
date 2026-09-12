@@ -614,12 +614,32 @@ test('Kanban Subtasks: Szybkie dodawanie, przełączanie stanu i sanityzacja XSS
   assert.equal(safeTitle.includes('<script>'), false);
   assert.equal(safeTitle.includes('&lt;script&gt;'), true);
 
-  // 3. Przełączanie stanu podzadania (toggle)
+  // 3. Przełączanie stanu podzadania (toggle) i przypisanie completedAt
   const targetSub = task.subtasks.find(s => s.id === 'sub-1');
   assert.ok(targetSub);
   assert.equal(targetSub.done, false);
   targetSub.done = !targetSub.done;
+  if (targetSub.done) {
+    targetSub.completedAt = '12.09, 13:05';
+  } else {
+    delete targetSub.completedAt;
+  }
   assert.equal(targetSub.done, true);
+  assert.equal(targetSub.completedAt, '12.09, 13:05');
+
+  // Test odznaczenia (uncheck) - usunięcie completedAt
+  targetSub.done = !targetSub.done;
+  if (targetSub.done) {
+    targetSub.completedAt = '12.09, 13:05';
+  } else {
+    delete targetSub.completedAt;
+  }
+  assert.equal(targetSub.done, false);
+  assert.equal(targetSub.completedAt, undefined);
+
+  // Ponowne zaznaczenie dla poprawnego przeliczenia postępu
+  targetSub.done = true;
+  targetSub.completedAt = '12.09, 13:05';
 
   // 4. Przeliczanie postępu
   const total = task.subtasks.length;
