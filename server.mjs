@@ -4,7 +4,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import os from 'node:os';
-import { createWikiBackup, exportWikiZip } from './backup_wiki.mjs';
+import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR } from './backup_wiki.mjs';
 import { generateNavigation, extractMarkdownTags } from './build_navigation.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
@@ -57,6 +57,58 @@ function atomicWriteFile(filePath, data, encoding = 'utf8') {
   const tmpPath = `${filePath}.tmp.${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   fs.writeFileSync(tmpPath, data, encoding);
   fs.renameSync(tmpPath, filePath);
+}
+export const DOCS_TRASH_MANIFEST_FILE = path.join(TRASH_DIR, 'trash_manifest.json');
+
+export function getTrashManifest() {
+  let manifest = [];
+  if (fs.existsSync(DOCS_TRASH_MANIFEST_FILE)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(DOCS_TRASH_MANIFEST_FILE, 'utf8'));
+      if (Array.isArray(parsed)) manifest = parsed;
+    } catch (e) {
+      console.error('[Trash Manifest] Błąd odczytu manifestu:', e);
+      manifest = [];
+    }
+  }
+
+  // Weryfikacja spójności fizycznej w katalogu .trash
+  if (fs.existsSync(TRASH_DIR)) {
+    let physicalEntries = [];
+    try {
+      physicalEntries = fs.readdirSync(TRASH_DIR).filter(f => f !== 'trash_manifest.json');
+    } catch (e) {
+      physicalEntries = [];
+    }
+    const existingTrashFiles = new Set(manifest.map(m => m.trashFilename));
+
+    // Auto-odkrywanie ewentualnych starszych elementów bez wpisu w manifeście
+    for (const file of physicalEntries) {
+      if (!existingTrashFiles.has(file)) {
+        const fullPath = path.join(TRASH_DIR, file);
+        let isDir = false;
+        try { isDir = fs.statSync(fullPath).isDirectory(); } catch (e) {}
+        manifest.push({
+          id: `legacy_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          trashFilename: file,
+          originalRelPath: file.replace(/^\d+_DIR_/, '').replace(/^\d+_/, ''),
+          name: file.replace(/^\d+_DIR_/, '').replace(/^\d+_/, ''),
+          type: isDir ? 'directory' : 'file',
+          deletedAt: new Date().toISOString()
+        });
+      }
+    }
+  }
+
+  return manifest;
+}
+
+export function saveTrashManifest(items) {
+  try {
+    atomicWriteFile(DOCS_TRASH_MANIFEST_FILE, JSON.stringify(items, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[Trash Manifest] Błąd zapisu manifestu:', e);
+  }
 }
 const DIST_DIR = path.resolve('dist');
 const IMAGES_DIR = path.join(path.resolve('public'), 'images');
@@ -861,6 +913,17 @@ const server = http.createServer(async (req, res) => {
         const trashPath = path.join(TRASH_DIR, trashFilename);
         fs.renameSync(targetPath, trashPath);
         console.log(`[Wiki API] Przeniesiono plik do kosza (.trash): ${trashFilename}`);
+
+        const manifest = getTrashManifest();
+        manifest.unshift({
+          id: `doc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          trashFilename,
+          originalRelPath: relPath.replace(/\\/g, '/'),
+          name: path.basename(targetPath),
+          type: 'file',
+          deletedAt: new Date().toISOString()
+        });
+        saveTrashManifest(manifest);
       } catch (err) {
         fs.unlinkSync(targetPath);
         console.log(`[Wiki API] Usunięto plik (bezpośrednio): ${relPath}`);
@@ -928,12 +991,32 @@ const server = http.createServer(async (req, res) => {
       try {
         fs.renameSync(targetPath, destinationTrashPath);
         console.log(`[Wiki API] Przeniesiono cały katalog do kosza (.trash): ${decodedRel} -> ${trashFolderName}`);
+        const manifest = getTrashManifest();
+        manifest.unshift({
+          id: `dir_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          trashFilename: trashFolderName,
+          originalRelPath: decodedRel,
+          name: folderBaseName,
+          type: 'directory',
+          deletedAt: new Date().toISOString()
+        });
+        saveTrashManifest(manifest);
       } catch (renameErr) {
         console.warn(`[Wiki API] renameSync folderu nie powiodło się, próba cpSync i rmSync: ${renameErr.message}`);
         try {
           fs.cpSync(targetPath, destinationTrashPath, { recursive: true });
           fs.rmSync(targetPath, { recursive: true, force: true });
           console.log(`[Wiki API] Skopiowano do kosza i usunięto katalog: ${decodedRel}`);
+          const manifest = getTrashManifest();
+          manifest.unshift({
+            id: `dir_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            trashFilename: trashFolderName,
+            originalRelPath: decodedRel,
+            name: folderBaseName,
+            type: 'directory',
+            deletedAt: new Date().toISOString()
+          });
+          saveTrashManifest(manifest);
         } catch (rmErr) {
           isApiSaving = false;
           console.error('[Wiki API] Błąd podczas usuwania katalogu:', rmErr);
@@ -1777,6 +1860,158 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (normPath === '/api/trash-documents' && req.method === 'GET') {
+      const rawManifest = getTrashManifest();
+      const validItems = [];
+      for (const item of rawManifest) {
+        const itemPath = path.join(TRASH_DIR, item.trashFilename);
+        if (fs.existsSync(itemPath)) {
+          let size = 0;
+          try {
+            const stat = fs.statSync(itemPath);
+            size = stat.size;
+          } catch (e) {}
+          validItems.push({
+            ...item,
+            size
+          });
+        }
+      }
+      return sendJson(200, { items: validItems });
+    }
+
+    if (normPath === '/api/restore-document' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { id } = body;
+      if (!id) return sendJson(400, { error: 'Brak identyfikatora elementu (id)' });
+
+      const manifest = getTrashManifest();
+      const item = manifest.find(m => m.id === id);
+      if (!item) return sendJson(404, { error: 'Element nie został odnaleziony w koszu' });
+
+      const sourceTrashPath = path.join(TRASH_DIR, item.trashFilename);
+      if (!fs.existsSync(sourceTrashPath)) {
+        saveTrashManifest(manifest.filter(m => m.id !== id));
+        return sendJson(404, { error: 'Fizyczny plik nie istnieje już w koszu' });
+      }
+
+      const cleanRel = (item.originalRelPath || item.name || '').replace(/\\/g, '/').replace(/^\/+/, '');
+      const targetDocsPath = path.resolve(DOCS_DIR, cleanRel);
+
+      if (!isPathInsideDocs(targetDocsPath, DOCS_DIR) || targetDocsPath === path.resolve(DOCS_DIR) || isPathInsideDocs(targetDocsPath, TRASH_DIR)) {
+        return sendJson(400, { error: 'Nieprawidłowa lub zablokowana ścieżka przywracania' });
+      }
+
+      if (fs.existsSync(targetDocsPath)) {
+        return sendJson(409, { error: `Element o ścieżce "${cleanRel}" już istnieje w bazie wiedzy. Zmień jego nazwę przed przywróceniem.` });
+      }
+
+      const targetParent = path.dirname(targetDocsPath);
+      if (!fs.existsSync(targetParent)) {
+        fs.mkdirSync(targetParent, { recursive: true });
+      }
+
+      try {
+        fs.renameSync(sourceTrashPath, targetDocsPath);
+      } catch (renameErr) {
+        if (item.type === 'directory') {
+          fs.cpSync(sourceTrashPath, targetDocsPath, { recursive: true });
+          fs.rmSync(sourceTrashPath, { recursive: true, force: true });
+        } else {
+          fs.copyFileSync(sourceTrashPath, targetDocsPath);
+          fs.unlinkSync(sourceTrashPath);
+        }
+      }
+
+      saveTrashManifest(manifest.filter(m => m.id !== id));
+      await rebuildWiki();
+      rebuildSearchCache();
+
+      return sendJson(200, {
+        success: true,
+        message: `Pomyślnie przywrócono ${item.type === 'directory' ? 'katalog' : 'dokument'}: ${item.name}`,
+        relPath: path.relative(DOCS_DIR, targetDocsPath).replace(/\\/g, '/')
+      });
+    }
+
+    if (normPath === '/api/purge-trash' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { id, all } = body;
+
+      const manifest = getTrashManifest();
+
+      if (all === true) {
+        for (const item of manifest) {
+          const itemPath = path.join(TRASH_DIR, item.trashFilename);
+          try {
+            if (fs.existsSync(itemPath)) {
+              fs.rmSync(itemPath, { recursive: true, force: true });
+            }
+          } catch (e) {
+            console.error(`[Trash Engine] Błąd trwałego usuwania ${item.trashFilename}:`, e);
+          }
+        }
+        if (fs.existsSync(TRASH_DIR)) {
+          const leftovers = fs.readdirSync(TRASH_DIR).filter(f => f !== 'trash_manifest.json');
+          for (const lf of leftovers) {
+            try {
+              fs.rmSync(path.join(TRASH_DIR, lf), { recursive: true, force: true });
+            } catch (e) {}
+          }
+        }
+        saveTrashManifest([]);
+        return sendJson(200, { success: true, message: 'Kosz bazy wiedzy został całkowicie opróżniony.' });
+      }
+
+      if (!id) return sendJson(400, { error: 'Wymagany parametr id lub flaga all: true' });
+
+      const item = manifest.find(m => m.id === id);
+      if (item) {
+        const itemPath = path.join(TRASH_DIR, item.trashFilename);
+        try {
+          if (fs.existsSync(itemPath)) {
+            fs.rmSync(itemPath, { recursive: true, force: true });
+          }
+        } catch (e) {
+          console.error(`[Trash Engine] Błąd trwałego usuwania ${item.trashFilename}:`, e);
+        }
+        saveTrashManifest(manifest.filter(m => m.id !== id));
+      }
+
+      return sendJson(200, { success: true, message: 'Element został trwale usunięty z kosza.' });
+    }
+
+    if (normPath === '/api/backups-list' && req.method === 'GET') {
+      const list = rotateBackups(7);
+      return sendJson(200, { backups: list });
+    }
+
+    if (normPath === '/api/backups-download' && req.method === 'GET') {
+      const filename = reqUrl.searchParams.get('filename') || '';
+      if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..') || filename.includes('\0')) {
+        return sendJson(400, { error: 'Nieprawidłowa nazwa pliku kopii zapasowej' });
+      }
+      if (!filename.endsWith('.zip') && !filename.endsWith('.tar.gz')) {
+        return sendJson(400, { error: 'Niedozwolony format archiwum' });
+      }
+      const targetPath = path.resolve(BACKUPS_DIR, filename);
+      if (!isPathInsideDocs(targetPath, BACKUPS_DIR) || !fs.existsSync(targetPath)) {
+        return sendJson(404, { error: 'Archiwum kopii zapasowej nie zostało odnalezione' });
+      }
+      const stat = fs.statSync(targetPath);
+      const isZip = filename.endsWith('.zip');
+      res.writeHead(200, {
+        'Content-Type': isZip ? 'application/zip' : 'application/gzip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': stat.size
+      });
+      const stream = fs.createReadStream(targetPath);
+      stream.pipe(res);
+      return;
+    }
+
     sendJson(404, { error: 'Endpoint nie istnieje' });
 
   } catch (err) {
@@ -1844,6 +2079,21 @@ function rebuildSearchCache() {
   processChunk();
 }
 
+// Automatyczny harmonogram rotacyjnych kopii zapasowych (co 24h z retencją 7 kopii)
+const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+function runScheduledBackup() {
+  try {
+    console.log('[Backup Scheduler] Uruchamianie zaplanowanej automatycznej kopii zapasowej...');
+    const res = createWikiBackup();
+    if (res && res.success) {
+      console.log(`[Backup Scheduler] Pomyślnie utworzono kopię zapasową: ${res.filename}`);
+      rotateBackups(7);
+    }
+  } catch (e) {
+    console.error('[Backup Scheduler] Błąd podczas zaplanowanej kopii:', e);
+  }
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server API KnowOps nasłuchuje na porcie ${PORT} (0.0.0.0)`);
   rebuildWiki()
@@ -1851,6 +2101,14 @@ server.listen(PORT, '0.0.0.0', () => {
       rebuildSearchCache();
     })
     .catch(e => console.error('[Wiki API Startup Build] Błąd:', e.message));
+
+  // Inicjalizacja retencji kopii oraz harmonogramu co 24h
+  try {
+    rotateBackups(7);
+    setInterval(runScheduledBackup, BACKUP_INTERVAL_MS);
+  } catch (err) {
+    console.error('[Backup Scheduler Init] Błąd:', err.message);
+  }
 });
 // Graceful Shutdown for SIGTERM / SIGINT
 const gracefulShutdown = (signal) => {

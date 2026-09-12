@@ -3,7 +3,7 @@ import path from 'node:path';
 import { execSync, execFileSync } from 'node:child_process';
 
 const DOCS_DIR = path.resolve('docs');
-const BACKUPS_DIR = path.resolve('backups');
+export const BACKUPS_DIR = path.resolve('backups');
 
 if (!fs.existsSync(BACKUPS_DIR)) {
   fs.mkdirSync(BACKUPS_DIR, { recursive: true });
@@ -106,7 +106,38 @@ export function exportWikiZip() {
   };
 }
 
+export function rotateBackups(keepCount = 7) {
+  if (!fs.existsSync(BACKUPS_DIR)) return [];
+  const files = fs.readdirSync(BACKUPS_DIR)
+    .filter(f => f.startsWith('wiki_backup_') || f.startsWith('knowops_wiki_backup_'))
+    .map(f => {
+      const fullPath = path.join(BACKUPS_DIR, f);
+      try {
+        const stat = fs.statSync(fullPath);
+        return { filename: f, fullPath, size: stat.size, mtime: stat.mtime };
+      } catch (e) {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.mtime - a.mtime);
+
+  if (files.length > keepCount) {
+    const toDelete = files.slice(keepCount);
+    for (const item of toDelete) {
+      try {
+        fs.unlinkSync(item.fullPath);
+        console.log(`[Backup Engine] Usunięto starą kopię w ramach retencji (${keepCount}): ${item.filename}`);
+      } catch (e) {
+        console.error(`[Backup Engine] Błąd usuwania kopii ${item.filename}:`, e);
+      }
+    }
+  }
+  return files.slice(0, keepCount);
+}
+
 // Allow direct script execution: node backup_wiki.mjs
 if (process.argv[1] && process.argv[1].endsWith('backup_wiki.mjs')) {
   createWikiBackup();
+  rotateBackups(7);
 }

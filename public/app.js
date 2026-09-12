@@ -824,32 +824,32 @@ function parseMarkdown(text) {
   // Dynamic path rewriting for media directory
   html = html.replace(/src="[^"]*?media\/(.*?)"/g, 'src="/docs/media/$1"');
 
-  // Obsługa stylizowanych bloków alertów (Callout Alerts / Notion-style) [dodane]
+  // Obsługa stylizowanych bloków alertów (Callout Alerts / GitHub / Obsidian)
   if (html) {
     html = html.replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, (match, content) => {
-      const alertMatch = content.match(/\[!(NOTE|WARNING|CAUTION|IMPORTANT|TIP)\]/i);
+      const alertMatch = content.match(/\[!(NOTE|WARNING|CAUTION|IMPORTANT|TIP)\](?:[^\S\r\n]+([^\r\n]+?))?(?:\n|<br\s*\/?>|<\/p|$)/i);
       if (alertMatch) {
         const type = alertMatch[1].toUpperCase();
-        
-        // Usunięcie znacznika alertu [!TYP]
-        let cleanContent = content.replace(/\[!(NOTE|WARNING|CAUTION|IMPORTANT|TIP)\]/gi, '').trim();
-        
-        // Oczyszczenie z ewentualnych zbędnych znaczników akapitu/przejścia do nowej linii po znaczniku
+        const customTitle = alertMatch[2] ? alertMatch[2].trim() : '';
+
+        let cleanContent = content.replace(/\[!(NOTE|WARNING|CAUTION|IMPORTANT|TIP)\](?:[^\S\r\n]+[^\r\n]+?)?(?:\n|<br\s*\/?>|<\/p|$)/i, '').trim();
         cleanContent = cleanContent.replace(/^<p>\s*(<br\s*\/?>)?/i, '<p>');
         if (cleanContent.startsWith('<p></p>')) {
           cleanContent = cleanContent.replace('<p></p>', '');
         }
 
-        const alertClass = `markdown-alert markdown-alert-${type.toLowerCase()}`;
-        const titleText = type === 'NOTE' ? 'INFORMACJA' :
-                          type === 'WARNING' ? 'OSTRZEŻENIE' :
-                          type === 'CAUTION' ? 'UWAGA KRYTYCZNA' :
-                          type === 'IMPORTANT' ? 'WAŻNE' :
-                          type === 'TIP' ? 'WSKAZÓWKA' : type;
+        const alertClass = `markdown-alert markdown-alert-${type.toLowerCase()} callout callout-${type.toLowerCase()}`;
+        const defaultTitle = type === 'NOTE' ? 'INFORMACJA' :
+                             type === 'WARNING' ? 'OSTRZEŻENIE' :
+                             type === 'CAUTION' ? 'UWAGA KRYTYCZNA' :
+                             type === 'IMPORTANT' ? 'WAŻNE' :
+                             type === 'TIP' ? 'WSKAZÓWKA' : type;
+
+        const titleText = customTitle || defaultTitle;
 
         return `<div class="${alertClass}">
-          <div class="markdown-alert-title">${titleText}</div>
-          <div class="markdown-alert-body">${cleanContent}</div>
+          <div class="markdown-alert-title callout-header">${escapeHtml(titleText)}</div>
+          <div class="markdown-alert-body callout-body">${cleanContent}</div>
         </div>`;
       }
       return match;
@@ -908,6 +908,7 @@ async function loadArticle(articlePath) {
     const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:0; z-index:100; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
       <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
       <div style="display:flex; gap:6px;">
+        <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
         <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ W TYM FOLDERZE</button>
         <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
         <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
@@ -960,6 +961,98 @@ async function loadArticle(articlePath) {
     </div>`;
   }
 }
+
+window.exportArticleOfflineHtml = async function() {
+  const contentArea = document.getElementById('articleContentArea');
+  const breadcrumbArea = document.getElementById('breadcrumbArea');
+  if (!contentArea) return;
+
+  const docTitle = document.title.replace(' - KnowOps Wiki', '').trim() || 'dokument';
+  const breadcrumbText = breadcrumbArea ? breadcrumbArea.innerText : '';
+
+  const clone = contentArea.cloneNode(true);
+  const actionHeader = clone.querySelector('.article-action-header');
+  if (actionHeader) actionHeader.remove();
+
+  const images = clone.querySelectorAll('img');
+  for (const img of images) {
+    const src = img.getAttribute('src');
+    if (src && !src.startsWith('data:')) {
+      try {
+        const response = await fetch(src);
+        if (response.ok) {
+          const blob = await response.blob();
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          img.setAttribute('src', dataUrl);
+        }
+      } catch (err) {
+        console.warn(`[Offline Export] Nie udało się przekonwertować grafiki ${src}:`, err);
+      }
+    }
+  }
+
+  const inlineStyles = `
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0c0c0e; color: #d4d4d8; padding: 24px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1, h2, h3, h4 { color: #ffffff; margin-top: 1.4em; margin-bottom: 0.6em; }
+    h1 { border-bottom: 2px solid #27272a; padding-bottom: 6px; font-size: 1.8rem; }
+    h2 { border-bottom: 1px solid #27272a; padding-bottom: 4px; font-size: 1.4rem; color: #facc15; }
+    a { color: #60a5fa; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { background: #18181b; border: 1px solid #27272a; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 0.88em; color: #facc15; }
+    pre { background: #18181b; border: 1px solid #27272a; padding: 14px; border-radius: 6px; overflow-x: auto; }
+    pre code { background: none; border: none; padding: 0; color: #e4e4e7; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.88rem; }
+    th, td { border: 1px solid #27272a; padding: 8px 12px; text-align: left; }
+    th { background: #18181b; color: #ffffff; }
+    img { max-width: 100%; height: auto; border-radius: 4px; margin: 10px 0; border: 1px solid #27272a; }
+    blockquote { border-left: 4px solid #3f3f46; padding-left: 14px; color: #a1a1aa; margin: 12px 0; }
+    .breadcrumb { font-size: 0.78rem; color: #71717a; margin-bottom: 16px; border-bottom: 1px solid #222; padding-bottom: 6px; }
+    .tag-pill { display: inline-block; background: #1e293b; color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 6px; }
+    .callout { margin: 14px 0; padding: 12px 16px; border-radius: 6px; border-left: 4px solid #3b82f6; background: rgba(24, 24, 27, 0.7); }
+    .callout-header { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .callout-note { border-left-color: #3b82f6; background: rgba(59, 130, 246, 0.08); } .callout-note .callout-header { color: #60a5fa; }
+    .callout-tip { border-left-color: #10b981; background: rgba(16, 185, 129, 0.08); } .callout-tip .callout-header { color: #34d399; }
+    .callout-important { border-left-color: #8b5cf6; background: rgba(139, 92, 246, 0.08); } .callout-important .callout-header { color: #a78bfa; }
+    .callout-warning { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.08); } .callout-warning .callout-header { color: #fbbf24; }
+    .callout-caution { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.08); } .callout-caution .callout-header { color: #f87171; }
+    .export-footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid #27272a; font-size: 0.72rem; color: #71717a; text-align: center; }
+  `;
+
+  const fullHtml = `<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(docTitle)} - KnowOps Wiki Offline</title>
+  <style>${inlineStyles}</style>
+</head>
+<body>
+  <div class="breadcrumb">${escapeHtml(breadcrumbText)}</div>
+  <div class="article-content">
+    ${clone.innerHTML}
+  </div>
+  <div class="export-footer">
+    Dokument wyeksportowany z KnowOps Wiki w dniu ${new Date().toLocaleString('pl-PL')} w trybie autonomicznym (Offline / Base64).
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+  const downloadUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeFilename = docTitle.replace(/[<>:"/\\|?*]/g, '_').trim() + '_offline.html';
+  a.href = downloadUrl;
+  a.download = safeFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+};
 
 // ================= KANBAN & NOTES MODULES ================= //
 
@@ -4756,6 +4849,215 @@ window.submitDeleteOrphanedImages = async function() {
     if (deleteBtn) {
       deleteBtn.disabled = false;
       deleteBtn.textContent = originalText;
+    }
+  }
+};
+
+// ================= MENEDŻER KOSZA BAZY WIEDZY ================= //
+
+window.openTrashDocumentsModal = async function() {
+  const overlay = document.getElementById('trashDocumentsModalOverlay');
+  const listEl = document.getElementById('trashDocumentsList');
+  const countDisplay = document.getElementById('trashDocumentsCount');
+
+  if (!overlay || !listEl) return;
+  overlay.style.display = 'flex';
+  document.body.style.cursor = 'wait';
+  listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#a1a1aa; font-size:0.82rem;">Ładowanie zawartości kosza dokumentacji...</div>';
+  if (countDisplay) countDisplay.textContent = '...';
+
+  try {
+    const res = await fetch('/api/trash-documents?t=' + Date.now());
+    if (!res.ok) throw new Error(`Błąd serwera: ${res.status}`);
+    const data = await res.json();
+    const items = data.items || [];
+
+    if (countDisplay) countDisplay.textContent = items.length;
+
+    if (items.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#10b981; font-size:0.85rem; line-height:1.5;">Kosz bazy wiedzy jest pusty.<br><span style="color:#a1a1aa; font-size:0.75rem;">Brak usuniętych artykułów lub folderów w docs/.trash/.</span></div>';
+      return;
+    }
+
+    let html = '';
+    for (const item of items) {
+      const isDir = item.type === 'directory';
+      const safeId = escapeHtml(item.id);
+      const safeName = escapeHtml(item.name || item.trashFilename);
+      const safeOrig = escapeHtml(item.originalRelPath || item.name || 'brak ścieżki');
+      const dateStr = item.deletedAt ? new Date(item.deletedAt).toLocaleString('pl-PL') : 'Brak daty';
+      const sizeStr = item.size ? `${(item.size / 1024).toFixed(1)} KB` : (isDir ? 'Katalog' : '< 1 KB');
+      const typeBadge = isDir
+        ? '<span style="font-size:0.62rem; background:#1e3a8a; color:#93c5fd; padding:2px 6px; border-radius:3px; font-weight:700;">KATALOG</span>'
+        : '<span style="font-size:0.62rem; background:#27272a; color:#a1a1aa; padding:2px 6px; border-radius:3px; font-weight:700;">DOKUMENT</span>';
+
+      html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#141416; border:1px solid #27272a; border-radius:4px; padding:8px 12px; gap:10px;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+            ${typeBadge}
+            <span style="font-size:0.82rem; font-weight:600; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeName}</span>
+          </div>
+          <div style="font-size:0.7rem; color:#888;">
+            Pierwotna ścieżka: <code style="color:#facc15; font-size:0.72rem;">${safeOrig}</code>
+          </div>
+          <div style="font-size:0.68rem; color:#71717a; margin-top:2px;">
+            Usunięto: ${dateStr} | Rozmiar: ${sizeStr}
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#fff; font-size:0.68rem; padding:4px 8px; border-radius:4px;" onclick="restoreTrashedDocument('${safeId}')" title="Przywróć do pierwotnej lokalizacji">Przywróć</button>
+          <button class="btn-action" style="background:#7f1d1d; border:1px solid #ef4444; color:#fca5a5; font-size:0.68rem; padding:4px 8px; border-radius:4px;" onclick="purgeTrashedDocument('${safeId}')" title="Usuń trwale ten element">Usuń trwale</button>
+        </div>
+      </div>`;
+    }
+    listEl.innerHTML = html;
+  } catch (err) {
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Błąd ładowania kosza: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    document.body.style.cursor = 'default';
+  }
+};
+
+window.closeTrashDocumentsModal = function() {
+  const overlay = document.getElementById('trashDocumentsModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.restoreTrashedDocument = async function(id) {
+  if (!confirm('Czy na pewno chcesz przywrócić ten element do pierwotnej lokalizacji?')) return;
+  try {
+    const res = await fetch('/api/restore-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Błąd przywracania');
+
+    alert(data.message || 'Pomyślnie przywrócono element.');
+    await window.openTrashDocumentsModal();
+    if (typeof loadNavigation === 'function') loadNavigation();
+  } catch (err) {
+    alert(`Błąd: ${err.message}`);
+  }
+};
+
+window.purgeTrashedDocument = async function(id) {
+  if (!confirm('Czy na pewno chcesz trwale usunąć ten element z kosza? Tej operacji nie można cofnąć.')) return;
+  try {
+    const res = await fetch('/api/purge-trash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Błąd trwałego usuwania');
+
+    await window.openTrashDocumentsModal();
+  } catch (err) {
+    alert(`Błąd: ${err.message}`);
+  }
+};
+
+window.purgeAllTrashDocuments = async function() {
+  if (!confirm('Czy na pewno chcesz bezpowrotnie opróżnić cały kosz dokumentacji? Wszystkie usunięte pliki i katalogi zostaną skasowane.')) return;
+  try {
+    const res = await fetch('/api/purge-trash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Błąd opróżniania kosza');
+
+    alert(data.message || 'Kosz został opróżniony.');
+    await window.openTrashDocumentsModal();
+  } catch (err) {
+    alert(`Błąd: ${err.message}`);
+  }
+};
+
+// ================= MENEDŻER ROTACYJNYCH KOPII ZAPASOWYCH ================= //
+
+window.openBackupsModal = async function() {
+  const overlay = document.getElementById('backupsModalOverlay');
+  const listEl = document.getElementById('backupsListContainer');
+  const countDisplay = document.getElementById('backupsCountDisplay');
+
+  if (!overlay || !listEl) return;
+  overlay.style.display = 'flex';
+  document.body.style.cursor = 'wait';
+  listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#a1a1aa; font-size:0.82rem;">Pobieranie listy kopii zapasowych...</div>';
+  if (countDisplay) countDisplay.textContent = '...';
+
+  try {
+    const res = await fetch('/api/backups-list?t=' + Date.now());
+    if (!res.ok) throw new Error(`Błąd serwera: ${res.status}`);
+    const data = await res.json();
+    const backups = data.backups || [];
+
+    if (countDisplay) countDisplay.textContent = backups.length;
+
+    if (backups.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#a1a1aa; font-size:0.85rem; line-height:1.5;">Brak zarchiwizowanych kopii zapasowych na serwerze.<br><span style="font-size:0.75rem;">Kliknij "Utwórz Kopię Teraz", aby wygenerować pierwsze archiwum.</span></div>';
+      return;
+    }
+
+    let html = '';
+    for (const b of backups) {
+      const safeFilename = escapeHtml(b.filename);
+      const sizeMb = ((b.size || 0) / 1024 / 1024).toFixed(2);
+      const dateStr = b.mtime ? new Date(b.mtime).toLocaleString('pl-PL') : 'Brak daty';
+
+      html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#141416; border:1px solid #27272a; border-radius:4px; padding:8px 12px; gap:10px;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+            <span style="font-size:0.62rem; background:#1e3a8a; color:#93c5fd; padding:2px 6px; border-radius:3px; font-weight:700;">ARCHIWUM</span>
+            <span style="font-size:0.8rem; font-weight:600; color:#ffffff; font-family:monospace;">${safeFilename}</span>
+          </div>
+          <div style="font-size:0.68rem; color:#888;">
+            Utworzono: <span style="color:#ccc;">${dateStr}</span> | Rozmiar: <span style="color:#ddd;">${sizeMb} MB</span>
+          </div>
+        </div>
+        <div>
+          <a href="/api/backups-download?filename=${encodeURIComponent(b.filename)}" class="btn-action" style="display:inline-block; background:#0284c7; border:1px solid #38bdf8; color:#fff; font-size:0.68rem; padding:4px 10px; border-radius:4px; text-decoration:none;" download="${safeFilename}">Pobierz Archiwum</a>
+        </div>
+      </div>`;
+    }
+    listEl.innerHTML = html;
+  } catch (err) {
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Błąd ładowania kopii zapasowych: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    document.body.style.cursor = 'default';
+  }
+};
+
+window.closeBackupsModal = function() {
+  const overlay = document.getElementById('backupsModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.triggerManualBackup = async function() {
+  const btn = document.getElementById('btnTriggerManualBackup');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Tworzenie kopii...';
+  }
+
+  try {
+    const res = await fetch('/api/create-backup', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Błąd tworzenia kopii zapasowej');
+
+    alert(data.message || 'Pomyślnie utworzono kopię zapasową.');
+    await window.openBackupsModal();
+  } catch (err) {
+    alert(`Błąd: ${err.message}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   }
 };

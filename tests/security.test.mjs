@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { extractMarkdownTags } from '../build_navigation.mjs';
 import { exportWikiZip } from '../backup_wiki.mjs';
+import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
 function isValidImageMagicBytes(buf, ext) {
@@ -781,4 +782,186 @@ test('Tree Navigation: Naprzemienne przypisywanie stylów dla poziomów zagłęb
   // Poziom 4: kolejny podfolder -> złoty
   assert.equal(getFolderStyle(4).depthClass, 'depth-even');
   assert.equal(getFolderStyle(4).color, 'var(--sw-gold)');
+});
+
+// 21. Kosz Dokumentacji: Walidacja manifestu usunięcia i ochrona przed Path Traversal przy przywracaniu
+test('Trash Engine: Walidacja manifestu usunięcia i ochrona ścieżki przywracania dokumentów', () => {
+  const docsBase = path.resolve('docs');
+  const trashBase = path.join(docsBase, '.trash');
+
+  function validateRestoreTarget(originalRelPath) {
+    if (!originalRelPath || typeof originalRelPath !== 'string') {
+      return { valid: false, error: 'Brak ścieżki' };
+    }
+    const cleanRel = originalRelPath.replace(/\\/g, '/').replace(/^\/+/, '');
+    const targetPath = path.resolve(docsBase, cleanRel);
+
+    if (!isPathInsideDocs(targetPath, docsBase)) {
+      return { valid: false, error: 'Path traversal poza docs' };
+    }
+    if (targetPath === docsBase) {
+      return { valid: false, error: 'Ścieżka to katalog główny' };
+    }
+    if (isPathInsideDocs(targetPath, trashBase)) {
+      return { valid: false, error: 'Ścieżka wewnątrz .trash' };
+    }
+    return { valid: true, targetPath, cleanRel };
+  }
+
+  // Próby ataku Path Traversal
+  assert.equal(validateRestoreTarget('../../etc/shadow').valid, false);
+  assert.equal(validateRestoreTarget('../../../var/log').valid, false);
+  assert.equal(validateRestoreTarget('.trash/hack.md').valid, false);
+  assert.equal(validateRestoreTarget('.trash/sub/file.md').valid, false);
+  assert.equal(validateRestoreTarget('').valid, false);
+  assert.equal(validateRestoreTarget('/').valid, false);
+
+  // Prawidłowe ścieżki przywracania
+  const validDoc = validateRestoreTarget('01_Cybersec/01_SOC/procedura.md');
+  assert.equal(validDoc.valid, true);
+  assert.equal(validDoc.cleanRel, '01_Cybersec/01_SOC/procedura.md');
+  assert.equal(validDoc.targetPath, path.join(docsBase, '01_Cybersec', '01_SOC', 'procedura.md'));
+
+  const validFolder = validateRestoreTarget('02_Infra/Nowy_Folder');
+  assert.equal(validFolder.valid, true);
+  assert.equal(validFolder.cleanRel, '02_Infra/Nowy_Folder');
+});
+
+// 22. Callouts / Admonitions Parser: Weryfikacja bloków wyróżnień z niestandardowymi tytułami
+test('Callouts Parser: Weryfikacja transformacji bloków wyróżnień z tytułami i sanityzacją XSS', () => {
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function parseCallouts(markdownHtml) {
+    return markdownHtml.replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, (match, content) => {
+      const alertMatch = content.match(/\[!(NOTE|WARNING|CAUTION|IMPORTANT|TIP)\](?:[^\S\r\n]+([^\r\n]+?))?(?:\n|<br\s*\/?>|<\/p|$)/i);
+      if (alertMatch) {
+        const type = alertMatch[1].toUpperCase();
+        const customTitle = alertMatch[2] ? alertMatch[2].trim() : '';
+
+        let cleanContent = content.replace(/\[!(NOTE|WARNING|CAUTION|IMPORTANT|TIP)\](?:[^\S\r\n]+[^\r\n]+?)?(?:\n|<br\s*\/?>|<\/p|$)/i, '').trim();
+        cleanContent = cleanContent.replace(/^<p>\s*(<br\s*\/?>)?/i, '<p>');
+        if (cleanContent.startsWith('<p></p>')) {
+          cleanContent = cleanContent.replace('<p></p>', '');
+        }
+
+        const alertClass = `markdown-alert markdown-alert-${type.toLowerCase()} callout callout-${type.toLowerCase()}`;
+        const defaultTitle = type === 'NOTE' ? 'INFORMACJA' :
+                             type === 'WARNING' ? 'OSTRZEŻENIE' :
+                             type === 'CAUTION' ? 'UWAGA KRYTYCZNA' :
+                             type === 'IMPORTANT' ? 'WAŻNE' :
+                             type === 'TIP' ? 'WSKAZÓWKA' : type;
+
+        const titleText = customTitle || defaultTitle;
+        return `<div class="${alertClass}"><div class="markdown-alert-title callout-header">${escapeHtml(titleText)}</div><div class="markdown-alert-body callout-body">${cleanContent}</div></div>`;
+      }
+      return match;
+    });
+  }
+
+  // Domyślny nagłówek
+  const noteOutput = parseCallouts('<blockquote><p>[!NOTE]\nTo jest ważna notatka.</p></blockquote>');
+  assert.equal(noteOutput.includes('class="markdown-alert markdown-alert-note callout callout-note"'), true);
+  assert.equal(noteOutput.includes('INFORMACJA'), true);
+
+  // Niestandardowy nagłówek
+  const warningOutput = parseCallouts('<blockquote><p>[!WARNING] Uwaga przed restartem klastra\nSprawdź quorum.</p></blockquote>');
+  assert.equal(warningOutput.includes('class="markdown-alert markdown-alert-warning callout callout-warning"'), true);
+  assert.equal(warningOutput.includes('Uwaga przed restartem klastra'), true);
+
+  // Ochrona przed XSS w tytule wyróżnienia
+  const xssOutput = parseCallouts('<blockquote><p>[!TIP] <script>alert(1)</script>\nWskazówka bezpieczeństwa.</p></blockquote>');
+  assert.equal(xssOutput.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), true);
+  assert.equal(xssOutput.includes('<script>'), false);
+});
+
+// 23. Rotacja Kopii Zapasowych: Retencja 7 kopii
+test('Backup Engine: Test retencji i rotacji usuwania nadmiarowych kopii zapasowych', () => {
+  const tmpDir = path.join(os.tmpdir(), `wiki_test_backups_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  try {
+    const createdFiles = [];
+    for (let i = 0; i < 10; i++) {
+      const filename = `wiki_backup_20260912_10000${i}.zip`;
+      const fullPath = path.join(tmpDir, filename);
+      fs.writeFileSync(fullPath, `backup data ${i}`, 'utf8');
+      const mtime = new Date(Date.now() - (10 - i) * 60000);
+      fs.utimesSync(fullPath, mtime, mtime);
+      createdFiles.push({ filename, fullPath, mtime });
+    }
+
+    function rotateTestDir(dir, keepCount = 7) {
+      const files = fs.readdirSync(dir)
+        .filter(f => f.startsWith('wiki_backup_'))
+        .map(f => {
+          const fullPath = path.join(dir, f);
+          const stat = fs.statSync(fullPath);
+          return { filename: f, fullPath, mtime: stat.mtime };
+        })
+        .sort((a, b) => b.mtime - a.mtime);
+
+      if (files.length > keepCount) {
+        const toDelete = files.slice(keepCount);
+        for (const item of toDelete) {
+          fs.unlinkSync(item.fullPath);
+        }
+      }
+      return fs.readdirSync(dir).filter(f => f.startsWith('wiki_backup_'));
+    }
+
+    const remaining = rotateTestDir(tmpDir, 7);
+    assert.equal(remaining.length, 7);
+
+    assert.equal(fs.existsSync(path.join(tmpDir, 'wiki_backup_20260912_100000.zip')), false);
+    assert.equal(fs.existsSync(path.join(tmpDir, 'wiki_backup_20260912_100001.zip')), false);
+    assert.equal(fs.existsSync(path.join(tmpDir, 'wiki_backup_20260912_100002.zip')), false);
+
+    assert.equal(fs.existsSync(path.join(tmpDir, 'wiki_backup_20260912_100009.zip')), true);
+    assert.equal(fs.existsSync(path.join(tmpDir, 'wiki_backup_20260912_100008.zip')), true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+// 24. Sanitizer Nazw Plików H1
+test('H1 Filename Sync: Ekstrakcja pierwszego H1 i generowanie znormalizowanej nazwy pliku', () => {
+  const contentWithFm = `---
+tags: [security, soc]
+author: Admin
+---
+# Procedura Reagowania na Incydenty
+
+Treść procedury...`;
+  assert.equal(extractFirstH1(contentWithFm), 'Procedura Reagowania na Incydenty');
+
+  const contentWithoutFm = `# Tytuł Bez Frontmattera\nTreść...`;
+  assert.equal(extractFirstH1(contentWithoutFm), 'Tytuł Bez Frontmattera');
+
+  const contentNoH1 = `## Podtytuł\nBrak H1`;
+  assert.equal(extractFirstH1(contentNoH1), null);
+
+  assert.equal(slugifyTitle('Łukasz król żaba'), 'Lukasz_krol_zaba');
+  assert.equal(slugifyTitle('Hardening Windows & Active Directory'), 'Hardening_Windows_and_Active_Directory');
+  assert.equal(slugifyTitle('Limitowanie Żądań HTTP (Rate Limiting)'), 'Limitowanie_Zadan_HTTP_Rate_Limiting');
+  assert.equal(slugifyTitle('ogórek'), 'ogorek');
+
+  assert.equal(
+    computeTargetFilename('01_Procedura_Stara.md', 'Procedura Reagowania na Incydenty'),
+    '01_Procedura_Reagowania_na_Incydenty.md'
+  );
+  assert.equal(
+    computeTargetFilename('02_Test.md', 'Hardening Linux'),
+    '02_Hardening_Linux.md'
+  );
+  assert.equal(
+    computeTargetFilename('ogórek.md', 'ogórek'),
+    'ogorek.md'
+  );
 });

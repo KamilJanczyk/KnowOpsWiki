@@ -28,6 +28,7 @@ services:
       - ./docs:/app/docs:rw
       - ./data:/app/data:rw
       - ./public:/app/public:rw
+      - ./backups:/app/backups:rw
     env_file:
       - .env
     environment:

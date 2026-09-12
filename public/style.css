@@ -1284,3 +1284,73 @@
       gap: 8px;
     }
 
+    /* Bloki wyróżnień typu Callouts (GitHub / Obsidian Admonitions) */
+    .callout {
+      margin: 14px 0;
+      padding: 12px 16px;
+      border-radius: 6px;
+      border-left: 4px solid #3b82f6;
+      background: rgba(24, 24, 27, 0.7);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+    .callout-header {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .callout-body {
+      color: #e4e4e7;
+    }
+    .callout-body > :first-child {
+      margin-top: 0;
+    }
+    .callout-body > :last-child {
+      margin-bottom: 0;
+    }
+
+    .callout-note {
+      border-left-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.08);
+    }
+    .callout-note .callout-header {
+      color: #60a5fa;
+    }
+
+    .callout-tip {
+      border-left-color: #10b981;
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .callout-tip .callout-header {
+      color: #34d399;
+    }
+
+    .callout-important {
+      border-left-color: #8b5cf6;
+      background: rgba(139, 92, 246, 0.08);
+    }
+    .callout-important .callout-header {
+      color: #a78bfa;
+    }
+
+    .callout-warning {
+      border-left-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.08);
+    }
+    .callout-warning .callout-header {
+      color: #fbbf24;
+    }
+
+    .callout-caution {
+      border-left-color: #ef4444;
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .callout-caution .callout-header {
+      color: #f87171;
+    }
+
