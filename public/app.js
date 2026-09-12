@@ -642,8 +642,13 @@ async function handleHashNavigation() {
   if (navigationData) {
     const cat = navigationData.categories.find(c => c.id === parts[0]);
     if (cat) {
-      if (parts.length === 2 && cat.subcategories) {
-        const sub = cat.subcategories.find(s => s.id === parts[1]);
+      if (parts.length === 2) {
+        if (parts[1].endsWith('.md')) {
+          selectCategory(cat.id, 'glowne');
+          await loadArticle(hash);
+          return;
+        }
+        const sub = cat.subcategories && cat.subcategories.find(s => s.id === parts[1]);
         if (sub && sub.files && sub.files.length > 0) {
           selectCategory(cat.id, sub.id);
           const directFile = sub.files.find(f => {
@@ -3396,7 +3401,10 @@ window.submitCreateItemForm = async function() {
 
       const parts = relPath.split('/');
       const catId = parts[0];
-      const subId = parts[1] || '';
+      let subId = 'glowne';
+      if (parts.length > 2) {
+        subId = parts[1];
+      }
 
       // Auto-rozwiń wszystkie podkatalogi prowadzące do nowego pliku
       let pathAcc = '';
@@ -3923,6 +3931,13 @@ async function closeEditorModal() {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = null;
     await saveCurrentArticleFromModal(true);
+    await loadNavigation();
+    if (navigationData && navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    if (typeof renderSidebar === 'function') {
+      await renderSidebar();
+    }
   }
 
   if (currentEditingPath && typeof loadArticle === 'function') {
@@ -3946,9 +3961,23 @@ async function saveCurrentArticleFromModal(silent = false) {
     const data = await res.json();
     if (data.success) {
       try { localStorage.removeItem(`knowops_draft_${currentEditingPath}`); } catch (e) {}
+      if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = null;
+      }
       if (!silent) {
-        closeEditorModal();
-        if (typeof loadArticle === 'function') await loadArticle(currentEditingPath);
+        const modal = document.getElementById('articleEditorModal');
+        if (modal) modal.style.display = 'none';
+        await loadNavigation();
+        if (navigationData && navigationData.categories) {
+          renderTopCategories(navigationData.categories);
+        }
+        if (typeof renderSidebar === 'function') {
+          await renderSidebar();
+        }
+        if (typeof loadArticle === 'function') {
+          await loadArticle(currentEditingPath);
+        }
       }
     } else {
       if (!silent) {

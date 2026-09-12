@@ -1115,3 +1115,43 @@ test('Editor Code Highlighting: Weryfikacja reguł nakładki dla bloków wieloli
   assert.equal(wrapResult.newText.substring(wrapResult.selStart, wrapResult.selEnd), 'uptime');
 });
 
+// 27. Auto Refresh & Navigation Routing: Wyznaczanie kategorii, podkategorii i auto-rozwijania
+test('Auto Refresh & Routing: Poprawne wyznaczanie podkategorii ("glowne" vs podfolder) oraz ścieżek drzewa nawigacji', () => {
+  function resolveDocNavigation(relPath) {
+    const parts = relPath.split('/');
+    const catId = parts[0];
+    let subId = 'glowne';
+    if (parts.length > 2) {
+      subId = parts[1];
+    }
+    const expandedDirs = {};
+    let pathAcc = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+      pathAcc = pathAcc ? `${pathAcc}/${parts[i]}` : parts[i];
+      expandedDirs[pathAcc] = true;
+    }
+    return { catId, subId, expandedDirs };
+  }
+
+  // 1. Dokument bezpośrednio w kategorii głównej (np. 01_Cyberbezpieczenstwo/123.md)
+  const rootDoc = resolveDocNavigation('01_Cyberbezpieczenstwo/123.md');
+  assert.equal(rootDoc.catId, '01_Cyberbezpieczenstwo');
+  assert.equal(rootDoc.subId, 'glowne');
+  assert.equal(rootDoc.expandedDirs['01_Cyberbezpieczenstwo'], true);
+
+  // 2. Dokument w podkatalogu pierwszego rzędu (np. 01_Cyberbezpieczenstwo/01_SOC/Instrukcja.md)
+  const subDoc = resolveDocNavigation('01_Cyberbezpieczenstwo/01_SOC/Instrukcja.md');
+  assert.equal(subDoc.catId, '01_Cyberbezpieczenstwo');
+  assert.equal(subDoc.subId, '01_SOC');
+  assert.equal(subDoc.expandedDirs['01_Cyberbezpieczenstwo'], true);
+  assert.equal(subDoc.expandedDirs['01_Cyberbezpieczenstwo/01_SOC'], true);
+
+  // 3. Dokument głęboko zagnieżdżony (np. 02_SysAdmin/03_Sieci/VLANy/Trunk.md)
+  const deepDoc = resolveDocNavigation('02_SysAdmin/03_Sieci/VLANy/Trunk.md');
+  assert.equal(deepDoc.catId, '02_SysAdmin');
+  assert.equal(deepDoc.subId, '03_Sieci');
+  assert.equal(deepDoc.expandedDirs['02_SysAdmin'], true);
+  assert.equal(deepDoc.expandedDirs['02_SysAdmin/03_Sieci'], true);
+  assert.equal(deepDoc.expandedDirs['02_SysAdmin/03_Sieci/VLANy'], true);
+});
+
