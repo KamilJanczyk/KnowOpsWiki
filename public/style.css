@@ -366,6 +366,20 @@
     .markdown-body h2 { font-size: 1.2rem; color: var(--sw-heading); margin-top: 18px; margin-bottom: 10px; }
     .markdown-body h3 { font-size: 1.0rem; color: var(--sw-gold); margin-top: 14px; margin-bottom: 8px; }
     .markdown-body p { margin-bottom: 12px; font-size: 0.85rem; line-height: 1.5; color: #cccccc; }
+    /* Hiperłącza w treści artykułów i podglądzie Markdown [dodane: Wariant 1, WCAG AAA] */
+    .markdown-body a {
+      color: #38bdf8;
+      text-decoration: underline;
+      text-decoration-color: rgba(56, 189, 248, 0.45);
+      text-underline-offset: 3px;
+      transition: color 0.15s ease, text-decoration-color 0.15s ease;
+      font-weight: 500;
+    }
+    .markdown-body a:hover,
+    .markdown-body a:focus {
+      color: #7dd3fc;
+      text-decoration-color: #38bdf8;
+    }
     .markdown-body ul, .markdown-body ol { padding-left: 22px; margin-bottom: 14px; }
     .markdown-body li { margin-bottom: 6px; font-size: 0.85rem; line-height: 1.5; color: #cccccc; }
     .markdown-body li > ul, .markdown-body li > ol { margin-top: 6px; margin-bottom: 0; padding-left: 20px; }

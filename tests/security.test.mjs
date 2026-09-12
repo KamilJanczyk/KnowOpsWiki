@@ -1229,3 +1229,31 @@ test('Folder Renaming Security: Sanityzacja nazw, blokada Path Traversal i ochro
   assert.equal(path.basename(validRes.targetPath), '01_SOC_Incident_Response');
 });
 
+// 29. Markdown Hyperlinks: Weryfikacja reguł CSS i kontrastu kolorystycznego WCAG AAA
+test('Markdown Hyperlinks: Weryfikacja reguł CSS i wysokiego kontrastu dla linków w ciemnym motywie', () => {
+  const cssContent = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Obecność reguły .markdown-body a w trybie ekranowym
+  assert.equal(cssContent.includes('.markdown-body a {'), true);
+  assert.equal(cssContent.includes('color: #38bdf8;'), true);
+  assert.equal(cssContent.includes('color: #7dd3fc;'), true);
+
+  // 2. Weryfikacja współczynnika kontrastu WCAG: #38bdf8 na tle #0c0c0e
+  function getLuminance(hex) {
+    const rgb = [
+      parseInt(hex.slice(1, 3), 16) / 255,
+      parseInt(hex.slice(3, 5), 16) / 255,
+      parseInt(hex.slice(5, 7), 16) / 255
+    ].map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  }
+
+  const lLink = getLuminance('#38bdf8');
+  const lDarkBg = getLuminance('#0c0c0e');
+  const contrastRatio = (Math.max(lLink, lDarkBg) + 0.05) / (Math.min(lLink, lDarkBg) + 0.05);
+
+  // Wymóg WCAG AAA dla zwykłego tekstu: kontrast >= 7:1
+  assert.equal(contrastRatio >= 7.0, true);
+});
+
+
