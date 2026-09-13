@@ -1256,4 +1256,24 @@ test('Markdown Hyperlinks: Weryfikacja reguł CSS i wysokiego kontrastu dla link
   assert.equal(contrastRatio >= 7.0, true);
 });
 
+// 30. Sidebar Symmetry: Weryfikacja identycznej szerokości lewego i prawego paska bocznego (300px)
+test('Sidebar Layout: Sprawdzenie symetrii szerokości lewego panelu nawigacji i prawego paska zadań Kanban', () => {
+  const cssContent = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // Ekstrakcja szerokości lewego paska
+  const leftMatch = cssContent.match(/\.left-topics-box\s*\{[^}]*?width:\s*([^;]+);/);
+  assert.equal(Boolean(leftMatch), true, 'Brak definicji width dla .left-topics-box');
+  const leftWidth = leftMatch[1].trim();
+
+  // Ekstrakcja szerokości prawego paska
+  const rightMatch = cssContent.match(/\.right-kanban-sidebar\s*\{[^}]*?width:\s*([^;]+);/);
+  assert.equal(Boolean(rightMatch), true, 'Brak definicji width dla .right-kanban-sidebar');
+  const rightWidth = rightMatch[1].trim();
+
+  // Sprawdzenie wartości 300px i pełnej symetrii
+  assert.equal(leftWidth, '300px');
+  assert.equal(rightWidth, '300px');
+  assert.equal(leftWidth, rightWidth);
+});
+
 

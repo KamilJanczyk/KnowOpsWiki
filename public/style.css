@@ -282,7 +282,7 @@
     }
 
     /* Right Kanban Sidebar Styles */
-    .right-kanban-sidebar { width: 260px; background: #0c0c0c; border-left: 1px solid var(--sw-border); padding: 12px 10px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: calc(100vh - 44px); }
+    .right-kanban-sidebar { width: 300px; background: #0c0c0c; border-left: 1px solid var(--sw-border); padding: 12px 10px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: calc(100vh - 44px); }
     .right-sidebar-title { font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; letter-spacing: 0.5px; }
     .right-kanban-list { display: flex; flex-direction: column; gap: 8px; }
     .right-kanban-item { background: #141416; border: 1px solid #222224; border-left: 3px solid var(--sw-gold); padding: 8px; border-radius: 4px; font-size: 0.7rem; }
