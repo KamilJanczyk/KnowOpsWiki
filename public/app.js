@@ -5440,7 +5440,13 @@ window.openBackupsModal = async function() {
     const permWarning = document.getElementById('backupsPermWarning');
 
     if (modeEl) {
-      modeEl.textContent = scheduler.enabled ? `Cykliczny (co ${scheduler.intervalHours || 24}h)` : 'Wyłączony';
+      if (!scheduler.enabled) {
+        modeEl.textContent = 'Wyłączony';
+      } else if (scheduler.scheduleTime) {
+        modeEl.textContent = `Codziennie o ${scheduler.scheduleTime}`;
+      } else {
+        modeEl.textContent = `Cykliczny (co ${scheduler.intervalHours || 24}h)`;
+      }
     }
     if (keepEl) {
       keepEl.textContent = `${scheduler.keepCount || 7} najnowszych kopii`;

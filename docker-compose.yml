@@ -37,6 +37,8 @@ services:
       - .env
     environment:
       - API_PORT=9000
+      - TZ=${TZ:-Europe/Warsaw}
+      - BACKUP_SCHEDULE_TIME=${BACKUP_SCHEDULE_TIME:-22:00}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"import('http').then(h => h.get('http://localhost:9000/api/check-auth', res => process.exit(res.statusCode === 200 ? 0 : 1)))\""]
       interval: 30s

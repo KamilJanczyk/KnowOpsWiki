@@ -261,8 +261,55 @@ export function rotateBackups(keepCount = 7) {
 
 // ================= HARMONOGRAM CYKLICZNYCH KOPII (SCHEDULER) ================= //
 
+/**
+ * Parsowanie zadanego czasu wykonania kopii w formacie HH:MM lub HH (np. '22:00', '22')
+ */
+export function parseScheduleTime(timeStr) {
+  if (!timeStr) return null;
+  const str = String(timeStr).trim();
+  const match = str.match(/^([01]?[0-9]|2[0-3])(?::([0-5][0-9]))?$/);
+  if (!match) return null;
+  const h = parseInt(match[1], 10);
+  const m = match[2] ? parseInt(match[2], 10) : 0;
+  return {
+    hour: h,
+    minute: m,
+    formatted: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  };
+}
+
+/**
+ * Oblicza czas następnego uruchomienia kopii zapasowej
+ */
+export function computeNextRunTime({ scheduleTime, intervalHours = 24, lastBackupTime = null }) {
+  const parsed = parseScheduleTime(scheduleTime);
+  const now = new Date();
+
+  if (parsed) {
+    const target = new Date(now.getTime());
+    target.setHours(parsed.hour, parsed.minute, 0, 0);
+
+    // Jeśli zaplanowana godzina dzisiaj już minęła, ustaw na jutro o tej samej porze
+    if (target.getTime() <= now.getTime()) {
+      target.setDate(target.getDate() + 1);
+    }
+    return target.getTime();
+  }
+
+  const intervalMs = Math.max(1, intervalHours) * 3600 * 1000;
+  if (!lastBackupTime) {
+    return now.getTime() + 30000;
+  }
+  const elapsed = now.getTime() - lastBackupTime;
+  if (elapsed >= intervalMs) {
+    return now.getTime() + 30000;
+  }
+  return lastBackupTime + intervalMs;
+}
+
 let schedulerState = {
   enabled: true,
+  scheduleTime: '22:00',
   intervalHours: 24,
   keepCount: 7,
   lastBackupTime: null,
@@ -278,6 +325,7 @@ export function getBackupSchedulerStatus() {
   const perm = checkBackupsDirWritable(BACKUPS_DIR);
   return {
     enabled: schedulerState.enabled,
+    scheduleTime: schedulerState.scheduleTime,
     intervalHours: schedulerState.intervalHours,
     keepCount: schedulerState.keepCount,
     lastBackupTime: schedulerState.lastBackupTime ? new Date(schedulerState.lastBackupTime).toISOString() : null,
@@ -305,7 +353,11 @@ export function executeBackupJob(isManual = false) {
       schedulerState.lastBackupFilename = res.filename;
       schedulerState.lastBackupStatus = 'success';
       schedulerState.lastBackupError = null;
-      schedulerState.nextBackupTime = Date.now() + (schedulerState.intervalHours * 3600 * 1000);
+      schedulerState.nextBackupTime = computeNextRunTime({
+        scheduleTime: schedulerState.scheduleTime,
+        intervalHours: schedulerState.intervalHours,
+        lastBackupTime: schedulerState.lastBackupTime
+      });
       rotateBackups(schedulerState.keepCount);
       console.log(`[Backup Scheduler] Kopia pomyślnie zrealizowana: ${res.filename}`);
       return res;
@@ -327,10 +379,13 @@ export function executeBackupJob(isManual = false) {
 
 export function initBackupScheduler(customConfig = {}) {
   const envEnabled = process.env.BACKUP_AUTO_ENABLED !== 'false';
+  const rawScheduleTime = customConfig.scheduleTime !== undefined ? customConfig.scheduleTime : (process.env.BACKUP_SCHEDULE_TIME || '22:00');
+  const parsedTime = parseScheduleTime(rawScheduleTime);
   const envInterval = parseInt(process.env.BACKUP_INTERVAL_HOURS || '24', 10) || 24;
   const envKeep = parseInt(process.env.BACKUP_KEEP_COUNT || '7', 10) || 7;
 
   schedulerState.enabled = customConfig.enabled !== undefined ? Boolean(customConfig.enabled) : envEnabled;
+  schedulerState.scheduleTime = parsedTime ? parsedTime.formatted : null;
   schedulerState.intervalHours = Math.max(1, customConfig.intervalHours || envInterval);
   schedulerState.keepCount = Math.max(1, customConfig.keepCount || envKeep);
 
@@ -341,29 +396,35 @@ export function initBackupScheduler(customConfig = {}) {
     schedulerState.lastBackupStatus = 'success';
   }
 
-  const intervalMs = schedulerState.intervalHours * 3600 * 1000;
   const now = Date.now();
 
+  // Weryfikacja potrzeby natychmiastowego nadrobienia kopii po starcie (np. brak jakiejkolwiek kopii)
   if (!schedulerState.lastBackupTime) {
-    // Brak wcześniejszych kopii - zaplanuj pierwsze wykonanie 30 sekund po starcie
     schedulerState.nextBackupTime = now + 30000;
   } else {
     const elapsed = now - schedulerState.lastBackupTime;
-    if (elapsed >= intervalMs) {
-      // Minął czas interwału - nadrób kopię 30 sekund po starcie serwera
+    const maxAgeMs = (schedulerState.intervalHours || 24) * 3600 * 1000;
+    if (elapsed >= maxAgeMs) {
       schedulerState.nextBackupTime = now + 30000;
     } else {
-      schedulerState.nextBackupTime = schedulerState.lastBackupTime + intervalMs;
+      schedulerState.nextBackupTime = computeNextRunTime({
+        scheduleTime: schedulerState.scheduleTime,
+        intervalHours: schedulerState.intervalHours,
+        lastBackupTime: schedulerState.lastBackupTime
+      });
     }
   }
 
-  console.log(`[Backup Scheduler] Zainicjalizowano: co ${schedulerState.intervalHours}h, retencja ${schedulerState.keepCount} kopii. Następna kopia: ${new Date(schedulerState.nextBackupTime).toLocaleString('pl-PL')}`);
+  const scheduleDesc = schedulerState.scheduleTime
+    ? `codziennie o ${schedulerState.scheduleTime}`
+    : `co ${schedulerState.intervalHours}h`;
+
+  console.log(`[Backup Scheduler] Zainicjalizowano: ${scheduleDesc}, retencja ${schedulerState.keepCount} kopii. Następna kopia: ${new Date(schedulerState.nextBackupTime).toLocaleString('pl-PL')}`);
 
   if (schedulerState.ticker) {
     clearInterval(schedulerState.ticker);
   }
 
-  // Ticker weryfikujący co 60 sekund stan harmonogramu
   schedulerState.ticker = setInterval(() => {
     if (!schedulerState.enabled || schedulerState.isRunning) return;
     if (schedulerState.nextBackupTime && Date.now() >= schedulerState.nextBackupTime) {

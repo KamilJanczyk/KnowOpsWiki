@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
-import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler } from '../backup_wiki.mjs';
+import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler, parseScheduleTime, computeNextRunTime } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
@@ -1466,22 +1466,41 @@ test('Scheduled Backups & Permissions Engine: Weryfikacja schedulera cyklicznych
   } catch (e) {}
 
   // 3. Test schedulera cyklicznych kopii zapasowych
-  const schedulerState = initBackupScheduler({ enabled: true, intervalHours: 12, keepCount: 5 });
+  // A. Weryfikacja parsowania i kalkulacji czasu codziennej kopii o 22:00
+  const parsed22 = parseScheduleTime('22:00');
+  assert.equal(parsed22.hour, 22);
+  assert.equal(parsed22.minute, 0);
+  assert.equal(parsed22.formatted, '22:00');
+
+  const parsedHOnly = parseScheduleTime('22');
+  assert.equal(parsedHOnly.hour, 22);
+  assert.equal(parsedHOnly.minute, 0);
+  assert.equal(parsedHOnly.formatted, '22:00');
+
+  const nextRun22 = computeNextRunTime({ scheduleTime: '22:00' });
+  const nextDate = new Date(nextRun22);
+  assert.equal(nextDate.getHours(), 22);
+  assert.equal(nextDate.getMinutes(), 0);
+
+  // B. Inicjalizacja schedulera z harmonogramem codziennym o 22:00
+  const schedulerState = initBackupScheduler({ enabled: true, scheduleTime: '22:00', keepCount: 7 });
   assert.equal(schedulerState.enabled, true);
-  assert.equal(schedulerState.intervalHours, 12);
-  assert.equal(schedulerState.keepCount, 5);
+  assert.equal(schedulerState.scheduleTime, '22:00');
+  assert.equal(schedulerState.keepCount, 7);
   assert.equal(typeof schedulerState.nextBackupTime, 'number');
 
   const status = getBackupSchedulerStatus();
   assert.equal(status.enabled, true);
-  assert.equal(status.intervalHours, 12);
-  assert.equal(status.keepCount, 5);
+  assert.equal(status.scheduleTime, '22:00');
+  assert.equal(status.keepCount, 7);
   assert.equal(status.isWritable, true);
   assert.equal(typeof status.nextBackupTime, 'string');
 
   // 4. Weryfikacja konfiguracji Docker i backendu
   const composeContent = fs.readFileSync(path.resolve('docker-compose.yml'), 'utf8');
   assert.equal(composeContent.includes('./backup_wiki.mjs:/app/backup_wiki.mjs:ro'), true);
+  assert.equal(composeContent.includes('BACKUP_SCHEDULE_TIME='), true);
+  assert.equal(composeContent.includes('TZ='), true);
 
   const serverContent = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
   assert.equal(serverContent.includes('initBackupScheduler()'), true);
