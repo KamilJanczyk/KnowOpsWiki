@@ -4,7 +4,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import os from 'node:os';
-import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR } from './backup_wiki.mjs';
+import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR, initBackupScheduler, executeBackupJob, getBackupSchedulerStatus, checkBackupsDirWritable } from './backup_wiki.mjs';
 import { generateNavigation, extractMarkdownTags } from './build_navigation.mjs';
 import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
 
@@ -1916,11 +1916,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/create-backup' && req.method === 'POST') {
-      const backupRes = createWikiBackup();
-      if (backupRes.success) {
+      const backupRes = executeBackupJob(true);
+      if (backupRes && backupRes.success) {
         return sendJson(200, { success: true, message: `Utworzono kopię zapasową: ${backupRes.filename}`, backup: backupRes });
       } else {
-        return sendJson(500, { success: false, error: 'Nie można utworzyć kopii zapasowej.' });
+        const errorMsg = backupRes?.error || 'Nie można utworzyć kopii zapasowej.';
+        return sendJson(500, { success: false, error: errorMsg });
       }
     }
 
@@ -2232,8 +2233,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (normPath === '/api/backups-list' && req.method === 'GET') {
-      const list = rotateBackups(7);
-      return sendJson(200, { backups: list });
+      const scheduler = getBackupSchedulerStatus();
+      const list = rotateBackups(scheduler.keepCount || 7);
+      return sendJson(200, { backups: list, scheduler });
     }
 
     if (normPath === '/api/backups-download' && req.method === 'GET') {
@@ -2327,21 +2329,6 @@ function rebuildSearchCache() {
   processChunk();
 }
 
-// Automatyczny harmonogram rotacyjnych kopii zapasowych (co 24h z retencją 7 kopii)
-const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-function runScheduledBackup() {
-  try {
-    console.log('[Backup Scheduler] Uruchamianie zaplanowanej automatycznej kopii zapasowej...');
-    const res = createWikiBackup();
-    if (res && res.success) {
-      console.log(`[Backup Scheduler] Pomyślnie utworzono kopię zapasową: ${res.filename}`);
-      rotateBackups(7);
-    }
-  } catch (e) {
-    console.error('[Backup Scheduler] Błąd podczas zaplanowanej kopii:', e);
-  }
-}
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server API KnowOps nasłuchuje na porcie ${PORT} (0.0.0.0)`);
   rebuildWiki()
@@ -2350,10 +2337,13 @@ server.listen(PORT, '0.0.0.0', () => {
     })
     .catch(e => console.error('[Wiki API Startup Build] Błąd:', e.message));
 
-  // Inicjalizacja retencji kopii oraz harmonogramu co 24h
+  // Inicjalizacja cyklicznego harmonogramu kopii zapasowych oraz retencji
   try {
-    rotateBackups(7);
-    setInterval(runScheduledBackup, BACKUP_INTERVAL_MS);
+    const perm = checkBackupsDirWritable(BACKUPS_DIR);
+    if (!perm.writable) {
+      console.warn(`[Wiki API Security Warning] ${perm.error}`);
+    }
+    initBackupScheduler();
   } catch (err) {
     console.error('[Backup Scheduler Init] Błąd:', err.message);
   }

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
-import { exportWikiZip } from '../backup_wiki.mjs';
+import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
@@ -1439,6 +1439,59 @@ test('Department Toolbar Layout: Sprawdzenie dedykowanego paska akcji pod nazwą
   assert.equal(appContent.includes('deptToolbar.style.display = canManageDept ? \'grid\' : \'none\';'), true);
 });
 
+// 33. Scheduled Backups & Permissions Engine: Weryfikacja schedulera cyklicznych kopii, wykrywania uprawnień zapisu i kompletności archiwum
+test('Scheduled Backups & Permissions Engine: Weryfikacja schedulera cyklicznych kopii, uprawnień zapisu i integralności archiwum', () => {
+  // 1. Test weryfikacji uprawnień zapisu katalogu kopii
+  const permCheck = checkBackupsDirWritable();
+  assert.equal(permCheck.writable, true);
 
+  // Sprawdzenie symulowanego katalogu bez uprawnień / z błędną ścieżką
+  const invalidDir = path.join(os.tmpdir(), 'invalid_nonexistent_dir_\0_test');
+  const invalidCheck = checkBackupsDirWritable(invalidDir);
+  assert.equal(invalidCheck.writable, false);
+  assert.equal(typeof invalidCheck.error, 'string');
+  assert.equal(invalidCheck.error.includes('Brak uprawnień zapisu w katalogu kopii'), true);
 
+  // 2. Test tworzenia trwałej pełnej kopii zapasowej
+  const backupRes = createWikiBackup();
+  assert.equal(backupRes.success, true);
+  assert.equal(typeof backupRes.filename, 'string');
+  assert.equal(backupRes.filename.startsWith('wiki_backup_'), true);
+  assert.equal(fs.existsSync(backupRes.path), true);
+  assert.equal(backupRes.size > 0, true);
 
+  // Sprzątanie po utworzonym pliku testowym
+  try {
+    fs.unlinkSync(backupRes.path);
+  } catch (e) {}
+
+  // 3. Test schedulera cyklicznych kopii zapasowych
+  const schedulerState = initBackupScheduler({ enabled: true, intervalHours: 12, keepCount: 5 });
+  assert.equal(schedulerState.enabled, true);
+  assert.equal(schedulerState.intervalHours, 12);
+  assert.equal(schedulerState.keepCount, 5);
+  assert.equal(typeof schedulerState.nextBackupTime, 'number');
+
+  const status = getBackupSchedulerStatus();
+  assert.equal(status.enabled, true);
+  assert.equal(status.intervalHours, 12);
+  assert.equal(status.keepCount, 5);
+  assert.equal(status.isWritable, true);
+  assert.equal(typeof status.nextBackupTime, 'string');
+
+  // 4. Weryfikacja konfiguracji Docker i backendu
+  const composeContent = fs.readFileSync(path.resolve('docker-compose.yml'), 'utf8');
+  assert.equal(composeContent.includes('./backup_wiki.mjs:/app/backup_wiki.mjs:ro'), true);
+
+  const serverContent = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  assert.equal(serverContent.includes('initBackupScheduler()'), true);
+  assert.equal(serverContent.includes('executeBackupJob(true)'), true);
+  assert.equal(serverContent.includes('scheduler: schedulerStatus') || serverContent.includes('backups: list, scheduler'), true);
+
+  const indexContent = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  assert.equal(indexContent.includes('id="backupsStatusBanner"'), true);
+  assert.equal(indexContent.includes('id="backupSchedMode"'), true);
+  assert.equal(indexContent.includes('id="backupsPermWarning"'), true);
+
+  stopBackupScheduler();
+});

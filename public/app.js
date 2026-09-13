@@ -5431,6 +5431,47 @@ window.openBackupsModal = async function() {
     if (!res.ok) throw new Error(`Błąd serwera: ${res.status}`);
     const data = await res.json();
     const backups = data.backups || [];
+    const scheduler = data.scheduler || {};
+
+    const modeEl = document.getElementById('backupSchedMode');
+    const keepEl = document.getElementById('backupSchedKeep');
+    const lastEl = document.getElementById('backupSchedLast');
+    const nextEl = document.getElementById('backupSchedNext');
+    const permWarning = document.getElementById('backupsPermWarning');
+
+    if (modeEl) {
+      modeEl.textContent = scheduler.enabled ? `Cykliczny (co ${scheduler.intervalHours || 24}h)` : 'Wyłączony';
+    }
+    if (keepEl) {
+      keepEl.textContent = `${scheduler.keepCount || 7} najnowszych kopii`;
+    }
+    if (lastEl) {
+      if (scheduler.lastBackupTime) {
+        const lastDate = new Date(scheduler.lastBackupTime);
+        const statusSuffix = scheduler.lastBackupStatus === 'error' ? ' (Błąd)' : '';
+        lastEl.textContent = lastDate.toLocaleString('pl-PL') + statusSuffix;
+        lastEl.style.color = scheduler.lastBackupStatus === 'error' ? '#f87171' : '#e4e4e7';
+      } else {
+        lastEl.textContent = 'Brak wykonanych kopii';
+        lastEl.style.color = '#a1a1aa';
+      }
+    }
+    if (nextEl) {
+      if (scheduler.nextBackupTime) {
+        const nextDate = new Date(scheduler.nextBackupTime);
+        nextEl.textContent = nextDate.toLocaleString('pl-PL');
+      } else {
+        nextEl.textContent = '-';
+      }
+    }
+    if (permWarning) {
+      if (scheduler.isWritable === false) {
+        permWarning.style.display = 'block';
+        permWarning.innerHTML = `<strong>BŁĄD UPRAWNIEŃ ZAPISU:</strong> Katalog <code>backups/</code> nie posiada uprawnień do zapisu dla procesu kontenera (UID 1000). Wykonaj na hoście Linux:<br><code style="background:#18181b; padding:3px 8px; border-radius:3px; display:inline-block; margin-top:5px; color:#fef08a;">chmod -R 777 ./backups || chown -R 1000:1000 ./backups</code>`;
+      } else {
+        permWarning.style.display = 'none';
+      }
+    }
 
     if (countDisplay) countDisplay.textContent = backups.length;
 
@@ -5438,6 +5479,9 @@ window.openBackupsModal = async function() {
       listEl.innerHTML = '<div style="text-align:center; padding:24px; color:#a1a1aa; font-size:0.85rem; line-height:1.5;">Brak zarchiwizowanych kopii zapasowych na serwerze.<br><span style="font-size:0.75rem;">Kliknij "Utwórz Kopię Teraz", aby wygenerować pierwsze archiwum.</span></div>';
       return;
     }
+
+    const token = typeof getStoredToken === 'function' ? getStoredToken() : '';
+    const tokenQuery = token ? `&token=${encodeURIComponent(token)}` : '';
 
     let html = '';
     for (const b of backups) {
@@ -5456,7 +5500,7 @@ window.openBackupsModal = async function() {
           </div>
         </div>
         <div>
-          <a href="/api/backups-download?filename=${encodeURIComponent(b.filename)}" class="btn-action" style="display:inline-block; background:#0284c7; border:1px solid #38bdf8; color:#fff; font-size:0.68rem; padding:4px 10px; border-radius:4px; text-decoration:none;" download="${safeFilename}">Pobierz Archiwum</a>
+          <a href="/api/backups-download?filename=${encodeURIComponent(b.filename)}${tokenQuery}" class="btn-action" style="display:inline-block; background:#0284c7; border:1px solid #38bdf8; color:#fff; font-size:0.68rem; padding:4px 10px; border-radius:4px; text-decoration:none;" download="${safeFilename}">Pobierz Archiwum</a>
         </div>
       </div>`;
     }

@@ -31,6 +31,7 @@ services:
       - ./backups:/app/backups:rw
       - ./scripts:/app/scripts:ro
       - ./server.mjs:/app/server.mjs:ro
+      - ./backup_wiki.mjs:/app/backup_wiki.mjs:ro
     env_file:
       - .env
     environment:
