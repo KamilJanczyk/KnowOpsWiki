@@ -7,6 +7,199 @@ let kanbanTasks = [];
 let quickNotes = [];
 let monitorIntervalId = null;
 
+// Single-User Auth & Session State (6-Hour TTL)
+const AUTH_TOKEN_KEY = 'knowops_auth_token';
+const AUTH_EXPIRES_KEY = 'knowops_auth_expires';
+let authSessionTimer = null;
+let isAuthRequired = false;
+let isWikiContentInitialized = false;
+
+function getStoredToken() {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const expires = parseInt(localStorage.getItem(AUTH_EXPIRES_KEY) || '0', 10);
+  if (!token) return null;
+  if (expires && Date.now() > expires) {
+    clearStoredAuth();
+    return null;
+  }
+  return token;
+}
+
+function setStoredAuth(token, sessionHours = 6) {
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  const expires = Date.now() + (sessionHours * 60 * 60 * 1000);
+  localStorage.setItem(AUTH_EXPIRES_KEY, String(expires));
+  scheduleSessionTimeout(expires);
+}
+
+function clearStoredAuth() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_EXPIRES_KEY);
+  if (authSessionTimer) {
+    clearTimeout(authSessionTimer);
+    authSessionTimer = null;
+  }
+}
+
+function scheduleSessionTimeout(expiresAt) {
+  if (authSessionTimer) clearTimeout(authSessionTimer);
+  const remainingMs = Math.max(0, expiresAt - Date.now());
+  authSessionTimer = setTimeout(() => {
+    lockSession('Sesja wygasła po 6 godzinach. Wprowadź hasło dostępu.');
+  }, remainingMs);
+}
+
+function showLockScreen(subtitle = 'Wprowadź hasło dostępu, aby odblokować bazę wiedzy.') {
+  const overlay = document.getElementById('authLockOverlay');
+  const subEl = document.getElementById('authLockSubtitle');
+  const errEl = document.getElementById('authLockError');
+  const pwdInput = document.getElementById('authPasswordInput');
+  const btnLock = document.getElementById('btnHeaderLock');
+
+  if (subEl) subEl.innerText = subtitle;
+  if (errEl) {
+    errEl.innerText = '';
+    errEl.style.display = 'none';
+  }
+  if (pwdInput) {
+    pwdInput.value = '';
+  }
+  if (btnLock) {
+    btnLock.style.display = 'none';
+  }
+  if (overlay) {
+    overlay.style.display = 'flex';
+    setTimeout(() => {
+      if (pwdInput) pwdInput.focus();
+    }, 50);
+  }
+}
+
+function hideLockScreen() {
+  const overlay = document.getElementById('authLockOverlay');
+  const btnLock = document.getElementById('btnHeaderLock');
+  if (overlay) overlay.style.display = 'none';
+  if (btnLock && isAuthRequired) btnLock.style.display = 'inline-flex';
+}
+
+async function lockSession(reason = 'Panel zablokowany.') {
+  clearStoredAuth();
+  showLockScreen(reason);
+}
+
+async function manualLockSession() {
+  const token = getStoredToken();
+  if (token) {
+    try {
+      await originalFetch('/api/logout', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch {}
+  }
+  lockSession('Panel został pomyślnie zablokowany.');
+}
+window.manualLockSession = manualLockSession;
+
+async function handleAuthSubmit(e) {
+  if (e) e.preventDefault();
+  const pwdInput = document.getElementById('authPasswordInput');
+  const errEl = document.getElementById('authLockError');
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const password = pwdInput ? pwdInput.value : '';
+
+  if (!password) {
+    if (errEl) {
+      errEl.innerText = 'Wprowadź hasło dostępu.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Weryfikacja...';
+  }
+  if (errEl) {
+    errEl.style.display = 'none';
+  }
+
+  try {
+    const res = await originalFetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if (res.status === 200 && data.success && data.token) {
+      setStoredAuth(data.token, data.sessionHours || 6);
+      hideLockScreen();
+      await initializeWikiContent();
+    } else if (res.status === 429) {
+      if (errEl) {
+        errEl.innerText = data.error || 'Zbyt wiele nieudanych prób logowania. Odczekaj minutę.';
+        errEl.style.display = 'block';
+      }
+    } else {
+      if (errEl) {
+        errEl.innerText = data.error || 'Nieprawidłowe hasło administratora.';
+        errEl.style.display = 'block';
+      }
+      if (pwdInput) {
+        pwdInput.value = '';
+        pwdInput.focus();
+      }
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.innerText = 'Błąd połączenia z serwerem: ' + err.message;
+      errEl.style.display = 'block';
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = 'Odblokuj panel';
+    }
+  }
+}
+window.handleAuthSubmit = handleAuthSubmit;
+
+// Global Fetch Wrapper injecting Bearer Token and handling 401
+const originalFetch = window.fetch;
+window.fetch = async function(url, options = {}) {
+  const opts = { ...options };
+  opts.headers = opts.headers ? new Headers(opts.headers) : new Headers();
+
+  const token = getStoredToken();
+  if (token && !opts.headers.has('Authorization')) {
+    opts.headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const res = await originalFetch(url, opts);
+
+  if (res.status === 401 && isAuthRequired) {
+    const isLoginEndpoint = typeof url === 'string' && url.includes('/api/login');
+    if (!isLoginEndpoint) {
+      clearStoredAuth();
+      showLockScreen('Sesja wygasła po 6 godzinach. Wprowadź hasło dostępu.');
+    }
+  }
+
+  return res;
+};
+
+async function initializeWikiContent() {
+  if (isWikiContentInitialized) return;
+  isWikiContentInitialized = true;
+  ensureEditorToolbarTagsButton();
+  await loadNavigation();
+  await handleHashNavigation();
+  await loadRightSidebarKanban();
+  if (typeof window.initScratchpad === 'function') {
+    await window.initScratchpad();
+  }
+}
+
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -18,12 +211,38 @@ function escapeHtml(str) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  ensureEditorToolbarTagsButton();
-  await loadNavigation();
-  await handleHashNavigation();
-  await loadRightSidebarKanban();
-  if (typeof window.initScratchpad === 'function') {
-    await window.initScratchpad();
+  // Weryfikacja stanu autoryzacji z serwera
+  try {
+    const authRes = await originalFetch('/api/check-auth?t=' + Date.now());
+    const authData = await authRes.json();
+    isAuthRequired = Boolean(authData.authRequired);
+
+    if (isAuthRequired) {
+      const token = getStoredToken();
+      if (!token) {
+        showLockScreen('Wprowadź hasło dostępu, aby odblokować bazę wiedzy.');
+      } else {
+        const verifyRes = await originalFetch('/api/check-auth', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyData.authenticated) {
+          hideLockScreen();
+          const expires = parseInt(localStorage.getItem(AUTH_EXPIRES_KEY) || '0', 10);
+          if (expires) scheduleSessionTimeout(expires);
+          await initializeWikiContent();
+        } else {
+          clearStoredAuth();
+          showLockScreen('Sesja wygasła po 6 godzinach. Wprowadź hasło dostępu.');
+        }
+      }
+    } else {
+      hideLockScreen();
+      await initializeWikiContent();
+    }
+  } catch (err) {
+    console.error('[KnowOps Auth] Błąd weryfikacji autoryzacji:', err);
+    await initializeWikiContent();
   }
 
   // Obsługa globalnej wyszukiwarki
@@ -38,7 +257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Zamknięcie otwartych okien modalnych klawiszem Esc oraz skrót Alt+N dla brudnopisu
+  // Zamknięcie otwartych okien modalnych klawiszem Esc, skrót Alt+N dla brudnopisu oraz Ctrl+L dla blokady
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const overlays = document.querySelectorAll('.custom-modal-overlay');
@@ -53,14 +272,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.toggleScratchpad();
       }
     }
+    if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
+      if (isAuthRequired && (!document.getElementById('authLockOverlay') || document.getElementById('authLockOverlay').style.display !== 'flex')) {
+        e.preventDefault();
+        manualLockSession();
+      }
+    }
   });
 
   window.addEventListener('hashchange', async () => {
+    if (isAuthRequired && !getStoredToken()) {
+      showLockScreen();
+      return;
+    }
     await handleHashNavigation();
   });
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
+      if (isAuthRequired && !getStoredToken()) {
+        showLockScreen();
+        return;
+      }
       await loadNavigation();
       if (typeof renderSidebar === 'function') {
         await renderSidebar();
@@ -124,7 +357,9 @@ window.downloadWikiZip = function() {
   if (!confirm('Czy chcesz wygenerować i pobrać pełną kopię zapasową bazy wiedzy w formacie ZIP (dokumenty, zadania, grafiki)?')) {
     return;
   }
-  window.location.href = '/api/export-wiki-zip';
+  const token = getStoredToken();
+  const query = token ? `?token=${encodeURIComponent(token)}` : '';
+  window.location.href = `/api/export-wiki-zip${query}`;
 };
 
 async function triggerRescan() {

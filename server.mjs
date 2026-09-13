@@ -23,8 +23,12 @@ let searchCache = [];
 const PORT = process.env.API_PORT || 9000;
 const rawAdminPassword = (process.env.ADMIN_PASSWORD || '').trim();
 const ADMIN_PASSWORD = rawAdminPassword.length > 0 ? rawAdminPassword : null;
+const SESSION_HOURS = parseInt(process.env.SESSION_HOURS || '6', 10) || 6;
+const SESSION_TTL_MS = SESSION_HOURS * 60 * 60 * 1000;
 if (!ADMIN_PASSWORD) {
   console.log('[Wiki API] Tryb Single-User aktywny (brak ADMIN_PASSWORD w środowisku - autoryzacja wyłączona)');
+} else {
+  console.log(`[Wiki API] Ochrona autoryzacji aktywna (czas ważności sesji: ${SESSION_HOURS}h)`);
 }
 const DOCS_DIR = path.resolve('docs');
 const DOCS_EXAMPLE_DIR = path.resolve('docs.example');
@@ -381,16 +385,50 @@ function checkMutatingRateLimit(req, res, maxRequests = 30) {
   }
   return true;
 }
- // ip -> { count, firstAttempt } // token => createdAt timestamp
 
 function generateToken() {
   const token = crypto.randomBytes(32).toString('hex');
-  activeTokens.set(token, Date.now());
+  const now = Date.now();
+  activeTokens.set(token, { createdAt: now, lastActive: now });
   return token;
 }
 
 function verifyAuth(req) {
-  // Wariant B: Tryb Single-User / bezhaslowy (brak blokad autoryzacji tokenowej)
+  if (!ADMIN_PASSWORD) {
+    return true;
+  }
+  let token = '';
+  const authHeader = req.headers && req.headers['authorization'] ? String(req.headers['authorization']) : '';
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    token = authHeader.slice(7).trim();
+  } else if (req.url) {
+    try {
+      const parsedUrl = new URL(req.url, `http://${req.headers?.host || 'localhost'}`);
+      token = parsedUrl.searchParams.get('token') || '';
+    } catch {
+      token = '';
+    }
+  }
+
+  if (!token) {
+    return false;
+  }
+
+  const tokenData = activeTokens.get(token);
+  if (!tokenData) {
+    return false;
+  }
+
+  const createdAt = typeof tokenData === 'object' && tokenData.createdAt ? tokenData.createdAt : tokenData;
+  const now = Date.now();
+  if (now - createdAt > SESSION_TTL_MS) {
+    activeTokens.delete(token);
+    return false;
+  }
+
+  if (typeof tokenData === 'object') {
+    tokenData.lastActive = now;
+  }
   return true;
 }
 
@@ -636,7 +674,7 @@ const server = http.createServer(async (req, res) => {
       if (passwordMatch) {
         loginAttempts.delete(clientIp);
         const token = generateToken();
-        return sendJson(200, { success: true, token });
+        return sendJson(200, { success: true, token, sessionHours: SESSION_HOURS });
       } else {
         attempts.count += 1;
         loginAttempts.set(clientIp, attempts);
@@ -647,7 +685,30 @@ const server = http.createServer(async (req, res) => {
 
     if (normPath === '/api/check-auth' && req.method === 'GET') {
       const authenticated = verifyAuth(req);
-      return sendJson(200, { authenticated });
+      const authRequired = Boolean(ADMIN_PASSWORD);
+      return sendJson(200, { authenticated, authRequired, sessionHours: SESSION_HOURS });
+    }
+
+    if (normPath === '/api/logout' && req.method === 'POST') {
+      let token = '';
+      const authHeader = req.headers && req.headers['authorization'] ? String(req.headers['authorization']) : '';
+      if (authHeader.toLowerCase().startsWith('bearer ')) {
+        token = authHeader.slice(7).trim();
+      } else if (req.url) {
+        try {
+          const parsedUrl = new URL(req.url, `http://${req.headers?.host || 'localhost'}`);
+          token = parsedUrl.searchParams.get('token') || '';
+        } catch {}
+      }
+      if (token && activeTokens.has(token)) {
+        activeTokens.delete(token);
+      }
+      return sendJson(200, { success: true });
+    }
+
+    // Globalna brama autoryzacyjna (API Gatekeeper)
+    if (ADMIN_PASSWORD && !verifyAuth(req)) {
+      return sendJson(401, { error: 'Wymagana autoryzacja panelu. Wprowadź hasło dostępu.', authenticated: false });
     }
 
     if (normPath.includes('task-templates') && req.method === 'GET') {

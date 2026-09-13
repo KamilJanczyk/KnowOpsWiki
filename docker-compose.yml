@@ -30,6 +30,7 @@ services:
       - ./public:/app/public:rw
       - ./backups:/app/backups:rw
       - ./scripts:/app/scripts:ro
+      - ./server.mjs:/app/server.mjs:ro
     env_file:
       - .env
     environment:

@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.4.2">
+  <link rel="stylesheet" href="/public/style.css?v=2.4.3">
 </head>
 <body>
 
@@ -33,6 +33,10 @@
       <ul class="top-cat-nav" id="topCatNav">
         <!-- Dynamically rendered via app.js -->
       </ul>
+    </div>
+
+    <div class="header-actions" id="headerActions">
+      <button id="btnHeaderLock" class="btn-header-lock" style="display:none;" onclick="manualLockSession()" title="Zablokuj panel bazy wiedzy (Ctrl+L)">Zablokuj</button>
     </div>
   </header>
 
@@ -214,7 +218,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.6.6"></script>
+  <script src="/public/app.js?v=2.6.7"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
@@ -640,6 +644,26 @@
       <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 10px 18px; background: #09090b; border-top: 1px solid #27272a;">
         <button class="btn-secondary" onclick="closePlaybookDetailModal()">Zamknij</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Auth Lock Overlay (Single-User Gatekeeper) -->
+  <div id="authLockOverlay" class="auth-lock-overlay" style="display:none;">
+    <div class="auth-lock-card">
+      <div class="auth-lock-header">
+        <div class="auth-lock-logo"><span>KnowOps</span> <span class="auth-lock-logo-sub">Wiki</span></div>
+        <div class="auth-lock-title">AUTORYZACJA PANELU</div>
+        <div id="authLockSubtitle" class="auth-lock-subtitle">Wprowadź hasło dostępu, aby odblokować bazę wiedzy.</div>
+      </div>
+      <form id="authLockForm" onsubmit="handleAuthSubmit(event)" class="auth-lock-form">
+        <div class="auth-input-group">
+          <label for="authPasswordInput" class="auth-label">Hasło dostępu</label>
+          <input type="password" id="authPasswordInput" class="auth-password-input" placeholder="Wprowadź hasło..." autocomplete="current-password" required>
+        </div>
+        <div id="authLockError" class="auth-lock-error" style="display:none;"></div>
+        <button type="submit" id="authSubmitBtn" class="auth-submit-btn">Odblokuj panel</button>
+      </form>
+      <div class="auth-lock-footer">Automatyczne wygaszanie sesji po 6 godzinach.</div>
     </div>
   </div>
 

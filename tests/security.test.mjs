@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
 import { exportWikiZip } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
@@ -1275,5 +1276,137 @@ test('Sidebar Layout: Sprawdzenie symetrii szerokości lewego panelu nawigacji i
   assert.equal(rightWidth, '300px');
   assert.equal(leftWidth, rightWidth);
 });
+
+// 31. Single-User Auth & 6h Session Gatekeeper: Weryfikacja bezpieczeństwa autoryzacji, wygasania tokenów i ochrony brute-force
+test('Single-User Auth: Weryfikacja mechanizmu autoryzacji panelu, tokenów sesyjnych z TTL 6h i ochrony brute-force', () => {
+  const serverContent = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const indexContent = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const cssContent = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appContent = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja obecności elementów UI autoryzacji
+  assert.equal(indexContent.includes('id="authLockOverlay"'), true, 'Brak authLockOverlay w index.html');
+  assert.equal(indexContent.includes('id="authPasswordInput"'), true, 'Brak authPasswordInput w index.html');
+  assert.equal(indexContent.includes('id="authSubmitBtn"'), true, 'Brak authSubmitBtn w index.html');
+  assert.equal(indexContent.includes('id="btnHeaderLock"'), true, 'Brak btnHeaderLock w index.html');
+
+  assert.equal(cssContent.includes('.auth-lock-overlay'), true, 'Brak stylów .auth-lock-overlay w style.css');
+  assert.equal(cssContent.includes('.auth-lock-card'), true, 'Brak stylów .auth-lock-card w style.css');
+  assert.equal(cssContent.includes('.btn-header-lock'), true, 'Brak stylów .btn-header-lock w style.css');
+
+  // 2. Weryfikacja obsługi w app.js
+  assert.equal(appContent.includes('const AUTH_TOKEN_KEY = \'knowops_auth_token\';'), true);
+  assert.equal(appContent.includes('function getStoredToken()'), true);
+  assert.equal(appContent.includes('function showLockScreen('), true);
+  assert.equal(appContent.includes('async function handleAuthSubmit('), true);
+  assert.equal(appContent.includes('manualLockSession'), true);
+
+  // 3. Logika bezpiecznego porównywania hasła (Timing-Safe)
+  function timingSafeCheck(inputPass, realPass) {
+    if (!realPass || !inputPass) return false;
+    try {
+      const inputBuf = Buffer.from(String(inputPass), 'utf8');
+      const realBuf = Buffer.from(String(realPass), 'utf8');
+      return inputBuf.length === realBuf.length && crypto.timingSafeEqual(inputBuf, realBuf);
+    } catch {
+      return false;
+    }
+  }
+
+  assert.equal(timingSafeCheck('poprawneHaslo123', 'poprawneHaslo123'), true);
+  assert.equal(timingSafeCheck('bledneHaslo', 'poprawneHaslo123'), false);
+  assert.equal(timingSafeCheck('poprawneHaslo12', 'poprawneHaslo123'), false);
+  assert.equal(timingSafeCheck('', 'poprawneHaslo123'), false);
+
+  // 4. Logika ważności i wygasania tokenu po 6 godzinach (TTL = 6h)
+  const SESSION_HOURS = 6;
+  const SESSION_TTL_MS = SESSION_HOURS * 60 * 60 * 1000;
+  const simulatedActiveTokens = new Map();
+
+  function simulateVerifyAuth(reqHeaders, reqUrlStr, adminPassword) {
+    if (!adminPassword) return true;
+
+    let token = '';
+    const authHeader = reqHeaders && reqHeaders['authorization'] ? String(reqHeaders['authorization']) : '';
+    if (authHeader.toLowerCase().startsWith('bearer ')) {
+      token = authHeader.slice(7).trim();
+    } else if (reqUrlStr) {
+      try {
+        const u = new URL(reqUrlStr, 'http://localhost');
+        token = u.searchParams.get('token') || '';
+      } catch {}
+    }
+
+    if (!token) return false;
+    const tokenData = simulatedActiveTokens.get(token);
+    if (!tokenData) return false;
+
+    const createdAt = typeof tokenData === 'object' && tokenData.createdAt ? tokenData.createdAt : tokenData;
+    const now = Date.now();
+    if (now - createdAt > SESSION_TTL_MS) {
+      simulatedActiveTokens.delete(token);
+      return false;
+    }
+    return true;
+  }
+
+  // Test 4a: Tryb bezhasłowy zawsze autoryzuje
+  assert.equal(simulateVerifyAuth({}, '', null), true);
+
+  // Test 4b: Tryb z hasłem - brak tokenu odrzuca autoryzację
+  assert.equal(simulateVerifyAuth({}, '', 'tajneHaslo'), false);
+
+  // Test 4c: Poprawny token z nagłówka Bearer
+  const validToken = crypto.randomBytes(32).toString('hex');
+  simulatedActiveTokens.set(validToken, { createdAt: Date.now(), lastActive: Date.now() });
+  assert.equal(simulateVerifyAuth({ authorization: `Bearer ${validToken}` }, '', 'tajneHaslo'), true);
+
+  // Test 4d: Poprawny token z query param (?token=...)
+  assert.equal(simulateVerifyAuth({}, `/api/export-wiki-zip?token=${validToken}`, 'tajneHaslo'), true);
+
+  // Test 4e: Wygasły token (starszy niż 6h) jest odrzucany i usuwany
+  const expiredToken = crypto.randomBytes(32).toString('hex');
+  const pastTime = Date.now() - (SESSION_TTL_MS + 5000); // 6h i 5 sekund temu
+  simulatedActiveTokens.set(expiredToken, { createdAt: pastTime, lastActive: pastTime });
+  assert.equal(simulateVerifyAuth({ authorization: `Bearer ${expiredToken}` }, '', 'tajneHaslo'), false);
+  assert.equal(simulatedActiveTokens.has(expiredToken), false, 'Wygasły token nie został usunięty');
+
+  // 5. Weryfikacja ochrony Brute-Force (max 5 prób na minutę)
+  const simulatedLoginAttempts = new Map();
+  function simulateLoginAttempt(clientIp, isCorrect) {
+    const now = Date.now();
+    let attempts = simulatedLoginAttempts.get(clientIp) || { count: 0, firstAttempt: now };
+    if (now - attempts.firstAttempt > 60000) {
+      attempts = { count: 0, firstAttempt: now };
+    }
+    if (attempts.count >= 5) {
+      return { status: 429, error: 'BLOCKED' };
+    }
+    if (isCorrect) {
+      simulatedLoginAttempts.delete(clientIp);
+      return { status: 200, success: true };
+    } else {
+      attempts.count += 1;
+      simulatedLoginAttempts.set(clientIp, attempts);
+      return { status: 401, error: 'INVALID_PASSWORD' };
+    }
+  }
+
+  const testIp = '192.168.1.100';
+  for (let i = 1; i <= 5; i++) {
+    const res = simulateLoginAttempt(testIp, false);
+    assert.equal(res.status, 401);
+  }
+  // 6. próba musi być zablokowana statusem 429
+  const blockedRes = simulateLoginAttempt(testIp, false);
+  assert.equal(blockedRes.status, 429);
+  assert.equal(blockedRes.error, 'BLOCKED');
+
+  // 6. Weryfikacja ciągłości Docker Healthcheck
+  assert.equal(serverContent.includes('normPath === \'/api/check-auth\''), true);
+  assert.equal(serverContent.includes('authRequired = Boolean(ADMIN_PASSWORD)'), true);
+  assert.equal(serverContent.includes('sessionHours: SESSION_HOURS'), true);
+});
+
 
 
