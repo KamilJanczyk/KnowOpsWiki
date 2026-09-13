@@ -534,6 +534,8 @@ async function renderSidebar() {
 
   if (cat.id === 'kanban_board') {
     if (sidebarTitle) sidebarTitle.innerText = 'PULPIT';
+    const deptToolbar = document.getElementById('currentDeptToolbar');
+    if (deptToolbar) deptToolbar.style.display = 'none';
     const currentHash = decodeURIComponent(window.location.hash.replace('#/', ''));
 
     const isKanbanActive = (!currentHash || currentHash === 'kanban' || currentHash === 'playbooks');
@@ -596,38 +598,31 @@ async function renderSidebar() {
       sidebarTitle.setAttribute('title', `Katalog główny działu: ${targetSub.title} (możesz upuścić plik lub folder tutaj)`);
     }
   }
+  const deptToolbar = document.getElementById('currentDeptToolbar');
+  const canManageDept = Boolean(targetSub && targetSub.relPath && targetSub.id !== 'glowne');
+  if (deptToolbar) {
+    deptToolbar.style.display = canManageDept ? 'grid' : 'none';
+  }
   if (btnRenameDept) {
-    if (targetSub && targetSub.relPath && targetSub.id !== 'glowne') {
-      btnRenameDept.style.display = 'inline-block';
-      btnRenameDept.onclick = (e) => {
-        e.stopPropagation();
-        window.openRenameFolderModal(targetSub.relPath, targetSub.title);
-      };
-    } else {
-      btnRenameDept.style.display = 'none';
-    }
+    btnRenameDept.style.display = canManageDept ? 'block' : 'none';
+    btnRenameDept.onclick = (e) => {
+      e.stopPropagation();
+      if (targetSub) window.openRenameFolderModal(targetSub.relPath, targetSub.title);
+    };
   }
   if (btnMoveDept) {
-    if (targetSub && targetSub.relPath && targetSub.id !== 'glowne') {
-      btnMoveDept.style.display = 'inline-block';
-      btnMoveDept.onclick = (e) => {
-        e.stopPropagation();
-        window.openMoveFolderModal(targetSub.relPath, targetSub.title);
-      };
-    } else {
-      btnMoveDept.style.display = 'none';
-    }
+    btnMoveDept.style.display = canManageDept ? 'block' : 'none';
+    btnMoveDept.onclick = (e) => {
+      e.stopPropagation();
+      if (targetSub) window.openMoveFolderModal(targetSub.relPath, targetSub.title);
+    };
   }
   if (btnDeleteDept) {
-    if (targetSub && targetSub.relPath && targetSub.id !== 'glowne') {
-      btnDeleteDept.style.display = 'inline-block';
-      btnDeleteDept.onclick = (e) => {
-        e.stopPropagation();
-        window.openDeleteFolderModal(targetSub.relPath, targetSub.title);
-      };
-    } else {
-      btnDeleteDept.style.display = 'none';
-    }
+    btnDeleteDept.style.display = canManageDept ? 'block' : 'none';
+    btnDeleteDept.onclick = (e) => {
+      e.stopPropagation();
+      if (targetSub) window.openDeleteFolderModal(targetSub.relPath, targetSub.title);
+    };
   }
 
   if (!targetSub) {

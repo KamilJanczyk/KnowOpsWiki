@@ -1408,5 +1408,37 @@ test('Single-User Auth: Weryfikacja mechanizmu autoryzacji panelu, tokenów sesy
   assert.equal(serverContent.includes('sessionHours: SESSION_HOURS'), true);
 });
 
+// 32. Department Toolbar Layout: Weryfikacja dedykowanego paska akcji pod nazwą działu (Wariant 1)
+test('Department Toolbar Layout: Sprawdzenie dedykowanego paska akcji pod nazwą działu w siatce 3-kolumnowej', () => {
+  const indexContent = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const cssContent = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appContent = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Sprawdzenie struktury w index.html
+  assert.equal(indexContent.includes('class="sidebar-dept-header-box"'), true);
+  assert.equal(indexContent.includes('id="currentDeptToolbar"'), true);
+  assert.equal(indexContent.includes('id="btnRenameCurrentDept"'), true);
+  assert.equal(indexContent.includes('id="btnMoveCurrentDept"'), true);
+  assert.equal(indexContent.includes('id="btnDeleteCurrentDept"'), true);
+
+  // Etykiety przycisków w 1 linii bez łamania
+  assert.equal(indexContent.includes('>Zmień nazwę</button>'), true);
+  assert.equal(indexContent.includes('>Przenieś</button>'), true);
+  assert.equal(indexContent.includes('>Usuń</button>'), true);
+
+  // 2. Sprawdzenie stylów w style.css
+  assert.equal(cssContent.includes('.dept-actions-toolbar'), true);
+  assert.equal(cssContent.includes('grid-template-columns: 1fr 1fr 1fr;'), true);
+  assert.equal(cssContent.includes('.btn-dept-action'), true);
+  assert.equal(cssContent.includes('.btn-dept-rename'), true);
+  assert.equal(cssContent.includes('.btn-dept-move'), true);
+  assert.equal(cssContent.includes('.btn-dept-delete'), true);
+
+  // 3. Sprawdzenie sterowania w app.js
+  assert.equal(appContent.includes('const deptToolbar = document.getElementById(\'currentDeptToolbar\');'), true);
+  assert.equal(appContent.includes('deptToolbar.style.display = canManageDept ? \'grid\' : \'none\';'), true);
+});
+
+
 
 

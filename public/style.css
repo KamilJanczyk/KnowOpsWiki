@@ -85,7 +85,73 @@
     /* Layout Main Grid */
     .layout-container { display: flex; min-height: calc(100vh - 44px); }
     .left-topics-box { width: 300px; background: #0c0c0c; border-right: 1px solid var(--sw-border); padding: 12px 10px; flex-shrink: 0; max-height: calc(100vh - 44px); overflow-y: auto; }
-    .left-topics-header { font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; }
+    .sidebar-dept-header-box { margin-bottom: 8px; }
+    .left-topics-header {
+      font-size: 0.74rem;
+      font-weight: 800;
+      color: var(--sw-gold);
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #222226;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      width: 100%;
+    }
+    .dept-actions-toolbar {
+      display: none;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #1c1c1f;
+    }
+    .btn-dept-action {
+      background: #141416;
+      border: 1px solid #27272a;
+      font-size: 0.67rem;
+      font-weight: 600;
+      padding: 4px 2px;
+      border-radius: 3px;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+      transition: all 0.12s ease;
+      width: 100%;
+      box-sizing: border-box;
+      line-height: 1.2;
+    }
+    .btn-dept-rename {
+      border-color: rgba(234, 179, 8, 0.5);
+      color: #facc15;
+    }
+    .btn-dept-rename:hover {
+      background: rgba(234, 179, 8, 0.18);
+      border-color: #eab308;
+      color: #ffffff;
+    }
+    .btn-dept-move {
+      border-color: rgba(59, 130, 246, 0.5);
+      color: #60a5fa;
+    }
+    .btn-dept-move:hover {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+    .btn-dept-delete {
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #f87171;
+    }
+    .btn-dept-delete:hover {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: #ef4444;
+      color: #ffffff;
+    }
     .left-topics-list { list-style: none; }
     .topic-group-header { font-size: 0.75rem; font-weight: 700; color: #e5e7eb; margin-top: 8px; margin-bottom: 3px; }
     .topic-group-header a { color: var(--sw-gold); text-decoration: none; }

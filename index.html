@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.4.3">
+  <link rel="stylesheet" href="/public/style.css?v=2.4.4">
 </head>
 <body>
 
@@ -65,12 +65,12 @@
         <button class="btn-action" style="width: 100%; background: #1e3a8a; border: 1px solid #3b82f6; color: #ffffff; font-weight: 700; font-size: 0.72rem; padding: 6px; margin-top: 2px; cursor: pointer;" onclick="openCreateItemModal()">+ Dodaj Stronę / Dział</button>
         <button class="btn-action" style="width: 100%; background: #27272a; border: 1px solid #3f3f46; color: #ffffff; font-weight: 700; font-size: 0.72rem; padding: 6px; margin-top: 4px; cursor: pointer;" onclick="openImportFileModal()">Importuj Plik (MD / HTML)</button>
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222;">
-        <div class="left-topics-header" id="sidebarTitle" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">NAWIGACJA</div>
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <button id="btnRenameCurrentDept" class="btn-rename-current-dept" style="display: none; background: none; border: 1px solid #eab308; color: #facc15; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-weight: 600;" title="Zmień nazwę tego działu">Zmień nazwę</button>
-          <button id="btnMoveCurrentDept" class="btn-move-current-dept" style="display: none; background: none; border: 1px solid #3b82f6; color: #60a5fa; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-weight: 600;" title="Przenieś ten dział do innej kategorii">Przenieś dział</button>
-          <button id="btnDeleteCurrentDept" class="btn-delete-current-dept" style="display: none; background: none; border: 1px solid #3f3f46; color: #ef4444; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-weight: 600;" title="Usuń ten dział i jego zawartość">Usuń dział</button>
+      <div class="sidebar-dept-header-box">
+        <div class="left-topics-header" id="sidebarTitle">NAWIGACJA</div>
+        <div id="currentDeptToolbar" class="dept-actions-toolbar" style="display: none;">
+          <button id="btnRenameCurrentDept" class="btn-dept-action btn-dept-rename btn-rename-current-dept" title="Zmień nazwę tego działu">Zmień nazwę</button>
+          <button id="btnMoveCurrentDept" class="btn-dept-action btn-dept-move btn-move-current-dept" title="Przenieś ten dział do innej kategorii">Przenieś</button>
+          <button id="btnDeleteCurrentDept" class="btn-dept-action btn-dept-delete btn-delete-current-dept" title="Usuń ten dział i jego zawartość">Usuń</button>
         </div>
       </div>
       <ul class="left-topics-list" id="sidebarNav">
@@ -218,7 +218,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.6.7"></script>
+  <script src="/public/app.js?v=2.6.8"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
