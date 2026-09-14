@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
 import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler, parseScheduleTime, computeNextRunTime } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
-import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, fetchCveFeed, CVE_CATEGORIES } from '../cve_engine.mjs';
+import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, fetchCveFeed, CVE_CATEGORIES, translateSecOpsRules, translateCveRecord, CVE_SECOPS_GLOSSARY } from '../cve_engine.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
 function isValidImageMagicBytes(buf, ext) {
@@ -1612,4 +1612,71 @@ test('34. Radar Podatności CVE (CISA KEV): kategoryzacja regułowa, silnik pobi
 
   const dockerCompose = fs.readFileSync(path.resolve('docker-compose.yml'), 'utf8');
   assert.equal(dockerCompose.includes('./cve_engine.mjs:/app/cve_engine.mjs:ro'), true);
+});
+
+test('35. Client-Side Translation Engine (Koncepcja A): reguły leksykonu SecOps, transformacje CISA KEV i integracja interfejsu', () => {
+  // 1. Weryfikacja słownika terminologii SecOps
+  assert.equal(Array.isArray(CVE_SECOPS_GLOSSARY), true);
+  assert.equal(CVE_SECOPS_GLOSSARY.length >= 30, true);
+
+  // 2. Weryfikacja tłumaczenia kluczowych typów podatności
+  const rceText = translateSecOpsRules('Remote Code Execution vulnerability in OpenSSH');
+  assert.equal(rceText.includes('zdalne wykonanie kodu (RCE)'), true);
+
+  const cmdText = translateSecOpsRules('Command Injection vulnerability in GlobalProtect');
+  assert.equal(cmdText.includes('wstrzyknięcie poleceń (Command Injection)'), true);
+
+  const privText = translateSecOpsRules('Privilege Escalation vulnerability in Linux kernel');
+  assert.equal(privText.includes('eskalację uprawnień (Privilege Escalation)'), true);
+
+  const oobText = translateSecOpsRules('Out-of-bounds Write vulnerability in DCERPC');
+  assert.equal(oobText.includes('zapis poza granicami bufora (Out-of-bounds Write)'), true);
+
+  const breakoutText = translateSecOpsRules('Container Breakout vulnerability in runc');
+  assert.equal(breakoutText.includes('ucieczkę z kontenera (Container Breakout)'), true);
+
+  // 3. Weryfikacja transformacji ustrukturyzowanych zdań CISA KEV
+  const cisaSentence = 'Palo Alto Networks PAN-OS contains a command injection vulnerability in GlobalProtect that may allow an unauthenticated attacker to execute arbitrary code with root privileges.';
+  const translatedSentence = translateSecOpsRules(cisaSentence);
+  assert.equal(translatedSentence.includes('Oprogramowanie Palo Alto Networks PAN-OS zawiera podatność'), true);
+  assert.equal(translatedSentence.includes('wstrzyknięcie poleceń (Command Injection)'), true);
+  assert.equal(translatedSentence.includes('nieuwierzytelnionemu atakującemu'), true);
+  assert.equal(translatedSentence.includes('wykonanie dowolnego kodu'), true);
+  assert.equal(translatedSentence.includes('uprawnieniami roota (administratora)'), true);
+
+  // 4. Weryfikacja tłumaczenia zaleceń naprawczych (Remediation Actions)
+  const remediationText = "Apply mitigations in accordance with vendor instructions, ensuring compliance with CISA's BOD 26-04. Follow applicable guidance or discontinue use of the product if mitigations are unavailable.";
+  const translatedAction = translateSecOpsRules(remediationText, true);
+  assert.equal(translatedAction.includes('Zastosować środki mitygujące zgodnie z oficjalnymi instrukcjami producenta oprogramowania.'), true);
+  assert.equal(translatedAction.includes('wycofać produkt z użytku'), true);
+
+  // 5. Weryfikacja tłumaczenia całego rekordu podatności (translateCveRecord)
+  const sampleItem = {
+    id: 'CVE-2024-3400',
+    title: 'Palo Alto Networks PAN-OS Command Injection Vulnerability',
+    description: 'Palo Alto Networks PAN-OS contains a command injection vulnerability that allows an unauthenticated attacker to execute arbitrary code with root privileges.',
+    requiredAction: 'Apply updates per vendor instructions.'
+  };
+  const translatedItem = translateCveRecord(sampleItem);
+  assert.equal(translatedItem.isTranslated, true);
+  assert.equal(translatedItem.translatedTitle.includes('Podatność Palo Alto Networks PAN-OS'), true);
+  assert.equal(translatedItem.translatedDescription.includes('Oprogramowanie Palo Alto Networks PAN-OS zawiera podatność'), true);
+  assert.equal(translatedItem.translatedRequiredAction.includes('Zastosować oficjalne aktualizacje zgodnie z zaleceniami producenta.'), true);
+
+  // 6. Weryfikacja kodu klienta w public/app.js i index.html
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  assert.equal(appJs.includes('CLIENT_CVE_GLOSSARY'), true);
+  assert.equal(appJs.includes('function translateSecOpsClient'), true);
+  assert.equal(appJs.includes('function getOrTranslateCveItem'), true);
+  assert.equal(appJs.includes('knowops_cve_trans_'), true);
+  assert.equal(appJs.includes('knowops_cve_auto_translate'), true);
+  assert.equal(appJs.includes('window.handleCveTranslateToggle'), true);
+  assert.equal(appJs.includes('window.toggleCveItemLanguage'), true);
+  assert.equal(appJs.includes('window.clearCveTranslationCache'), true);
+  assert.equal(appJs.includes('Tłumacz opisy na język polski (PL)'), true);
+  assert.equal(appJs.includes('TŁUMACZENIE PL'), true);
+  assert.equal(appJs.includes('ORYGINAŁ EN'), true);
+
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  assert.equal(indexHtml.includes('app.js?v=2.7.0'), true);
 });

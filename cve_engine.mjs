@@ -371,3 +371,157 @@ function getFallbackSeedDataset(errorMessage = '') {
     items: seedItems
   };
 }
+
+/**
+ * Słownik terminologii cyberbezpieczeństwa (SecOps Glossary)
+ * Zapewnia zachowanie oryginalnych terminów branżowych w nawiasach (dwujęzyczność SecOps)
+ */
+export const CVE_SECOPS_GLOSSARY = [
+  { en: /\bremote code execution\b/gi, pl: 'zdalne wykonanie kodu (RCE)' },
+  { en: /\bcode execution\b/gi, pl: 'wykonanie dowolnego kodu' },
+  { en: /\bcommand injection\b/gi, pl: 'wstrzyknięcie poleceń (Command Injection)' },
+  { en: /\bSQL injection\b/gi, pl: 'wstrzyknięcie kodu SQL (SQL Injection)' },
+  { en: /\bprivilege escalation\b/gi, pl: 'eskalację uprawnień (Privilege Escalation)' },
+  { en: /\belevation of privilege\b/gi, pl: 'podniesienie uprawnień (Elevation of Privilege)' },
+  { en: /\bpath traversal\b/gi, pl: 'przejście przez ścieżkę (Path Traversal)' },
+  { en: /\bdirectory traversal\b/gi, pl: 'przejście przez ścieżkę katalogów (Directory Traversal)' },
+  { en: /\bdenial of service\b/gi, pl: 'odmowę usługi (Denial of Service - DoS)' },
+  { en: /\bdistributed denial of service\b/gi, pl: 'rozproszoną odmowę usługi (DDoS)' },
+  { en: /\bauthentication bypass\b/gi, pl: 'ominięcie uwierzytelnienia (Authentication Bypass)' },
+  { en: /\bimproper authentication\b/gi, pl: 'nieprawidłowe uwierzytelnienie (Improper Authentication)' },
+  { en: /\bmissing authorization\b/gi, pl: 'brak weryfikacji uprawnień (Missing Authorization)' },
+  { en: /\bimproper authorization\b/gi, pl: 'nieprawidłową autoryzację (Improper Authorization)' },
+  { en: /\bimproper privilege management\b/gi, pl: 'nieprawidłowe zarządzanie uprawnieniami' },
+  { en: /\bout-of-bounds write\b/gi, pl: 'zapis poza granicami bufora (Out-of-bounds Write)' },
+  { en: /\bout-of-bounds read\b/gi, pl: 'odczyt poza granicami bufora (Out-of-bounds Read)' },
+  { en: /\bbuffer overflow\b/gi, pl: 'przepełnienie bufora (Buffer Overflow)' },
+  { en: /\bheap overflow\b/gi, pl: 'przepełnienie sterty (Heap Overflow)' },
+  { en: /\bstack overflow\b/gi, pl: 'przepełnienie stosu (Stack Overflow)' },
+  { en: /\brace condition\b/gi, pl: 'wyścig (Race Condition)' },
+  { en: /\buse-after-free\b/gi, pl: 'użycie pamięci po zwolnieniu (Use-After-Free)' },
+  { en: /\btype confusion\b/gi, pl: 'błąd konwersji typów (Type Confusion)' },
+  { en: /\bcross-site scripting\b/gi, pl: 'Cross-Site Scripting (XSS)' },
+  { en: /\bserver-side request forgery\b/gi, pl: 'Server-Side Request Forgery (SSRF)' },
+  { en: /\bsecurity feature bypass\b/gi, pl: 'obejście mechanizmów bezpieczeństwa' },
+  { en: /\bsecurity bypass\b/gi, pl: 'ominięcie zabezpieczeń' },
+  { en: /\bmemory corruption\b/gi, pl: 'uszkodzenie pamięci (Memory Corruption)' },
+  { en: /\binformation disclosure\b/gi, pl: 'nieuprawnione ujawnienie informacji' },
+  { en: /\barbitrary file read\b/gi, pl: 'odczyt dowolnych plików' },
+  { en: /\barbitrary file upload\b/gi, pl: 'przesłanie dowolnych plików' },
+  { en: /\barbitrary file write\b/gi, pl: 'zapis dowolnych plików' },
+  { en: /\barbitrary file\b/gi, pl: 'dowolny plik' },
+  { en: /\barbitrary files\b/gi, pl: 'dowolne pliki' },
+  { en: /\bcontainer breakout\b/gi, pl: 'ucieczkę z kontenera (Container Breakout)' },
+  { en: /\bcontainer escape\b/gi, pl: 'ucieczkę z kontenera (Container Escape)' },
+  { en: /\bleaky file descriptor\b/gi, pl: 'wyciek deskryptora pliku (Leaky File Descriptor)' },
+  { en: /\bunauthenticated remote attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu zdalnemu' },
+  { en: /\bunauthenticated attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu' },
+  { en: /\bunauthenticated caller\b/gi, pl: 'nieuwierzytelnionemu wywołującemu' },
+  { en: /\bunauthenticated user\b/gi, pl: 'nieuwierzytelnionemu użytkownikowi' },
+  { en: /\bunauthenticated\b/gi, pl: 'nieuwierzytelniony' },
+  { en: /\bauthenticated user\b/gi, pl: 'uwierzytelnionemu użytkownikowi' },
+  { en: /\bauthenticated attacker\b/gi, pl: 'uwierzytelnionemu atakującemu' },
+  { en: /\bauthenticated\b/gi, pl: 'uwierzytelniony' },
+  { en: /\broot privileges\b/gi, pl: 'uprawnieniami roota (administratora)' },
+  { en: /\badministrative privileges\b/gi, pl: 'uprawnieniami administratora' },
+  { en: /\belevated privileges\b/gi, pl: 'podwyższonymi uprawnieniami' },
+  { en: /\bsensitive resources\b/gi, pl: 'poufnych zasobów' },
+  { en: /\bsensitive data\b/gi, pl: 'poufnych danych' },
+  { en: /\bsensitive information\b/gi, pl: 'poufnych informacji' },
+  { en: /\bzero-day vulnerability\b/gi, pl: 'podatność zero-day (luka dnia zerowego)' }
+];
+
+/**
+ * Regułowe tłumaczenie techniczne opisów CVE z zachowaniem nomenklatury SecOps
+ */
+export function translateSecOpsRules(text, isRemediation = false) {
+  if (!text || typeof text !== 'string') return '';
+  let result = text.trim();
+
+  if (isRemediation) {
+    if (/Apply mitigations in accordance with vendor instructions/i.test(result)) {
+      let extra = '';
+      if (/discontinue use of the product if mitigations are unavailable/i.test(result)) {
+        extra = ' Jeśli środki zaradcze są niedostępne, należy wycofać produkt z użytku.';
+      }
+      return `Zastosować środki mitygujące zgodnie z oficjalnymi instrukcjami producenta oprogramowania.${extra}`;
+    }
+    if (/Apply updates per vendor instructions/i.test(result)) {
+      let extra = '';
+      if (/discontinue use of the product if mitigations are unavailable/i.test(result)) {
+        extra = ' W przypadku braku poprawek zaleca się zaprzestanie korzystania z oprogramowania.';
+      }
+      return `Zastosować oficjalne aktualizacje zgodnie z zaleceniami producenta.${extra}`;
+    }
+    if (/Apply patches or workarounds/i.test(result)) {
+      return result.replace(/Apply patches or workarounds issued by (.+?)\.?/i, 'Zastosować oficjalne poprawki lub obejścia opublikowane przez $1.');
+    }
+  }
+
+  // Szablony zdań opisowych CISA KEV
+  const patternMatch = result.match(/^(.+?) contains (?:both an? )?(.+?) vulnerability(?: in (.+?))? that (?:may allow|allows|could allow) (.+?) to (.+?)\.?$/i);
+  if (patternMatch) {
+    const [, vendorProduct, vulnType, component, attacker, action] = patternMatch;
+    let compPl = component ? ` w module ${component}` : '';
+    let vulnPl = vulnType;
+    for (const g of CVE_SECOPS_GLOSSARY) {
+      vulnPl = vulnPl.replace(g.en, g.pl);
+    }
+    let attackerPl = attacker;
+    for (const g of CVE_SECOPS_GLOSSARY) {
+      attackerPl = attackerPl.replace(g.en, g.pl);
+    }
+    let actionPl = action;
+    actionPl = actionPl.replace(/\bexecute arbitrary code\b/gi, 'wykonanie dowolnego kodu')
+                       .replace(/\bread arbitrary files\b/gi, 'odczyt dowolnych plików')
+                       .replace(/\bachieve code execution\b/gi, 'wykonanie kodu')
+                       .replace(/\bachieve container breakout\b/gi, 'ucieczkę z kontenera (Container Breakout)')
+                       .replace(/\bfile transfer and execution\b/gi, 'przesłanie i uruchomienie plików');
+    for (const g of CVE_SECOPS_GLOSSARY) {
+      actionPl = actionPl.replace(g.en, g.pl);
+    }
+
+    return `Oprogramowanie ${vendorProduct} zawiera podatność (${vulnPl})${compPl}, która może umożliwić ${attackerPl} na ${actionPl}.`;
+  }
+
+  // Tłumaczenie tytułów z sufiksem Vulnerability
+  if (/Vulnerability$/i.test(result)) {
+    result = result.replace(/(.+?)\s+Vulnerability$/i, 'Podatność $1');
+  }
+
+  // Zastąpienie leksykonu terminologii w tekście ogólnym
+  for (const item of CVE_SECOPS_GLOSSARY) {
+    result = result.replace(item.en, item.pl);
+  }
+
+  // Tłumaczenie typowych łączników
+  result = result.replace(/\bcontains an?\b/gi, 'zawiera')
+                 .replace(/\bdue to an?\b/gi, 'wynikającą z')
+                 .replace(/\bdue to\b/gi, 'z powodu')
+                 .replace(/\ballowing an?\b/gi, 'umożliwiającą')
+                 .replace(/\ballowing\b/gi, 'umożliwiając')
+                 .replace(/\bthat allows\b/gi, 'która umożliwia')
+                 .replace(/\bthat may allow\b/gi, 'która może umożliwić')
+                 .replace(/\bthat could allow\b/gi, 'która mogłaby umożliwić')
+                 .replace(/\bpotentially exposing\b/gi, 'potencjalnie narażając')
+                 .replace(/\bmay lead to\b/gi, 'może prowadzić do')
+                 .replace(/\bleads to\b/gi, 'prowadzi do')
+                 .replace(/\bcould lead to\b/gi, 'może doprowadzić do');
+
+  return result;
+}
+
+/**
+ * Zwraca obiekt podatności uzupełniony o przetłumaczone pola
+ */
+export function translateCveRecord(item) {
+  if (!item || typeof item !== 'object') return item;
+  return {
+    ...item,
+    translatedTitle: translateSecOpsRules(item.title || item.id),
+    translatedDescription: translateSecOpsRules(item.description || ''),
+    translatedRequiredAction: translateSecOpsRules(item.requiredAction || '', true),
+    isTranslated: true
+  };
+}
+

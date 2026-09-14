@@ -6128,6 +6128,160 @@ window.deleteScratchpadCheckItem = function(id) {
   window.saveScratchpadToServer();
 };
 
+// ================= CLIENT-SIDE CVE TRANSLATOR (SECOPS GLOSSARY) ================= //
+
+const CLIENT_CVE_GLOSSARY = [
+  { en: /\bremote code execution\b/gi, pl: 'zdalne wykonanie kodu (RCE)' },
+  { en: /\bcode execution\b/gi, pl: 'wykonanie dowolnego kodu' },
+  { en: /\bcommand injection\b/gi, pl: 'wstrzyknięcie poleceń (Command Injection)' },
+  { en: /\bSQL injection\b/gi, pl: 'wstrzyknięcie kodu SQL (SQL Injection)' },
+  { en: /\bprivilege escalation\b/gi, pl: 'eskalację uprawnień (Privilege Escalation)' },
+  { en: /\belevation of privilege\b/gi, pl: 'podniesienie uprawnień (Elevation of Privilege)' },
+  { en: /\bpath traversal\b/gi, pl: 'przejście przez ścieżkę (Path Traversal)' },
+  { en: /\bdirectory traversal\b/gi, pl: 'przejście przez ścieżkę katalogów (Directory Traversal)' },
+  { en: /\bdenial of service\b/gi, pl: 'odmowę usługi (Denial of Service - DoS)' },
+  { en: /\bdistributed denial of service\b/gi, pl: 'rozproszoną odmowę usługi (DDoS)' },
+  { en: /\bauthentication bypass\b/gi, pl: 'ominięcie uwierzytelnienia (Authentication Bypass)' },
+  { en: /\bimproper authentication\b/gi, pl: 'nieprawidłowe uwierzytelnienie (Improper Authentication)' },
+  { en: /\bmissing authorization\b/gi, pl: 'brak weryfikacji uprawnień (Missing Authorization)' },
+  { en: /\bimproper authorization\b/gi, pl: 'nieprawidłową autoryzację (Improper Authorization)' },
+  { en: /\bimproper privilege management\b/gi, pl: 'nieprawidłowe zarządzanie uprawnieniami' },
+  { en: /\bout-of-bounds write\b/gi, pl: 'zapis poza granicami bufora (Out-of-bounds Write)' },
+  { en: /\bout-of-bounds read\b/gi, pl: 'odczyt poza granicami bufora (Out-of-bounds Read)' },
+  { en: /\bbuffer overflow\b/gi, pl: 'przepełnienie bufora (Buffer Overflow)' },
+  { en: /\bheap overflow\b/gi, pl: 'przepełnienie sterty (Heap Overflow)' },
+  { en: /\bstack overflow\b/gi, pl: 'przepełnienie stosu (Stack Overflow)' },
+  { en: /\brace condition\b/gi, pl: 'wyścig (Race Condition)' },
+  { en: /\buse-after-free\b/gi, pl: 'użycie pamięci po zwolnieniu (Use-After-Free)' },
+  { en: /\btype confusion\b/gi, pl: 'błąd konwersji typów (Type Confusion)' },
+  { en: /\bcross-site scripting\b/gi, pl: 'Cross-Site Scripting (XSS)' },
+  { en: /\bserver-side request forgery\b/gi, pl: 'Server-Side Request Forgery (SSRF)' },
+  { en: /\bsecurity feature bypass\b/gi, pl: 'obejście mechanizmów bezpieczeństwa' },
+  { en: /\bsecurity bypass\b/gi, pl: 'ominięcie zabezpieczeń' },
+  { en: /\bmemory corruption\b/gi, pl: 'uszkodzenie pamięci (Memory Corruption)' },
+  { en: /\binformation disclosure\b/gi, pl: 'nieuprawnione ujawnienie informacji' },
+  { en: /\barbitrary file read\b/gi, pl: 'odczyt dowolnych plików' },
+  { en: /\barbitrary file upload\b/gi, pl: 'przesłanie dowolnych plików' },
+  { en: /\barbitrary file write\b/gi, pl: 'zapis dowolnych plików' },
+  { en: /\barbitrary file\b/gi, pl: 'dowolny plik' },
+  { en: /\barbitrary files\b/gi, pl: 'dowolne pliki' },
+  { en: /\bcontainer breakout\b/gi, pl: 'ucieczkę z kontenera (Container Breakout)' },
+  { en: /\bcontainer escape\b/gi, pl: 'ucieczkę z kontenera (Container Escape)' },
+  { en: /\bleaky file descriptor\b/gi, pl: 'wyciek deskryptora pliku (Leaky File Descriptor)' },
+  { en: /\bunauthenticated remote attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu zdalnemu' },
+  { en: /\bunauthenticated attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu' },
+  { en: /\bunauthenticated caller\b/gi, pl: 'nieuwierzytelnionemu wywołującemu' },
+  { en: /\bunauthenticated user\b/gi, pl: 'nieuwierzytelnionemu użytkownikowi' },
+  { en: /\bunauthenticated\b/gi, pl: 'nieuwierzytelniony' },
+  { en: /\bauthenticated user\b/gi, pl: 'uwierzytelnionemu użytkownikowi' },
+  { en: /\bauthenticated attacker\b/gi, pl: 'uwierzytelnionemu atakującemu' },
+  { en: /\bauthenticated\b/gi, pl: 'uwierzytelniony' },
+  { en: /\broot privileges\b/gi, pl: 'uprawnieniami roota (administratora)' },
+  { en: /\badministrative privileges\b/gi, pl: 'uprawnieniami administratora' },
+  { en: /\belevated privileges\b/gi, pl: 'podwyższonymi uprawnieniami' },
+  { en: /\bsensitive resources\b/gi, pl: 'poufnych zasobów' },
+  { en: /\bsensitive data\b/gi, pl: 'poufnych danych' },
+  { en: /\bsensitive information\b/gi, pl: 'poufnych informacji' },
+  { en: /\bzero-day vulnerability\b/gi, pl: 'podatność zero-day (luka dnia zerowego)' }
+];
+
+function translateSecOpsClient(text, isRemediation = false) {
+  if (!text || typeof text !== 'string') return '';
+  let result = text.trim();
+
+  if (isRemediation) {
+    if (/Apply mitigations in accordance with vendor instructions/i.test(result)) {
+      let extra = '';
+      if (/discontinue use of the product if mitigations are unavailable/i.test(result)) {
+        extra = ' Jeśli środki zaradcze są niedostępne, należy wycofać produkt z użytku.';
+      }
+      return `Zastosować środki mitygujące zgodnie z oficjalnymi instrukcjami producenta oprogramowania.${extra}`;
+    }
+    if (/Apply updates per vendor instructions/i.test(result)) {
+      let extra = '';
+      if (/discontinue use of the product if mitigations are unavailable/i.test(result)) {
+        extra = ' W przypadku braku poprawek zaleca się zaprzestanie korzystania z oprogramowania.';
+      }
+      return `Zastosować oficjalne aktualizacje zgodnie z zaleceniami producenta.${extra}`;
+    }
+    if (/Apply patches or workarounds/i.test(result)) {
+      return result.replace(/Apply patches or workarounds issued by (.+?)\.?/i, 'Zastosować oficjalne poprawki lub obejścia opublikowane przez $1.');
+    }
+  }
+
+  const patternMatch = result.match(/^(.+?) contains (?:both an? )?(.+?) vulnerability(?: in (.+?))? that (?:may allow|allows|could allow) (.+?) to (.+?)\.?$/i);
+  if (patternMatch) {
+    const [, vendorProduct, vulnType, component, attacker, action] = patternMatch;
+    let compPl = component ? ` w module ${component}` : '';
+    let vulnPl = vulnType;
+    for (const g of CLIENT_CVE_GLOSSARY) {
+      vulnPl = vulnPl.replace(g.en, g.pl);
+    }
+    let attackerPl = attacker;
+    for (const g of CLIENT_CVE_GLOSSARY) {
+      attackerPl = attackerPl.replace(g.en, g.pl);
+    }
+    let actionPl = action;
+    actionPl = actionPl.replace(/\bexecute arbitrary code\b/gi, 'wykonanie dowolnego kodu')
+                       .replace(/\bread arbitrary files\b/gi, 'odczyt dowolnych plików')
+                       .replace(/\bachieve code execution\b/gi, 'wykonanie kodu')
+                       .replace(/\bachieve container breakout\b/gi, 'ucieczkę z kontenera (Container Breakout)')
+                       .replace(/\bfile transfer and execution\b/gi, 'przesłanie i uruchomienie plików');
+    for (const g of CLIENT_CVE_GLOSSARY) {
+      actionPl = actionPl.replace(g.en, g.pl);
+    }
+
+    return `Oprogramowanie ${vendorProduct} zawiera podatność (${vulnPl})${compPl}, która może umożliwić ${attackerPl} na ${actionPl}.`;
+  }
+
+  if (/Vulnerability$/i.test(result)) {
+    result = result.replace(/(.+?)\s+Vulnerability$/i, 'Podatność $1');
+  }
+
+  for (const item of CLIENT_CVE_GLOSSARY) {
+    result = result.replace(item.en, item.pl);
+  }
+
+  result = result.replace(/\bcontains an?\b/gi, 'zawiera')
+                 .replace(/\bdue to an?\b/gi, 'wynikającą z')
+                 .replace(/\bdue to\b/gi, 'z powodu')
+                 .replace(/\ballowing an?\b/gi, 'umożliwiającą')
+                 .replace(/\ballowing\b/gi, 'umożliwiając')
+                 .replace(/\bthat allows\b/gi, 'która umożliwia')
+                 .replace(/\bthat may allow\b/gi, 'która może umożliwić')
+                 .replace(/\bthat could allow\b/gi, 'która mogłaby umożliwić')
+                 .replace(/\bpotentially exposing\b/gi, 'potencjalnie narażając')
+                 .replace(/\bmay lead to\b/gi, 'może prowadzić do')
+                 .replace(/\bleads to\b/gi, 'prowadzi do')
+                 .replace(/\bcould lead to\b/gi, 'może doprowadzić do');
+
+  return result;
+}
+
+function getOrTranslateCveItem(item) {
+  if (!item || !item.id) return { title: '', description: '', requiredAction: '' };
+
+  const cacheKey = 'knowops_cve_trans_' + item.id;
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {}
+
+  const translated = {
+    title: translateSecOpsClient(item.title || item.id),
+    description: translateSecOpsClient(item.description || ''),
+    requiredAction: translateSecOpsClient(item.requiredAction || '', true)
+  };
+
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify(translated));
+  } catch (e) {}
+
+  return translated;
+}
+
 // ================= RADAR PODATNOŚCI CVE (CISA KEV) ================= //
 
 let cveFeedData = {
@@ -6146,10 +6300,12 @@ let cveFilters = {
   onlyWatchlist: false,
   onlyRansomware: false,
   auditStatus: 'all',
+  translateToPl: localStorage.getItem('knowops_cve_auto_translate') === 'true',
   currentPage: 1,
   pageSize: 20
 };
 
+let cveCardLanguageOverrides = {};
 let cveSearchDebounceTimeout = null;
 
 async function renderCveRadar() {
@@ -6247,10 +6403,19 @@ async function renderCveRadar() {
               <input type="checkbox" id="cveRansomwareToggle" onchange="window.handleCveRansomwareToggle(this.checked)" style="cursor:pointer; width:14px; height:14px;">
               <span style="font-weight:600; color:#c084fc;">Tylko Kampanie Ransomware</span>
             </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; color:#e4e4e7;">
+              <input type="checkbox" id="cveTranslateToggle" ${cveFilters.translateToPl ? 'checked' : ''} onchange="window.handleCveTranslateToggle(this.checked)" style="cursor:pointer; width:14px; height:14px;">
+              <span style="font-weight:600; color:#4ade80;">Tłumacz opisy na język polski (PL)</span>
+            </label>
           </div>
-          <button class="btn-secondary" onclick="window.resetCveFilters()" style="font-size:0.7rem; padding:4px 10px;">
-            Resetuj filtry
-          </button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn-secondary" onclick="window.clearCveTranslationCache()" style="font-size:0.7rem; padding:4px 10px; border-color:#3f3f46; color:#94a3b8;" title="Czyści pamięć podręczną przetłumaczonych opisów w przeglądarce">
+              Wyczyść bufor PL
+            </button>
+            <button class="btn-secondary" onclick="window.resetCveFilters()" style="font-size:0.7rem; padding:4px 10px;">
+              Resetuj filtry
+            </button>
+          </div>
         </div>
       </div>
 
@@ -6511,6 +6676,24 @@ function renderCveCards(items, audited) {
     const auditInfo = audited[item.id] || { status: 'unreviewed' };
     const currentStatus = auditInfo.status || 'unreviewed';
 
+    const cardOverride = cveCardLanguageOverrides[item.id];
+    const isCardPl = cardOverride ? (cardOverride === 'pl') : Boolean(cveFilters.translateToPl);
+
+    let displayTitle = title;
+    let displayDesc = desc;
+    let displayAction = action;
+
+    if (isCardPl) {
+      const trans = getOrTranslateCveItem(item);
+      displayTitle = escapeHtml(trans.title || item.title || item.id);
+      displayDesc = escapeHtml(trans.description || item.description || '');
+      displayAction = escapeHtml(trans.requiredAction || item.requiredAction || '');
+    }
+
+    const langBadgeHtml = isCardPl
+      ? '<span style="font-size:0.65rem; color:#86efac; background:#052e16; border:1px solid #166534; padding:2px 6px; border-radius:3px; font-weight:600;" title="Tłumaczenie maszynowe po stronie przeglądarki">TŁUMACZENIE PL</span>'
+      : '<span style="font-size:0.65rem; color:#a1a1aa; background:#18181b; border:1px solid #3f3f46; padding:2px 6px; border-radius:3px;" title="Oryginalny tekst w języku angielskim">ORYGINAŁ EN</span>';
+
     let severityBadgeStyle = 'background:#422006; color:#fde047; border:1px solid #eab308;';
     let severityLabel = `ŚREDNI (${score})`;
     if (item.score >= 9.0 || item.severity === 'CRITICAL') {
@@ -6564,27 +6747,33 @@ function renderCveCards(items, audited) {
           </div>
         </div>
 
-        <!-- Środkowy wiersz: Produkt i Tytuł -->
+        <!-- Środkowy wiersz: Produkt, Tytuł i Przełącznik Języka -->
         <div>
-          <div style="font-size:0.78rem; font-weight:600; color:#e4e4e7; margin-bottom:4px;">
-            <span style="color:#93c5fd;">${vendor}</span> - <span style="color:#ffffff;">${product}</span>: ${title}
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:4px;">
+            <div style="font-size:0.78rem; font-weight:600; color:#e4e4e7; flex:1;">
+              <span style="color:#93c5fd;">${vendor}</span> - <span style="color:#ffffff;">${product}</span>: ${displayTitle}
+            </div>
+            <button onclick="window.toggleCveItemLanguage('${cveId}')" class="btn-secondary" style="font-size:0.65rem; padding:2px 8px; border-color:${isCardPl ? '#166534' : '#3f3f46'}; color:${isCardPl ? '#86efac' : '#a1a1aa'}; cursor:pointer; background:${isCardPl ? '#052e16' : '#18181b'}; border-radius:3px; white-space:nowrap;" title="Przełącz język tej karty (PL / EN)">
+              ${isCardPl ? 'Język: PL' : 'Język: EN'}
+            </button>
           </div>
           <div style="font-size:0.74rem; color:#a1a1aa; line-height:1.45;">
-            ${desc}
+            ${displayDesc}
           </div>
         </div>
 
         <!-- Zalecana akcja naprawcza -->
         <div style="background:#18181b; border:1px solid #27272a; border-radius:4px; padding:8px 10px; font-size:0.72rem; color:#d4d4d8;">
-          <span style="color:var(--sw-gold); font-weight:600; text-transform:uppercase;">Wymagana akcja SecOps:</span> ${action}
+          <span style="color:var(--sw-gold); font-weight:600; text-transform:uppercase;">Wymagana akcja SecOps:</span> ${displayAction}
         </div>
 
         <!-- Dolny pasek akcji i audytu -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #1c1c1f; padding-top:8px;">
-          <div style="display:flex; align-items:center; gap:12px; font-size:0.72rem;">
+          <div style="display:flex; align-items:center; gap:10px; font-size:0.72rem; flex-wrap:wrap;">
             <a href="https://nvd.nist.gov/vuln/detail/${cveId}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8; text-decoration:none; font-weight:600;">Baza NIST NVD [zewn.]</a>
             <a href="https://www.cve.org/CVERecord?id=${cveId}" target="_blank" rel="noopener noreferrer" style="color:#94a3b8; text-decoration:none;">Katalog CVE.org [zewn.]</a>
             ${statusBadgeHtml}
+            ${langBadgeHtml}
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -6644,6 +6833,36 @@ window.handleCveRansomwareToggle = function(checked) {
   applyCveFiltersAndRender();
 };
 
+window.handleCveTranslateToggle = function(checked) {
+  cveFilters.translateToPl = Boolean(checked);
+  try {
+    localStorage.setItem('knowops_cve_auto_translate', cveFilters.translateToPl ? 'true' : 'false');
+  } catch (e) {}
+  cveCardLanguageOverrides = {};
+  applyCveFiltersAndRender();
+};
+
+window.toggleCveItemLanguage = function(cveId) {
+  const current = cveCardLanguageOverrides[cveId] || (cveFilters.translateToPl ? 'pl' : 'en');
+  cveCardLanguageOverrides[cveId] = (current === 'pl') ? 'en' : 'pl';
+  applyCveFiltersAndRender();
+};
+
+window.clearCveTranslationCache = function() {
+  let count = 0;
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('knowops_cve_trans_')) {
+        localStorage.removeItem(key);
+        count++;
+      }
+    }
+  } catch (e) {}
+  alert(`Wyczyszczono pamięć podręczną tłumaczeń (${count} przetłumaczonych wpisów).`);
+  applyCveFiltersAndRender();
+};
+
 window.resetCveFilters = function() {
   cveFilters.search = '';
   cveFilters.category = 'all';
@@ -6652,6 +6871,7 @@ window.resetCveFilters = function() {
   cveFilters.onlyRansomware = false;
   cveFilters.auditStatus = 'all';
   cveFilters.currentPage = 1;
+  cveCardLanguageOverrides = {};
 
   const searchInput = document.getElementById('cveSearchInput');
   const catSelect = document.getElementById('cveCategorySelect');
