@@ -6131,23 +6131,50 @@ window.deleteScratchpadCheckItem = function(id) {
 // ================= CLIENT-SIDE CVE TRANSLATOR (SECOPS GLOSSARY) ================= //
 
 const CLIENT_CVE_GLOSSARY = [
+  { en: /\bpre-authentication remote code execution\b/gi, pl: 'zdalne wykonanie kodu przed uwierzytelnieniem (Pre-Auth RCE)' },
   { en: /\bremote code execution\b/gi, pl: 'zdalne wykonanie kodu (RCE)' },
+  { en: /\bexecute unauthorized code or commands\b/gi, pl: 'wykonanie nieautoryzowanego kodu lub poleceń' },
+  { en: /\bexecute arbitrary os commands\b/gi, pl: 'wykonanie dowolnych poleceń systemu operacyjnego' },
+  { en: /\bexecute arbitrary code\b/gi, pl: 'wykonanie dowolnego kodu' },
+  { en: /\bexecute script files\b/gi, pl: 'uruchomienie plików skryptowych' },
+  { en: /\bread arbitrary files\b/gi, pl: 'odczyt dowolnych plików' },
+  { en: /\bwrite arbitrary files\b/gi, pl: 'zapis dowolnych plików' },
+  { en: /\bwrite data outside the intended\b/gi, pl: 'zapis danych poza zamierzonym' },
+  { en: /\bachieve code execution\b/gi, pl: 'wykonanie kodu' },
+  { en: /\bachieve container breakout\b/gi, pl: 'ucieczkę z kontenera (Container Breakout)' },
+  { en: /\bfile transfer and execution\b/gi, pl: 'przesłanie i uruchomienie plików' },
   { en: /\bcode execution\b/gi, pl: 'wykonanie dowolnego kodu' },
   { en: /\bcommand injection\b/gi, pl: 'wstrzyknięcie poleceń (Command Injection)' },
+  { en: /\bstatic code injection\b/gi, pl: 'statyczne wstrzyknięcie kodu (Code Injection)' },
   { en: /\bSQL injection\b/gi, pl: 'wstrzyknięcie kodu SQL (SQL Injection)' },
+  { en: /\bprivilege escalation attack\b/gi, pl: 'atak eskalacji uprawnień' },
+  { en: /\bescalate privileges locally up to SYSTEM\b/gi, pl: 'lokalne podniesienie uprawnień do poziomu SYSTEM' },
+  { en: /\belevate privileges locally\b/gi, pl: 'lokalne podniesienie uprawnień' },
   { en: /\bprivilege escalation\b/gi, pl: 'eskalację uprawnień (Privilege Escalation)' },
   { en: /\belevation of privilege\b/gi, pl: 'podniesienie uprawnień (Elevation of Privilege)' },
   { en: /\bpath traversal\b/gi, pl: 'przejście przez ścieżkę (Path Traversal)' },
   { en: /\bdirectory traversal\b/gi, pl: 'przejście przez ścieżkę katalogów (Directory Traversal)' },
+  { en: /\bdenial of service \(dos\) condition\b/gi, pl: 'stan odmowy usługi (DoS)' },
   { en: /\bdenial of service\b/gi, pl: 'odmowę usługi (Denial of Service - DoS)' },
   { en: /\bdistributed denial of service\b/gi, pl: 'rozproszoną odmowę usługi (DDoS)' },
+  { en: /\bauthentication bypass using an alternate path or channel\b/gi, pl: 'ominięcie uwierzytelnienia przez alternatywny kanał (Auth Bypass)' },
   { en: /\bauthentication bypass\b/gi, pl: 'ominięcie uwierzytelnienia (Authentication Bypass)' },
+  { en: /\bauthentication-bypass\b/gi, pl: 'ominięcie uwierzytelnienia (Authentication Bypass)' },
   { en: /\bimproper authentication\b/gi, pl: 'nieprawidłowe uwierzytelnienie (Improper Authentication)' },
+  { en: /\bmissing authentication enforcement\b/gi, pl: 'brak egzekwowania uwierzytelnienia' },
+  { en: /\bmissing authentication for critical function\b/gi, pl: 'brak uwierzytelnienia dla funkcji krytycznej' },
+  { en: /\bmissing authentication\b/gi, pl: 'brak uwierzytelnienia' },
+  { en: /\bincorrect authorization\b/gi, pl: 'nieprawidłową autoryzację (Incorrect Authorization)' },
   { en: /\bmissing authorization\b/gi, pl: 'brak weryfikacji uprawnień (Missing Authorization)' },
   { en: /\bimproper authorization\b/gi, pl: 'nieprawidłową autoryzację (Improper Authorization)' },
   { en: /\bimproper privilege management\b/gi, pl: 'nieprawidłowe zarządzanie uprawnieniami' },
+  { en: /\bout-of-bounds read and write\b/gi, pl: 'odczyt i zapis poza granicami bufora' },
   { en: /\bout-of-bounds write\b/gi, pl: 'zapis poza granicami bufora (Out-of-bounds Write)' },
+  { en: /\bout of bounds write\b/gi, pl: 'zapis poza granicami bufora (Out-of-bounds Write)' },
   { en: /\bout-of-bounds read\b/gi, pl: 'odczyt poza granicami bufora (Out-of-bounds Read)' },
+  { en: /\bout of bounds read\b/gi, pl: 'odczyt poza granicami bufora (Out-of-bounds Read)' },
+  { en: /\bheap-based buffer overflow\b/gi, pl: 'przepełnienie bufora na stercie (Heap Buffer Overflow)' },
+  { en: /\bheap-based\b/gi, pl: 'oparte na stercie' },
   { en: /\bbuffer overflow\b/gi, pl: 'przepełnienie bufora (Buffer Overflow)' },
   { en: /\bheap overflow\b/gi, pl: 'przepełnienie sterty (Heap Overflow)' },
   { en: /\bstack overflow\b/gi, pl: 'przepełnienie stosu (Stack Overflow)' },
@@ -6155,35 +6182,202 @@ const CLIENT_CVE_GLOSSARY = [
   { en: /\buse-after-free\b/gi, pl: 'użycie pamięci po zwolnieniu (Use-After-Free)' },
   { en: /\btype confusion\b/gi, pl: 'błąd konwersji typów (Type Confusion)' },
   { en: /\bcross-site scripting\b/gi, pl: 'Cross-Site Scripting (XSS)' },
+  { en: /\bserver-side request forgery \(ssrf\)\b/gi, pl: 'Server-Side Request Forgery (SSRF)' },
   { en: /\bserver-side request forgery\b/gi, pl: 'Server-Side Request Forgery (SSRF)' },
   { en: /\bsecurity feature bypass\b/gi, pl: 'obejście mechanizmów bezpieczeństwa' },
   { en: /\bsecurity bypass\b/gi, pl: 'ominięcie zabezpieczeń' },
   { en: /\bmemory corruption\b/gi, pl: 'uszkodzenie pamięci (Memory Corruption)' },
   { en: /\binformation disclosure\b/gi, pl: 'nieuprawnione ujawnienie informacji' },
-  { en: /\barbitrary file read\b/gi, pl: 'odczyt dowolnych plików' },
-  { en: /\barbitrary file upload\b/gi, pl: 'przesłanie dowolnych plików' },
-  { en: /\barbitrary file write\b/gi, pl: 'zapis dowolnych plików' },
+  { en: /\bkernel memory disclosure\b/gi, pl: 'ujawnienie pamięci jądra' },
+  { en: /\bunspecified vulnerability\b/gi, pl: 'bliżej nieokreśloną podatność' },
+  { en: /\bunspecified\b/gi, pl: 'bliżej nieokreśloną' },
   { en: /\barbitrary file\b/gi, pl: 'dowolny plik' },
   { en: /\barbitrary files\b/gi, pl: 'dowolne pliki' },
   { en: /\bcontainer breakout\b/gi, pl: 'ucieczkę z kontenera (Container Breakout)' },
   { en: /\bcontainer escape\b/gi, pl: 'ucieczkę z kontenera (Container Escape)' },
   { en: /\bleaky file descriptor\b/gi, pl: 'wyciek deskryptora pliku (Leaky File Descriptor)' },
+  { en: /\bunauthenticated remote threat actor\b/gi, pl: 'nieuwierzytelnionemu zdalnemu podmiotowi zagrażającemu' },
+  { en: /\bunauthenticated threat actor\b/gi, pl: 'nieuwierzytelnionemu podmiotowi zagrażającemu' },
   { en: /\bunauthenticated remote attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu zdalnemu' },
+  { en: /\bunauthenticated, remote attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu zdalnemu' },
+  { en: /\bremote unauthenticated attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu zdalnemu' },
   { en: /\bunauthenticated attacker\b/gi, pl: 'nieuwierzytelnionemu atakującemu' },
   { en: /\bunauthenticated caller\b/gi, pl: 'nieuwierzytelnionemu wywołującemu' },
   { en: /\bunauthenticated user\b/gi, pl: 'nieuwierzytelnionemu użytkownikowi' },
   { en: /\bunauthenticated\b/gi, pl: 'nieuwierzytelniony' },
+  { en: /\bremote authenticated attacker\b/gi, pl: 'uwierzytelnionemu atakującemu zdalnemu' },
   { en: /\bauthenticated user\b/gi, pl: 'uwierzytelnionemu użytkownikowi' },
   { en: /\bauthenticated attacker\b/gi, pl: 'uwierzytelnionemu atakującemu' },
   { en: /\bauthenticated\b/gi, pl: 'uwierzytelniony' },
+  { en: /\bremote attacker\b/gi, pl: 'zdalnemu atakującemu' },
+  { en: /\blocal attacker\b/gi, pl: 'lokalnemu atakującemu' },
+  { en: /\ban attacker\b/gi, pl: 'atakującemu' },
+  { en: /\ban attacked\b/gi, pl: 'atakującemu' },
+  { en: /\bwith root privileges\b/gi, pl: 'z uprawnieniami roota (administratora)' },
+  { en: /\bwith administrative privileges\b/gi, pl: 'z uprawnieniami administratora' },
+  { en: /\bwith elevated privileges\b/gi, pl: 'z podwyższonymi uprawnieniami' },
+  { en: /\bwith root access\b/gi, pl: 'z dostępem roota (uprawnieniami administratora)' },
   { en: /\broot privileges\b/gi, pl: 'uprawnieniami roota (administratora)' },
   { en: /\badministrative privileges\b/gi, pl: 'uprawnieniami administratora' },
   { en: /\belevated privileges\b/gi, pl: 'podwyższonymi uprawnieniami' },
+  { en: /\broot access\b/gi, pl: 'dostęp roota (uprawnienia administratora)' },
   { en: /\bsensitive resources\b/gi, pl: 'poufnych zasobów' },
   { en: /\bsensitive data\b/gi, pl: 'poufnych danych' },
   { en: /\bsensitive information\b/gi, pl: 'poufnych informacji' },
   { en: /\bzero-day vulnerability\b/gi, pl: 'podatność zero-day (luka dnia zerowego)' }
 ];
+
+const CLIENT_CVE_PHRASES = [
+  { en: /\bvia IPv6 networking subsystem\b/gi, pl: 'za pośrednictwem podsystemu sieciowego IPv6' },
+  { en: /\bvia an? alternate path or channel\b/gi, pl: 'za pośrednictwem alternatywnej ścieżki lub kanału' },
+  { en: /\binvolving an alternate path or channel\b/gi, pl: 'wykorzystującą alternatywną ścieżkę lub kanał' },
+  { en: /\bvia a crafted HTML page\b/gi, pl: 'za pośrednictwem spreparowanej strony HTML' },
+  { en: /\bvia crafted HTML page\b/gi, pl: 'za pośrednictwem spreparowanej strony HTML' },
+  { en: /\bvia specially crafted packets\b/gi, pl: 'poprzez specjalnie spreparowane pakiety' },
+  { en: /\bvia crafted packets\b/gi, pl: 'poprzez spreparowane pakiety' },
+  { en: /\binside the sandbox\b/gi, pl: 'wewnątrz piaskownicy (sandbox)' },
+  { en: /\binside a sandbox\b/gi, pl: 'wewnątrz piaskownicy (sandbox)' },
+  { en: /\bon an affected device\b/gi, pl: 'na podatnym urządzeniu' },
+  { en: /\bon an affected system\b/gi, pl: 'na podatnym systemie' },
+  { en: /\bto an affected system\b/gi, pl: 'do podatnego systemu' },
+  { en: /\bto an affected device\b/gi, pl: 'do podatnego urządzenia' },
+  { en: /\bto the underlying operating system\b/gi, pl: 'do bazowego systemu operacyjnego' },
+  { en: /\bthrough an active remote sessions?\b/gi, pl: 'poprzez aktywną sesję zdalną' },
+  { en: /\bwithout authorization or host confirmation\b/gi, pl: 'bez autoryzacji ani potwierdzenia przez hosta' },
+  { en: /\bwithout authorization\b/gi, pl: 'bez autoryzacji' },
+  { en: /\band other products using Linux\b/gi, pl: 'oraz innych rozwiązań wykorzystujących jądro Linux' },
+  { en: /\band other products using\b/gi, pl: 'oraz innych rozwiązań wykorzystujących' },
+  { en: /\bincluding, but not limited to,\b/gi, pl: 'w tym między innymi' },
+  { en: /\bincluding but not limited to,\b/gi, pl: 'w tym między innymi' },
+  { en: /\bincluding but not limited to\b/gi, pl: 'w tym między między innymi' },
+  { en: /\bmultiple web browsers that utilize\b/gi, pl: 'wiele przeglądarek internetowych wykorzystujących' },
+  { en: /\bnetworking subsystem\b/gi, pl: 'podsystem sieciowy' }
+];
+
+const CLIENT_CVE_TITLE_PATTERNS = [
+  { en: /\bUnspecified Vulnerability$/i, pl: 'bliżej nieokreślona' },
+  { en: /\bRemote Code Execution Vulnerability$/i, pl: 'zdalne wykonanie kodu (RCE)' },
+  { en: /\bCommand Injection Vulnerability$/i, pl: 'wstrzyknięcie poleceń (Command Injection)' },
+  { en: /\bStatic Code Injection Vulnerability$/i, pl: 'statyczne wstrzyknięcie kodu (Code Injection)' },
+  { en: /\bHeap-Based Buffer Overflow Vulnerability$/i, pl: 'przepełnienie bufora na stercie (Heap Buffer Overflow)' },
+  { en: /\bHeap-based Buffer Overflow Vulnerability$/i, pl: 'przepełnienie bufora na stercie (Heap Buffer Overflow)' },
+  { en: /\bOut of Bounds Write Vulnerability$/i, pl: 'zapis poza granicami bufora (Out-of-Bounds Write)' },
+  { en: /\bOut-of-bounds Write Vulnerability$/i, pl: 'zapis poza granicami bufora (Out-of-Bounds Write)' },
+  { en: /\bOut-of-bounds Read and Write Vulnerability$/i, pl: 'odczyt i zapis poza granicami bufora' },
+  { en: /\bOut-of-bounds Read Vulnerability$/i, pl: 'odczyt poza granicami bufora (Out-of-Bounds Read)' },
+  { en: /\bPath Traversal Vulnerability$/i, pl: 'przejście przez ścieżkę (Path Traversal)' },
+  { en: /\bDirectory Traversal Vulnerability$/i, pl: 'przejście przez ścieżkę katalogów (Directory Traversal)' },
+  { en: /\bAuthentication Bypass Using an Alternate Path or Channel Vulnerability$/i, pl: 'ominięcie uwierzytelnienia przez alternatywny kanał' },
+  { en: /\bAuthentication Bypass Vulnerability$/i, pl: 'ominięcie uwierzytelnienia (Authentication Bypass)' },
+  { en: /\bImproper Privilege Management and Missing Authorization Vulnerability$/i, pl: 'nieprawidłowe zarządzanie uprawnieniami i brak autoryzacji' },
+  { en: /\bIncorrect Authorization Vulnerability$/i, pl: 'nieprawidłowa autoryzacja' },
+  { en: /\bImproper Authentication Vulnerability$/i, pl: 'nieprawidłowe uwierzytelnienie' },
+  { en: /\bMissing Authentication for Critical Function Vulnerability$/i, pl: 'brak uwierzytelnienia dla funkcji krytycznej' },
+  { en: /\bImproper Neutralization of Special Elements Used in a Template Engine Vulnerability$/i, pl: 'wstrzyknięcie elementów w silniku szablonów (SSTI)' },
+  { en: /\bImproper Neutralization of Argument Delimiters in a Command Vulnerability$/i, pl: 'neutralizacja separatorów argumentów poleceń' },
+  { en: /\bLink Following Vulnerability$/i, pl: 'podążanie za dowiązaniami (Link Following)' },
+  { en: /\bType Confusion Vulnerability$/i, pl: 'błąd konwersji typów (Type Confusion)' },
+  { en: /\bPrivilege Escalation Vulnerability$/i, pl: 'eskalacja uprawnień (Privilege Escalation)' },
+  { en: /\bElevation of Privilege Vulnerability$/i, pl: 'podniesienie uprawnień (Elevation of Privilege)' }
+];
+
+function translateSecOpsSentenceClient(sentence) {
+  let text = (sentence || '').trim();
+  if (!text) return '';
+
+  const bpProd = text.match(/^This vulnerability (?:could affect|can impact|could impact|may affect|can affect)\s+(?:multiple\s+)?(?:products|web browsers)?(?:,?\s*including(?:,?\s*but not limited to,?)?|,\s*such as)?\s*(.+?)\.?$/i);
+  if (bpProd) {
+    let prods = bpProd[1];
+    for (const ph of CLIENT_CVE_PHRASES) prods = prods.replace(ph.en, ph.pl);
+    for (const g of CLIENT_CVE_GLOSSARY) prods = prods.replace(g.en, g.pl);
+    return `Podatność ta może dotyczyć wielu produktów, w tym między innymi ${prods}.`;
+  }
+
+  const bpImpact = text.match(/^This vulnerability (?:could affect|can impact|could impact|may affect|can affect)\s+(.+?)\.?$/i);
+  if (bpImpact) {
+    let target = bpImpact[1];
+    for (const ph of CLIENT_CVE_PHRASES) target = target.replace(ph.en, ph.pl);
+    for (const g of CLIENT_CVE_GLOSSARY) target = target.replace(g.en, g.pl);
+    return `Podatność ta może wpłynąć na ${target}.`;
+  }
+
+  const bpAttacker = text.match(/^An attacker who successfully exploit(?:ed|s) this vulnerability could\s+(.+?)\.?$/i);
+  if (bpAttacker) {
+    let consequence = bpAttacker[1];
+    for (const ph of CLIENT_CVE_PHRASES) consequence = consequence.replace(ph.en, ph.pl);
+    for (const g of CLIENT_CVE_GLOSSARY) consequence = consequence.replace(g.en, g.pl);
+    return `Atakujący, który pomyślnie wykorzysta tę podatność, może ${consequence}.`;
+  }
+
+  const bpExploit = text.match(/^Successful exploitation (?:allows|could allow|can allow)(?: for)?\s+(.+?)\.?$/i);
+  if (bpExploit) {
+    let consequence = bpExploit[1];
+    for (const ph of CLIENT_CVE_PHRASES) consequence = consequence.replace(ph.en, ph.pl);
+    for (const g of CLIENT_CVE_GLOSSARY) consequence = consequence.replace(g.en, g.pl);
+    return `Pomyślna eksploatacja podatności może umożliwić ${consequence}.`;
+  }
+
+  const bpChained = text.match(/^This vulnerability (?:can be|was|could be) chained with\s+(.+?)\.?$/i);
+  if (bpChained) {
+    let target = bpChained[1];
+    for (const ph of CLIENT_CVE_PHRASES) target = target.replace(ph.en, ph.pl);
+    for (const g of CLIENT_CVE_GLOSSARY) target = target.replace(g.en, g.pl);
+    return `Podatność ta może zostać połączona w łańcuchu ataków z ${target}.`;
+  }
+
+  const mainPattern = text.match(/^(.+?)\s+(?:contain|contains|has|is vulnerable to)\s+(?:both an? )?(.+?)\s+vulnerability(?: in (.+?))?\s+(?:that|which)\s+(?:may allow|allows|could allow|can allow for|can allow|could enable|enables)\s+(.+?)\.?$/i);
+  if (mainPattern) {
+    const [, vendorProduct, vulnType, component, consequence] = mainPattern;
+    let compPl = component ? ` w module ${component}` : '';
+    let vulnPl = vulnType;
+    for (const ph of CLIENT_CVE_PHRASES) vulnPl = vulnPl.replace(ph.en, ph.pl);
+    for (const g of CLIENT_CVE_GLOSSARY) vulnPl = vulnPl.replace(g.en, g.pl);
+
+    let vulnPhrase = vulnPl.toLowerCase().includes('bliżej nieokreślon')
+      ? 'bliżej nieokreśloną podatność'
+      : `podatność (${vulnPl.replace(/^an?\s+/i, '')})`;
+
+    let toMatch = consequence.match(/^(.+?)\s+to\s+(.+)$/i);
+    if (toMatch) {
+      let attacker = toMatch[1].replace(/^(?:an?|the)\s+/i, '');
+      let action = toMatch[2];
+      for (const ph of CLIENT_CVE_PHRASES) {
+        attacker = attacker.replace(ph.en, ph.pl);
+        action = action.replace(ph.en, ph.pl);
+      }
+      for (const g of CLIENT_CVE_GLOSSARY) {
+        attacker = attacker.replace(g.en, g.pl);
+        action = action.replace(g.en, g.pl);
+      }
+      return `Oprogramowanie ${vendorProduct} zawiera ${vulnPhrase}${compPl}, która może umożliwić ${attacker} na ${action}.`;
+    } else {
+      let action = consequence;
+      for (const ph of CLIENT_CVE_PHRASES) action = action.replace(ph.en, ph.pl);
+      for (const g of CLIENT_CVE_GLOSSARY) action = action.replace(g.en, g.pl);
+      return `Oprogramowanie ${vendorProduct} zawiera ${vulnPhrase}${compPl}, która może umożliwić ${action}.`;
+    }
+  }
+
+  let out = text;
+  for (const ph of CLIENT_CVE_PHRASES) out = out.replace(ph.en, ph.pl);
+  for (const g of CLIENT_CVE_GLOSSARY) out = out.replace(g.en, g.pl);
+  out = out.replace(/\bcontains an?\b/gi, 'zawiera')
+           .replace(/\bcontains\b/gi, 'zawiera')
+           .replace(/\bcontain an?\b/gi, 'zawierają')
+           .replace(/\bcontain\b/gi, 'zawierają')
+           .replace(/\bdue to an?\b/gi, 'wynikającą z')
+           .replace(/\bdue to\b/gi, 'z powodu')
+           .replace(/\ballowing an?\b/gi, 'umożliwiającą')
+           .replace(/\ballowing\b/gi, 'umożliwiając')
+           .replace(/\bthat allows\b/gi, 'która umożliwia')
+           .replace(/\bthat may allow\b/gi, 'która może umożliwić')
+           .replace(/\bthat could allow\b/gi, 'która mogłaby umożliwić')
+           .replace(/\bpotentially exposing\b/gi, 'potencjalnie narażając')
+           .replace(/\bmay lead to\b/gi, 'może prowadzić do')
+           .replace(/\bleads to\b/gi, 'prowadzi do')
+           .replace(/\bcould lead to\b/gi, 'może doprowadzić do');
+  return out;
+}
 
 function translateSecOpsClient(text, isRemediation = false) {
   if (!text || typeof text !== 'string') return '';
@@ -6209,59 +6403,27 @@ function translateSecOpsClient(text, isRemediation = false) {
     }
   }
 
-  const patternMatch = result.match(/^(.+?) contains (?:both an? )?(.+?) vulnerability(?: in (.+?))? that (?:may allow|allows|could allow) (.+?) to (.+?)\.?$/i);
-  if (patternMatch) {
-    const [, vendorProduct, vulnType, component, attacker, action] = patternMatch;
-    let compPl = component ? ` w module ${component}` : '';
-    let vulnPl = vulnType;
-    for (const g of CLIENT_CVE_GLOSSARY) {
-      vulnPl = vulnPl.replace(g.en, g.pl);
+  for (const t of CLIENT_CVE_TITLE_PATTERNS) {
+    if (t.en.test(result)) {
+      const product = result.replace(t.en, '').trim();
+      return `Podatność ${product}: ${t.pl}`;
     }
-    let attackerPl = attacker;
-    for (const g of CLIENT_CVE_GLOSSARY) {
-      attackerPl = attackerPl.replace(g.en, g.pl);
-    }
-    let actionPl = action;
-    actionPl = actionPl.replace(/\bexecute arbitrary code\b/gi, 'wykonanie dowolnego kodu')
-                       .replace(/\bread arbitrary files\b/gi, 'odczyt dowolnych plików')
-                       .replace(/\bachieve code execution\b/gi, 'wykonanie kodu')
-                       .replace(/\bachieve container breakout\b/gi, 'ucieczkę z kontenera (Container Breakout)')
-                       .replace(/\bfile transfer and execution\b/gi, 'przesłanie i uruchomienie plików');
-    for (const g of CLIENT_CVE_GLOSSARY) {
-      actionPl = actionPl.replace(g.en, g.pl);
-    }
-
-    return `Oprogramowanie ${vendorProduct} zawiera podatność (${vulnPl})${compPl}, która może umożliwić ${attackerPl} na ${actionPl}.`;
   }
 
   if (/Vulnerability$/i.test(result)) {
     result = result.replace(/(.+?)\s+Vulnerability$/i, 'Podatność $1');
+    for (const g of CLIENT_CVE_GLOSSARY) result = result.replace(g.en, g.pl);
+    return result;
   }
 
-  for (const item of CLIENT_CVE_GLOSSARY) {
-    result = result.replace(item.en, item.pl);
-  }
-
-  result = result.replace(/\bcontains an?\b/gi, 'zawiera')
-                 .replace(/\bdue to an?\b/gi, 'wynikającą z')
-                 .replace(/\bdue to\b/gi, 'z powodu')
-                 .replace(/\ballowing an?\b/gi, 'umożliwiającą')
-                 .replace(/\ballowing\b/gi, 'umożliwiając')
-                 .replace(/\bthat allows\b/gi, 'która umożliwia')
-                 .replace(/\bthat may allow\b/gi, 'która może umożliwić')
-                 .replace(/\bthat could allow\b/gi, 'która mogłaby umożliwić')
-                 .replace(/\bpotentially exposing\b/gi, 'potencjalnie narażając')
-                 .replace(/\bmay lead to\b/gi, 'może prowadzić do')
-                 .replace(/\bleads to\b/gi, 'prowadzi do')
-                 .replace(/\bcould lead to\b/gi, 'może doprowadzić do');
-
-  return result;
+  const sentences = result.split(/(?<=[.?!])\s+/);
+  return sentences.map(translateSecOpsSentenceClient).join(' ');
 }
 
 function getOrTranslateCveItem(item) {
   if (!item || !item.id) return { title: '', description: '', requiredAction: '' };
 
-  const cacheKey = 'knowops_cve_trans_' + item.id;
+  const cacheKey = 'knowops_cve_trans_v2_' + item.id;
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -6456,6 +6618,16 @@ async function loadCveFeedData() {
     cveFeedData.lastUpdated = data.lastUpdated;
     cveFeedData.isOfflineFallback = Boolean(data.isOfflineFallback);
     cveFeedData.fallbackError = data.fallbackError || '';
+
+    // Automatyczne unieważnienie przestarzałego bufora tłumaczeń v1
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('knowops_cve_trans_CVE-')) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch (e) {}
 
     const noticeEl = document.getElementById('cveOfflineNotice');
     if (noticeEl) {

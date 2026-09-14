@@ -1663,12 +1663,29 @@ test('35. Client-Side Translation Engine (Koncepcja A): reguły leksykonu SecOps
   assert.equal(translatedItem.translatedDescription.includes('Oprogramowanie Palo Alto Networks PAN-OS zawiera podatność'), true);
   assert.equal(translatedItem.translatedRequiredAction.includes('Zastosować oficjalne aktualizacje zgodnie z zaleceniami producenta.'), true);
 
-  // 6. Weryfikacja kodu klienta w public/app.js i index.html
+  // 6. Weryfikacja wielozdaniowego opisu i przypadku Linux Kernel IPv6 (CVE-2026-53362)
+  const linuxKernelItem = {
+    id: 'CVE-2026-53362',
+    title: 'Linux Kernel Unspecified Vulnerability',
+    description: 'Linux Kernel contains an unspecified vulnerability that can allow for privilege escalation via IPv6 networking subsystem. This vulnerability can impact multiple products, including but not limited to Suse, Red Hat, and other products using Linux.',
+    requiredAction: 'Apply mitigations in accordance with vendor instructions... discontinue use of the product if mitigations are unavailable.'
+  };
+  const translatedLinuxItem = translateCveRecord(linuxKernelItem);
+  assert.equal(translatedLinuxItem.translatedTitle.includes('Podatność Linux Kernel: bliżej nieokreślona'), true);
+  assert.equal(translatedLinuxItem.translatedDescription.includes('zawiera bliżej nieokreśloną podatność'), true);
+  assert.equal(translatedLinuxItem.translatedDescription.includes('za pośrednictwem podsystemu sieciowego IPv6'), true);
+  assert.equal(translatedLinuxItem.translatedDescription.includes('w tym między innymi'), true);
+  assert.equal(translatedLinuxItem.translatedDescription.includes('oraz innych rozwiązań wykorzystujących jądro Linux'), true);
+  assert.equal(translatedLinuxItem.translatedRequiredAction.includes('Zastosować środki mitygujące zgodnie z oficjalnymi instrukcjami producenta oprogramowania.'), true);
+
+  // 7. Weryfikacja kodu klienta w public/app.js i index.html
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
   assert.equal(appJs.includes('CLIENT_CVE_GLOSSARY'), true);
+  assert.equal(appJs.includes('CLIENT_CVE_PHRASES'), true);
+  assert.equal(appJs.includes('CLIENT_CVE_TITLE_PATTERNS'), true);
   assert.equal(appJs.includes('function translateSecOpsClient'), true);
   assert.equal(appJs.includes('function getOrTranslateCveItem'), true);
-  assert.equal(appJs.includes('knowops_cve_trans_'), true);
+  assert.equal(appJs.includes('knowops_cve_trans_v2_'), true);
   assert.equal(appJs.includes('knowops_cve_auto_translate'), true);
   assert.equal(appJs.includes('window.handleCveTranslateToggle'), true);
   assert.equal(appJs.includes('window.toggleCveItemLanguage'), true);
