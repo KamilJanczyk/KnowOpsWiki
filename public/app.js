@@ -545,6 +545,7 @@ async function renderSidebar() {
     const isRaidActive = (currentHash === 'tool/raid');
     const isMonitorActive = (currentHash === 'tool/monitor');
     const isRssActive = (currentHash === 'tool/rss');
+    const isCveActive = (currentHash === 'tool/cve');
     const isInstrukcjaActive = (currentHash === 'tool/instrukcja');
 
     sidebarNav.innerHTML = `
@@ -555,6 +556,12 @@ async function renderSidebar() {
         <a href="#/notes" class="sidebar-tile-btn ${isNotesActive ? 'active' : ''}">
           <span class="label">Szybkie Notatki</span>
         </a>
+        <a href="#/tool/cve" class="sidebar-tile-btn ${isCveActive ? 'active' : ''}">
+          <span class="label">Radar Podatności CVE</span>
+        </a>
+        <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}">
+          <span class="label">Biuletyn RSS SecOps</span>
+        </a>
         <a href="#/tool/passgen" class="sidebar-tile-btn ${isPassgenActive ? 'active' : ''}">
           <span class="label">Hasłomat SecOps</span>
         </a>
@@ -563,9 +570,6 @@ async function renderSidebar() {
         </a>
         <a href="#/tool/raid" class="sidebar-tile-btn ${isRaidActive ? 'active' : ''}">
           <span class="label">Kalkulator RAID & ZFS</span>
-        </a>
-        <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}">
-          <span class="label">Biuletyn RSS SecOps</span>
         </a>
         <a href="#/tool/monitor" class="sidebar-tile-btn ${isMonitorActive ? 'active' : ''}">
           <span class="label">Monitor Serwera</span>
@@ -867,6 +871,11 @@ async function handleHashNavigation() {
   if (hash === 'tool/monitor') {
     selectCategory('kanban_board', '');
     renderServerMonitor();
+    return;
+  }
+  if (hash === 'tool/cve') {
+    selectCategory('kanban_board', '');
+    renderCveRadar();
     return;
   }
   if (hash === 'tool/rss') {
@@ -6118,4 +6127,767 @@ window.deleteScratchpadCheckItem = function(id) {
   window.renderScratchpadChecklist();
   window.saveScratchpadToServer();
 };
+
+// ================= RADAR PODATNOŚCI CVE (CISA KEV) ================= //
+
+let cveFeedData = {
+  items: [],
+  categories: {},
+  watchlist: null,
+  lastUpdated: null,
+  isOfflineFallback: false,
+  fallbackError: ''
+};
+
+let cveFilters = {
+  search: '',
+  category: 'all',
+  minSeverity: 'all',
+  onlyWatchlist: false,
+  onlyRansomware: false,
+  auditStatus: 'all',
+  currentPage: 1,
+  pageSize: 20
+};
+
+let cveSearchDebounceTimeout = null;
+
+async function renderCveRadar() {
+  const contentArea = document.getElementById('articleContentArea');
+  const breadcrumbArea = document.getElementById('breadcrumbArea');
+  if (breadcrumbArea) breadcrumbArea.innerHTML = 'Pulpit &gt; Radar Podatności CVE (CISA KEV / NVD)';
+
+  contentArea.innerHTML = `
+    <div class="cve-radar-wrapper" style="max-width:1100px; line-height:1.5;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px; border-bottom:1px solid #27272a; padding-bottom:14px;">
+        <div>
+          <h2 style="color:var(--sw-gold); margin:0 0 6px 0; text-transform:uppercase; font-size:1.3rem; letter-spacing:0.5px;">RADAR PODATNOŚCI CVE (CISA KEV)</h2>
+          <p style="font-size:0.78rem; color:#aaa; margin:0;">
+            Katalog aktywnie eksploitowanych luk bezpieczeństwa (Known Exploited Vulnerabilities) zintegrowany z rejestrem audytu oraz procedurami Kanban.
+          </p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button class="btn-action" id="cveRefreshBtn" onclick="window.refreshCveFeedOnline()" style="font-size:0.75rem; padding:6px 14px;">
+            Odśwież bazę CISA
+          </button>
+          <button class="btn-secondary" onclick="window.openCveWatchlistModal()" style="font-size:0.75rem; padding:6px 14px; border-color:#3b82f6; color:#93c5fd;">
+            Mój Stos Technologiczny
+          </button>
+        </div>
+      </div>
+
+      <div id="cveOfflineNotice" style="display:none; background:#451a03; border:1px solid #d97706; border-radius:4px; padding:8px 12px; margin-bottom:12px; font-size:0.75rem; color:#fef3c7;">
+        Tryb autonomiczny: Baza podatności CVE działa w oparciu o wbudowany katalog awaryjny lub bufor dyskowy.
+      </div>
+
+      <!-- Pasek metryk KPI SecOps -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:16px;">
+        <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:10px 14px;">
+          <div style="font-size:0.68rem; color:#888; text-transform:uppercase; font-weight:600;">Aktywne KEV (CISA)</div>
+          <div id="cveMetricTotal" style="font-size:1.3rem; font-weight:700; color:#fff; margin-top:2px;">-</div>
+        </div>
+        <div style="background:#111; border:1px solid #450a0a; border-radius:6px; padding:10px 14px;">
+          <div style="font-size:0.68rem; color:#f87171; text-transform:uppercase; font-weight:600;">Krytyczne (&ge; 9.0)</div>
+          <div id="cveMetricCritical" style="font-size:1.3rem; font-weight:700; color:#ef4444; margin-top:2px;">-</div>
+        </div>
+        <div style="background:#111; border:1px solid #581c87; border-radius:6px; padding:10px 14px;">
+          <div style="font-size:0.68rem; color:#c084fc; text-transform:uppercase; font-weight:600;">Kampanie Ransomware</div>
+          <div id="cveMetricRansomware" style="font-size:1.3rem; font-weight:700; color:#a855f7; margin-top:2px;">-</div>
+        </div>
+        <div style="background:#111; border:1px solid #1e3a8a; border-radius:6px; padding:10px 14px;">
+          <div style="font-size:0.68rem; color:#93c5fd; text-transform:uppercase; font-weight:600;">Mój Stos (Dopasowane)</div>
+          <div id="cveMetricWatchlist" style="font-size:1.3rem; font-weight:700; color:#38bdf8; margin-top:2px;">-</div>
+        </div>
+        <div style="background:#111; border:1px solid #064e3b; border-radius:6px; padding:10px 14px;">
+          <div style="font-size:0.68rem; color:#6ee7b7; text-transform:uppercase; font-weight:600;">Załatane / W toku</div>
+          <div id="cveMetricAudited" style="font-size:1.3rem; font-weight:700; color:#10b981; margin-top:2px;">-</div>
+        </div>
+      </div>
+
+      <!-- Panel Filtrów -->
+      <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:12px 14px; margin-bottom:16px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:10px;">
+          <div>
+            <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">WYSZUKAJ PODATNOŚĆ:</label>
+            <input type="text" id="cveSearchInput" placeholder="Szukaj po CVE, producencie, oprogramowaniu..." oninput="window.handleCveSearchInput(this.value)" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">KATEGORIA TECHNOLOGICZNA:</label>
+            <select id="cveCategorySelect" onchange="window.handleCveCategoryChange(this.value)" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              <option value="all">Wszystkie kategorie</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">MINIMALNY POZIOM ZAGROŻENIA:</label>
+            <select id="cveSeveritySelect" onchange="window.handleCveSeverityChange(this.value)" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              <option value="all">Wszystkie poziomy krytyczności</option>
+              <option value="high">Wysokie i Krytyczne (&ge; 7.0)</option>
+              <option value="critical">Tylko Krytyczne (&ge; 9.0)</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">STATUS AUDYTU OPERACYJNEGO:</label>
+            <select id="cveAuditStatusSelect" onchange="window.handleCveAuditStatusChange(this.value)" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              <option value="all">Wszystkie statusy audytu</option>
+              <option value="unreviewed">Do zbadania</option>
+              <option value="in_progress">W trakcie mitygacji (Kanban)</option>
+              <option value="mitigated">Załatane / Zaaplikowano łatę</option>
+              <option value="not_applicable">Nie dotyczy środowiska</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #222; padding-top:10px; margin-top:6px;">
+          <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; color:#e4e4e7;">
+              <input type="checkbox" id="cveWatchlistToggle" onchange="window.handleCveWatchlistToggle(this.checked)" style="cursor:pointer; width:14px; height:14px;">
+              <span style="font-weight:600; color:#38bdf8;">Tylko Mój Stos Technologiczny</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.75rem; color:#e4e4e7;">
+              <input type="checkbox" id="cveRansomwareToggle" onchange="window.handleCveRansomwareToggle(this.checked)" style="cursor:pointer; width:14px; height:14px;">
+              <span style="font-weight:600; color:#c084fc;">Tylko Kampanie Ransomware</span>
+            </label>
+          </div>
+          <button class="btn-secondary" onclick="window.resetCveFilters()" style="font-size:0.7rem; padding:4px 10px;">
+            Resetuj filtry
+          </button>
+        </div>
+      </div>
+
+      <!-- Licznik wyników i paginacja -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 2px;">
+        <div id="cveResultsCountDisplay" style="font-size:0.75rem; color:#888;">
+          Ładowanie bazy CVE...
+        </div>
+        <div id="cvePaginationTop" style="display:flex; gap:6px; align-items:center;"></div>
+      </div>
+
+      <!-- Kontener listy CVE -->
+      <div id="cveItemsListContainer" style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+        <div style="background:#111; border:1px solid #27272a; padding:24px; text-align:center; color:#888; border-radius:6px; font-size:0.8rem;">
+          Pobieranie i synchronizacja podatności z katalogu CISA KEV...
+        </div>
+      </div>
+
+      <!-- Dolna paginacja -->
+      <div id="cvePaginationBottom" style="display:flex; justify-content:center; gap:8px; margin-bottom:30px;"></div>
+    </div>
+  `;
+
+  await loadCveFeedData();
+}
+
+async function loadCveFeedData() {
+  try {
+    const res = await fetch('/api/cve-feed?t=' + Date.now());
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Nie udało się załadować bazy podatności CVE.');
+    }
+
+    cveFeedData.items = data.items || [];
+    cveFeedData.categories = data.categories || {};
+    cveFeedData.watchlist = data.watchlist || null;
+    cveFeedData.lastUpdated = data.lastUpdated;
+    cveFeedData.isOfflineFallback = Boolean(data.isOfflineFallback);
+    cveFeedData.fallbackError = data.fallbackError || '';
+
+    const noticeEl = document.getElementById('cveOfflineNotice');
+    if (noticeEl) {
+      if (cveFeedData.isOfflineFallback) {
+        noticeEl.style.display = 'block';
+        if (cveFeedData.fallbackError) {
+          noticeEl.textContent = `Tryb autonomiczny: Baza podatności CVE działa w oparciu o pamięć podręczną lub wbudowany seed katalogu (${cveFeedData.fallbackError}).`;
+        }
+      } else {
+        noticeEl.style.display = 'none';
+      }
+    }
+
+    if (cveFeedData.watchlist && typeof cveFeedData.watchlist.onlyKev === 'boolean') {
+      const toggleEl = document.getElementById('cveWatchlistToggle');
+      if (toggleEl && cveFeedData.watchlist.onlyKev) {
+        toggleEl.checked = true;
+        cveFilters.onlyWatchlist = true;
+      }
+    }
+
+    populateCveCategorySelect();
+    applyCveFiltersAndRender();
+  } catch (err) {
+    const container = document.getElementById('cveItemsListContainer');
+    if (container) {
+      container.innerHTML = `
+        <div style="background:#271010; border:1px solid #7f1d1d; color:#fca5a5; padding:20px; border-radius:6px; font-size:0.8rem;">
+          Błąd podczas pobierania danych CVE: ${escapeHtml(err.message)}
+        </div>
+      `;
+    }
+  }
+}
+
+function populateCveCategorySelect() {
+  const select = document.getElementById('cveCategorySelect');
+  if (!select) return;
+
+  let optionsHtml = '<option value="all">Wszystkie kategorie</option>';
+  for (const [key, cat] of Object.entries(cveFeedData.categories)) {
+    optionsHtml += `<option value="${escapeHtml(key)}">${escapeHtml(cat.name)}</option>`;
+  }
+  select.innerHTML = optionsHtml;
+  select.value = cveFilters.category;
+}
+
+function isItemMatchingWatchlist(item, watchlist) {
+  if (!watchlist) return true;
+
+  const categories = Array.isArray(watchlist.selectedCategories) ? watchlist.selectedCategories : [];
+  if (categories.length > 0 && categories.includes(item.category)) {
+    return true;
+  }
+
+  const vendors = Array.isArray(watchlist.selectedVendors) ? watchlist.selectedVendors : [];
+  if (vendors.length > 0) {
+    const itemVendor = (item.vendor || '').toLowerCase();
+    const itemProduct = (item.product || '').toLowerCase();
+    const itemTitle = (item.title || '').toLowerCase();
+
+    for (const v of vendors) {
+      const vNorm = v.toLowerCase().trim();
+      if (!vNorm) continue;
+      if (itemVendor.includes(vNorm) || itemProduct.includes(vNorm) || itemTitle.includes(vNorm)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function applyCveFiltersAndRender() {
+  const items = cveFeedData.items || [];
+  const watchlist = cveFeedData.watchlist || { audited: {} };
+  const audited = watchlist.audited || {};
+
+  // Obliczenie wskaźników globalnych dla bieżącej bazy
+  let totalCount = items.length;
+  let criticalCount = 0;
+  let ransomwareCount = 0;
+  let watchlistCount = 0;
+  let auditedCount = 0;
+
+  for (const item of items) {
+    if (item.score >= 9.0 || item.severity === 'CRITICAL') criticalCount++;
+    if (item.ransomware) ransomwareCount++;
+    if (isItemMatchingWatchlist(item, watchlist)) watchlistCount++;
+    const audit = audited[item.id];
+    if (audit && (audit.status === 'mitigated' || audit.status === 'in_progress')) auditedCount++;
+  }
+
+  const metricTotal = document.getElementById('cveMetricTotal');
+  const metricCritical = document.getElementById('cveMetricCritical');
+  const metricRansomware = document.getElementById('cveMetricRansomware');
+  const metricWatchlist = document.getElementById('cveMetricWatchlist');
+  const metricAudited = document.getElementById('cveMetricAudited');
+
+  if (metricTotal) metricTotal.textContent = totalCount.toLocaleString('pl-PL');
+  if (metricCritical) metricCritical.textContent = criticalCount.toLocaleString('pl-PL');
+  if (metricRansomware) metricRansomware.textContent = ransomwareCount.toLocaleString('pl-PL');
+  if (metricWatchlist) metricWatchlist.textContent = watchlistCount.toLocaleString('pl-PL');
+  if (metricAudited) metricAudited.textContent = auditedCount.toLocaleString('pl-PL');
+
+  // Filtrowanie wpisów
+  const searchQ = (cveFilters.search || '').toLowerCase().trim();
+
+  const filtered = items.filter(item => {
+    if (cveFilters.category !== 'all' && item.category !== cveFilters.category) {
+      return false;
+    }
+
+    if (cveFilters.minSeverity === 'critical' && item.score < 9.0) {
+      return false;
+    }
+    if (cveFilters.minSeverity === 'high' && item.score < 7.0) {
+      return false;
+    }
+
+    if (cveFilters.onlyRansomware && !item.ransomware) {
+      return false;
+    }
+
+    if (cveFilters.onlyWatchlist && !isItemMatchingWatchlist(item, watchlist)) {
+      return false;
+    }
+
+    const currentAuditStatus = audited[item.id] ? audited[item.id].status : 'unreviewed';
+    if (cveFilters.auditStatus !== 'all' && currentAuditStatus !== cveFilters.auditStatus) {
+      return false;
+    }
+
+    if (searchQ) {
+      const target = `${item.id} ${item.vendor} ${item.product} ${item.title} ${item.description}`.toLowerCase();
+      if (!target.includes(searchQ)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Paginacja
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / cveFilters.pageSize) || 1;
+  if (cveFilters.currentPage > totalPages) cveFilters.currentPage = totalPages;
+  if (cveFilters.currentPage < 1) cveFilters.currentPage = 1;
+
+  const startIndex = (cveFilters.currentPage - 1) * cveFilters.pageSize;
+  const pageItems = filtered.slice(startIndex, startIndex + cveFilters.pageSize);
+
+  // Aktualizacja nagłówka wyników
+  const resultsDisplay = document.getElementById('cveResultsCountDisplay');
+  if (resultsDisplay) {
+    if (totalItems === 0) {
+      resultsDisplay.textContent = 'Brak podatności spełniających wybrane kryteria.';
+    } else {
+      resultsDisplay.innerHTML = `Wyświetlanie <strong>${startIndex + 1} - ${Math.min(startIndex + cveFilters.pageSize, totalItems)}</strong> z <strong>${totalItems}</strong> dopasowanych podatności (Strona ${cveFilters.currentPage} z ${totalPages})`;
+    }
+  }
+
+  renderCvePagination(totalPages);
+  renderCveCards(pageItems, audited);
+}
+
+function renderCvePagination(totalPages) {
+  const topContainer = document.getElementById('cvePaginationTop');
+  const bottomContainer = document.getElementById('cvePaginationBottom');
+  if (!topContainer && !bottomContainer) return;
+
+  if (totalPages <= 1) {
+    if (topContainer) topContainer.innerHTML = '';
+    if (bottomContainer) bottomContainer.innerHTML = '';
+    return;
+  }
+
+  const prevDisabled = cveFilters.currentPage <= 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
+  const nextDisabled = cveFilters.currentPage >= totalPages ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
+
+  const html = `
+    <button class="btn-secondary" ${prevDisabled} onclick="window.changeCvePage(${cveFilters.currentPage - 1})" style="font-size:0.7rem; padding:3px 8px;">Poprzednia</button>
+    <span style="font-size:0.72rem; color:#a1a1aa; padding:0 4px;">${cveFilters.currentPage} / ${totalPages}</span>
+    <button class="btn-secondary" ${nextDisabled} onclick="window.changeCvePage(${cveFilters.currentPage + 1})" style="font-size:0.7rem; padding:3px 8px;">Następna</button>
+  `;
+
+  if (topContainer) topContainer.innerHTML = html;
+  if (bottomContainer) bottomContainer.innerHTML = html;
+}
+
+function renderCveCards(items, audited) {
+  const container = document.getElementById('cveItemsListContainer');
+  if (!container) return;
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div style="background:#111; border:1px solid #27272a; padding:30px; text-align:center; color:#888; border-radius:6px;">
+        <div style="font-size:0.9rem; color:#ccc; margin-bottom:6px;">Nie znaleziono żadnych podatności spełniających bieżące filtry.</div>
+        <div style="font-size:0.75rem; color:#71717a;">Zmień parametry wyszukiwania, wyczyść zapytanie lub zresetuj aktywne filtry kategorii i krytyczności.</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  for (const item of items) {
+    const cveId = escapeHtml(item.id);
+    const vendor = escapeHtml(item.vendor || '-');
+    const product = escapeHtml(item.product || '-');
+    const title = escapeHtml(item.title || item.id);
+    const desc = escapeHtml(item.description || '');
+    const action = escapeHtml(item.requiredAction || 'Zastosować aktualizacje producenta.');
+    const dateAdded = escapeHtml(item.dateAdded || '-');
+    const dueDate = escapeHtml(item.dueDate || '-');
+    const categoryName = escapeHtml(item.categoryName || 'Inne');
+    const score = typeof item.score === 'number' ? item.score.toFixed(1) : '-';
+
+    const auditInfo = audited[item.id] || { status: 'unreviewed' };
+    const currentStatus = auditInfo.status || 'unreviewed';
+
+    let severityBadgeStyle = 'background:#422006; color:#fde047; border:1px solid #eab308;';
+    let severityLabel = `ŚREDNI (${score})`;
+    if (item.score >= 9.0 || item.severity === 'CRITICAL') {
+      severityBadgeStyle = 'background:#450a0a; color:#fca5a5; border:1px solid #ef4444;';
+      severityLabel = `KRYTYCZNY (${score})`;
+    } else if (item.score >= 7.0 || item.severity === 'HIGH') {
+      severityBadgeStyle = 'background:#431407; color:#fdba74; border:1px solid #f97316;';
+      severityLabel = `WYSOKI (${score})`;
+    }
+
+    const ransomwareBadge = item.ransomware
+      ? `<span style="font-size:0.62rem; font-weight:700; background:#3b0764; color:#d8b4fe; border:1px solid #a855f7; padding:2px 6px; border-radius:3px; letter-spacing:0.4px;">KAMPANIA RANSOMWARE</span>`
+      : '';
+
+    let statusBorderColor = '#27272a';
+    let statusBadgeHtml = '<span style="font-size:0.65rem; color:#888; background:#18181b; padding:2px 6px; border-radius:3px; border:1px solid #333;">STATUS: Do zbadania</span>';
+    if (currentStatus === 'in_progress') {
+      statusBorderColor = '#1e3a8a';
+      statusBadgeHtml = '<span style="font-size:0.65rem; color:#93c5fd; background:#172554; padding:2px 6px; border-radius:3px; border:1px solid #3b82f6; font-weight:600;">STATUS: W trakcie mitygacji (Kanban)</span>';
+    } else if (currentStatus === 'mitigated') {
+      statusBorderColor = '#064e3b';
+      statusBadgeHtml = '<span style="font-size:0.65rem; color:#6ee7b7; background:#022c22; padding:2px 6px; border-radius:3px; border:1px solid #10b981; font-weight:600;">STATUS: Załatane</span>';
+    } else if (currentStatus === 'not_applicable') {
+      statusBorderColor = '#27272a';
+      statusBadgeHtml = '<span style="font-size:0.65rem; color:#a1a1aa; background:#18181b; padding:2px 6px; border-radius:3px; border:1px solid #3f3f46;">STATUS: Nie dotyczy</span>';
+    }
+
+    let kanbanBtnHtml = '';
+    if (currentStatus === 'in_progress') {
+      kanbanBtnHtml = `<button class="btn-secondary" onclick="window.location.hash='#/kanban'" style="font-size:0.72rem; padding:4px 10px; border-color:#3b82f6; color:#93c5fd;">Zadanie w toku (Otwórz Kanban)</button>`;
+    } else if (currentStatus === 'mitigated') {
+      kanbanBtnHtml = `<button class="btn-secondary" disabled style="font-size:0.72rem; padding:4px 10px; opacity:0.6; cursor:default;">Zabezpieczone</button>`;
+    } else {
+      kanbanBtnHtml = `<button class="btn-action" onclick="window.sendCveToKanban('${cveId}')" style="font-size:0.72rem; padding:4px 10px;">Przekaż do Kanban</button>`;
+    }
+
+    html += `
+      <div style="background:#111; border:1px solid ${statusBorderColor}; border-radius:6px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; transition:border-color 0.2s ease;">
+        <!-- Górny wiersz: ID, Badges, Daty -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-family:monospace; font-weight:700; color:var(--sw-gold); font-size:0.95rem; letter-spacing:0.5px;">${cveId}</span>
+            <span style="font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:3px; ${severityBadgeStyle}">${severityLabel}</span>
+            <span style="font-size:0.65rem; font-weight:600; background:#1e293b; color:#cbd5e1; border:1px solid #475569; padding:2px 6px; border-radius:3px;">${categoryName}</span>
+            ${ransomwareBadge}
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; font-size:0.68rem; color:#71717a;">
+            <span>Dodano: <strong style="color:#d4d4d8;">${dateAdded}</strong></span>
+            <span>|</span>
+            <span>Termin mitygacji: <strong style="color:#fca5a5;">${dueDate}</strong></span>
+          </div>
+        </div>
+
+        <!-- Środkowy wiersz: Produkt i Tytuł -->
+        <div>
+          <div style="font-size:0.78rem; font-weight:600; color:#e4e4e7; margin-bottom:4px;">
+            <span style="color:#93c5fd;">${vendor}</span> - <span style="color:#ffffff;">${product}</span>: ${title}
+          </div>
+          <div style="font-size:0.74rem; color:#a1a1aa; line-height:1.45;">
+            ${desc}
+          </div>
+        </div>
+
+        <!-- Zalecana akcja naprawcza -->
+        <div style="background:#18181b; border:1px solid #27272a; border-radius:4px; padding:8px 10px; font-size:0.72rem; color:#d4d4d8;">
+          <span style="color:var(--sw-gold); font-weight:600; text-transform:uppercase;">Wymagana akcja SecOps:</span> ${action}
+        </div>
+
+        <!-- Dolny pasek akcji i audytu -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #1c1c1f; padding-top:8px;">
+          <div style="display:flex; align-items:center; gap:12px; font-size:0.72rem;">
+            <a href="https://nvd.nist.gov/vuln/detail/${cveId}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8; text-decoration:none; font-weight:600;">Baza NIST NVD [zewn.]</a>
+            <a href="https://www.cve.org/CVERecord?id=${cveId}" target="_blank" rel="noopener noreferrer" style="color:#94a3b8; text-decoration:none;">Katalog CVE.org [zewn.]</a>
+            ${statusBadgeHtml}
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <label style="font-size:0.7rem; color:#71717a;">Zmień status:</label>
+            <select onchange="window.updateCveAuditStatus('${cveId}', this.value)" style="background:#18181b; border:1px solid #333; color:#fff; padding:4px 6px; border-radius:4px; font-size:0.7rem; outline:none;">
+              <option value="unreviewed" ${currentStatus === 'unreviewed' ? 'selected' : ''}>Do zbadania</option>
+              <option value="in_progress" ${currentStatus === 'in_progress' ? 'selected' : ''}>W trakcie (Kanban)</option>
+              <option value="mitigated" ${currentStatus === 'mitigated' ? 'selected' : ''}>Załatane</option>
+              <option value="not_applicable" ${currentStatus === 'not_applicable' ? 'selected' : ''}>Nie dotyczy</option>
+            </select>
+            ${kanbanBtnHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+window.handleCveSearchInput = function(val) {
+  clearTimeout(cveSearchDebounceTimeout);
+  cveSearchDebounceTimeout = setTimeout(() => {
+    cveFilters.search = val.trim();
+    cveFilters.currentPage = 1;
+    applyCveFiltersAndRender();
+  }, 250);
+};
+
+window.handleCveCategoryChange = function(val) {
+  cveFilters.category = val;
+  cveFilters.currentPage = 1;
+  applyCveFiltersAndRender();
+};
+
+window.handleCveSeverityChange = function(val) {
+  cveFilters.minSeverity = val;
+  cveFilters.currentPage = 1;
+  applyCveFiltersAndRender();
+};
+
+window.handleCveAuditStatusChange = function(val) {
+  cveFilters.auditStatus = val;
+  cveFilters.currentPage = 1;
+  applyCveFiltersAndRender();
+};
+
+window.handleCveWatchlistToggle = function(checked) {
+  cveFilters.onlyWatchlist = Boolean(checked);
+  cveFilters.currentPage = 1;
+  applyCveFiltersAndRender();
+};
+
+window.handleCveRansomwareToggle = function(checked) {
+  cveFilters.onlyRansomware = Boolean(checked);
+  cveFilters.currentPage = 1;
+  applyCveFiltersAndRender();
+};
+
+window.resetCveFilters = function() {
+  cveFilters.search = '';
+  cveFilters.category = 'all';
+  cveFilters.minSeverity = 'all';
+  cveFilters.onlyWatchlist = false;
+  cveFilters.onlyRansomware = false;
+  cveFilters.auditStatus = 'all';
+  cveFilters.currentPage = 1;
+
+  const searchInput = document.getElementById('cveSearchInput');
+  const catSelect = document.getElementById('cveCategorySelect');
+  const sevSelect = document.getElementById('cveSeveritySelect');
+  const auditSelect = document.getElementById('cveAuditStatusSelect');
+  const watchToggle = document.getElementById('cveWatchlistToggle');
+  const rswToggle = document.getElementById('cveRansomwareToggle');
+
+  if (searchInput) searchInput.value = '';
+  if (catSelect) catSelect.value = 'all';
+  if (sevSelect) sevSelect.value = 'all';
+  if (auditSelect) auditSelect.value = 'all';
+  if (watchToggle) watchToggle.checked = false;
+  if (rswToggle) rswToggle.checked = false;
+
+  applyCveFiltersAndRender();
+};
+
+window.changeCvePage = function(newPage) {
+  cveFilters.currentPage = newPage;
+  applyCveFiltersAndRender();
+  const container = document.getElementById('cveItemsListContainer');
+  if (container) {
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+window.updateCveAuditStatus = async function(cveId, newStatus) {
+  try {
+    const res = await fetch('/api/cve-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cveId,
+        status: newStatus,
+        notes: `Zmieniono status audytu na: ${newStatus}`
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu statusu audytu');
+    }
+
+    if (!cveFeedData.watchlist) cveFeedData.watchlist = { audited: {} };
+    if (!cveFeedData.watchlist.audited) cveFeedData.watchlist.audited = {};
+
+    if (newStatus === 'unreviewed') {
+      delete cveFeedData.watchlist.audited[cveId];
+    } else {
+      cveFeedData.watchlist.audited[cveId] = {
+        status: newStatus,
+        notes: `Zmieniono status audytu na: ${newStatus}`,
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    applyCveFiltersAndRender();
+  } catch (err) {
+    alert('Błąd aktualizacji statusu audytu: ' + err.message);
+  }
+};
+
+window.sendCveToKanban = async function(cveId) {
+  const item = (cveFeedData.items || []).find(i => i.id === cveId);
+  if (!item) {
+    alert('Nie znaleziono danych dla podatności ' + cveId);
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/cve-to-kanban', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cveId: item.id,
+        vendor: item.vendor,
+        product: item.product,
+        title: item.title,
+        description: item.description,
+        score: item.score,
+        severity: item.severity,
+        requiredAction: item.requiredAction,
+        nvdUrl: item.nvdUrl
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd serwera podczas przekazywania do Kanban');
+    }
+
+    if (!cveFeedData.watchlist) cveFeedData.watchlist = { audited: {} };
+    if (!cveFeedData.watchlist.audited) cveFeedData.watchlist.audited = {};
+    cveFeedData.watchlist.audited[cveId] = {
+      status: 'in_progress',
+      notes: `Utworzono zadanie Kanban: ${cveId}`,
+      updatedAt: new Date().toISOString()
+    };
+
+    applyCveFiltersAndRender();
+
+    if (confirm(`Utworzono zadanie mitygacji w tablicy Kanban dla ${cveId}.\n\nCzy chcesz przejść do tablicy Kanban teraz?`)) {
+      window.location.hash = '#/kanban';
+    }
+  } catch (err) {
+    alert('Błąd podczas tworzenia zadania w Kanban: ' + err.message);
+  }
+};
+
+window.refreshCveFeedOnline = async function() {
+  const btn = document.getElementById('cveRefreshBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Synchronizowanie...';
+  }
+
+  try {
+    const res = await fetch('/api/cve-refresh', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd odświeżania bazy CISA KEV');
+    }
+
+    cveFeedData.items = data.items || [];
+    cveFeedData.categories = data.categories || {};
+    cveFeedData.watchlist = data.watchlist || null;
+    cveFeedData.lastUpdated = data.lastUpdated;
+    cveFeedData.isOfflineFallback = Boolean(data.isOfflineFallback);
+    cveFeedData.fallbackError = data.fallbackError || '';
+
+    const noticeEl = document.getElementById('cveOfflineNotice');
+    if (noticeEl) {
+      noticeEl.style.display = cveFeedData.isOfflineFallback ? 'block' : 'none';
+    }
+
+    populateCveCategorySelect();
+    applyCveFiltersAndRender();
+    alert('Baza podatności CISA KEV została pomyślnie zaktualizowana.');
+  } catch (err) {
+    alert('Błąd synchronizacji ze źródłem CISA: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Odśwież bazę CISA';
+    }
+  }
+};
+
+window.openCveWatchlistModal = function() {
+  const overlay = document.getElementById('cveWatchlistModalOverlay');
+  if (!overlay) return;
+  const container = document.getElementById('cveWatchlistCategoriesContainer');
+  const vendorsInput = document.getElementById('cveWatchlistVendorsInput');
+  const minScoreSelect = document.getElementById('cveWatchlistMinScoreSelect');
+  const defaultFilterCheck = document.getElementById('cveWatchlistDefaultFilterCheck');
+
+  const watchlist = cveFeedData.watchlist || {
+    selectedCategories: Object.keys(cveFeedData.categories),
+    selectedVendors: ['VMware', 'Docker', 'Linux', 'Nginx', 'Apache', 'Microsoft', 'Fortinet', 'Palo Alto', 'Cisco', 'OpenSSH'],
+    minScore: 0,
+    onlyKev: false
+  };
+
+  if (container) {
+    let catHtml = '';
+    for (const [key, cat] of Object.entries(cveFeedData.categories)) {
+      const isChecked = (watchlist.selectedCategories || []).includes(key);
+      catHtml += `
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#e4e4e7; cursor:pointer;">
+          <input type="checkbox" name="cveWatchlistCategory" value="${escapeHtml(key)}" ${isChecked ? 'checked' : ''} style="cursor:pointer;">
+          <span>${escapeHtml(cat.name)}</span>
+        </label>
+      `;
+    }
+    container.innerHTML = catHtml;
+  }
+
+  if (vendorsInput) {
+    vendorsInput.value = (watchlist.selectedVendors || []).join(', ');
+  }
+  if (minScoreSelect) {
+    minScoreSelect.value = String(watchlist.minScore || 0);
+  }
+  if (defaultFilterCheck) {
+    defaultFilterCheck.checked = Boolean(watchlist.onlyKev);
+  }
+
+  overlay.style.display = 'flex';
+};
+
+window.closeCveWatchlistModal = function() {
+  const overlay = document.getElementById('cveWatchlistModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.saveCveWatchlistModal = async function() {
+  const overlay = document.getElementById('cveWatchlistModalOverlay');
+  const catBoxes = document.querySelectorAll('input[name="cveWatchlistCategory"]:checked');
+  const selectedCategories = Array.from(catBoxes).map(cb => cb.value);
+
+  const vendorsInput = document.getElementById('cveWatchlistVendorsInput');
+  const selectedVendors = (vendorsInput ? vendorsInput.value : '')
+    .split(',')
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  const minScoreSelect = document.getElementById('cveWatchlistMinScoreSelect');
+  const minScore = minScoreSelect ? parseFloat(minScoreSelect.value) : 0;
+
+  const defaultFilterCheck = document.getElementById('cveWatchlistDefaultFilterCheck');
+  const onlyKev = defaultFilterCheck ? defaultFilterCheck.checked : false;
+
+  const payload = {
+    selectedCategories,
+    selectedVendors,
+    minScore,
+    onlyKev
+  };
+
+  try {
+    const res = await fetch('/api/cve-watchlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu konfiguracji');
+    }
+    cveFeedData.watchlist = data.watchlist;
+    if (overlay) overlay.style.display = 'none';
+    alert('Konfiguracja Mojego Stosu Technologicznego została pomyślnie zapisana.');
+    applyCveFiltersAndRender();
+  } catch (err) {
+    alert('Nie udało się zapisać konfiguracji: ' + err.message);
+  }
+};
+
 

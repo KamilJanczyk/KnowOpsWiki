@@ -7,6 +7,7 @@ import os from 'node:os';
 import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR, initBackupScheduler, executeBackupJob, getBackupSchedulerStatus, checkBackupsDirWritable } from './backup_wiki.mjs';
 import { generateNavigation, extractMarkdownTags } from './build_navigation.mjs';
 import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
+import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus } from './cve_engine.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -1912,6 +1913,105 @@ const server = http.createServer(async (req, res) => {
           console.error('[RSS Engine] Błąd pobierania feeda:', e);
           return sendJson(500, { error: 'Nie udało się pobrać feeda RSS.' });
         }
+      }
+    }
+
+    // ================= RADAR PODATNOŚCI CVE ================= //
+    if (normPath === '/api/cve-feed' && req.method === 'GET') {
+      try {
+        const feed = await fetchCveFeed(false);
+        const watchlist = getCveWatchlist();
+        return sendJson(200, { success: true, ...feed, watchlist });
+      } catch (err) {
+        console.error('[CVE API Error]', err);
+        return sendJson(500, { error: 'Nie udało się załadować bazy podatności CVE.' });
+      }
+    }
+
+    if (normPath === '/api/cve-refresh' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      try {
+        const feed = await fetchCveFeed(true);
+        const watchlist = getCveWatchlist();
+        return sendJson(200, { success: true, message: 'Baza podatności CISA KEV została pomyślnie zaktualizowana.', ...feed, watchlist });
+      } catch (err) {
+        console.error('[CVE API Refresh Error]', err);
+        return sendJson(500, { error: 'Błąd podczas odświeżania bazy CVE ze źródła CISA.' });
+      }
+    }
+
+    if (normPath === '/api/cve-watchlist') {
+      if (req.method === 'GET') {
+        const watchlist = getCveWatchlist();
+        return sendJson(200, { success: true, watchlist });
+      }
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const updated = saveCveWatchlist(body);
+        return sendJson(200, { success: true, watchlist: updated });
+      }
+    }
+
+    if (normPath === '/api/cve-status' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { cveId, status, notes } = body;
+      if (!cveId) return sendJson(400, { error: 'Wymagany parametr cveId' });
+      try {
+        const resData = setCveAuditStatus(cveId, status, notes);
+        return sendJson(200, { success: true, status: resData });
+      } catch (err) {
+        return sendJson(400, { error: err.message });
+      }
+    }
+
+    if (normPath === '/api/cve-to-kanban' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { cveId, vendor, product, title, description, score, severity, requiredAction, nvdUrl } = body;
+      if (!cveId) return sendJson(400, { error: 'Wymagany parametr cveId' });
+
+      try {
+        const kanbanFile = path.join(DATA_DIR, 'kanban_data.json');
+        let kanbanData = { tasks: [] };
+        if (fs.existsSync(kanbanFile)) {
+          try {
+            kanbanData = JSON.parse(fs.readFileSync(kanbanFile, 'utf8'));
+            if (!Array.isArray(kanbanData.tasks)) kanbanData.tasks = [];
+          } catch (e) {
+            kanbanData = { tasks: [] };
+          }
+        }
+
+        const taskTitle = `[${cveId}] Mitygacja ${vendor ? vendor + ' ' : ''}${product || ''}`.trim();
+        const taskPriority = severity === 'CRITICAL' ? 'critical' : (severity === 'HIGH' ? 'high' : 'medium');
+        const taskDesc = `Podatność: ${cveId}\nProdukt: ${vendor || '-'} ${product || ''}\nKrytyczność: ${severity || 'HIGH'} (CVSS: ${score || '-'})\nWymagane działanie: ${requiredAction || 'Aktualizacja oprogramowania'}\nSzczegóły NVD: ${nvdUrl || 'https://nvd.nist.gov/vuln/detail/' + cveId}\n\nOpis techniczny:\n${description || title || ''}`;
+
+        const newTask = {
+          id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          title: taskTitle,
+          description: taskDesc,
+          priority: taskPriority,
+          status: 'todo',
+          subtasks: [
+            { id: `sub_${Date.now()}_1`, text: 'Weryfikacja występowania podatności w środowisku', done: false },
+            { id: `sub_${Date.now()}_2`, text: 'Wykonanie backupu i zastosowanie poprawki / patcha', done: false },
+            { id: `sub_${Date.now()}_3`, text: 'Testy weryfikacyjne i wdrożenie produkcyjne', done: false }
+          ],
+          createdAt: new Date().toISOString()
+        };
+
+        kanbanData.tasks.unshift(newTask);
+        atomicWriteFile(kanbanFile, JSON.stringify(kanbanData, null, 2), 'utf8');
+
+        // Automatyczne ustawienie statusu audytu w watchlist na in_progress
+        setCveAuditStatus(cveId, 'in_progress', `Utworzono zadanie w Kanbanie: ${newTask.title}`);
+
+        return sendJson(200, { success: true, taskId: newTask.id, message: `Utworzono zadanie w Kanbanie dla ${cveId}.` });
+      } catch (err) {
+        console.error('[CVE to Kanban Error]', err);
+        return sendJson(500, { error: `Błąd podczas tworzenia zadania w Kanban: ${err.message}` });
       }
     }
 

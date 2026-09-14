@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
 import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler, parseScheduleTime, computeNextRunTime } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
+import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, fetchCveFeed, CVE_CATEGORIES } from '../cve_engine.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
 function isValidImageMagicBytes(buf, ext) {
@@ -1513,4 +1514,102 @@ test('Scheduled Backups & Permissions Engine: Weryfikacja schedulera cyklicznych
   assert.equal(indexContent.includes('id="backupsPermWarning"'), true);
 
   stopBackupScheduler();
+});
+
+test('34. Radar Podatności CVE (CISA KEV): kategoryzacja regułowa, silnik pobierania, buforowanie, Watchlist i integracja z Kanbanem', async () => {
+  // 1. Kategoryzacja regułowa technologii
+  assert.equal(categorizeVulnerability('VMware', 'vCenter Server', 'Remote code execution in DCERPC'), 'virtualization');
+  assert.equal(categorizeVulnerability('Docker', 'runc', 'Container breakout vulnerability'), 'containers');
+  assert.equal(categorizeVulnerability('Linux', 'Kernel', 'Local privilege escalation vulnerability'), 'os_linux');
+  assert.equal(categorizeVulnerability('Microsoft', 'Windows Server', 'Active Directory Kerberos security bypass'), 'identity');
+  assert.equal(categorizeVulnerability('OpenSSH', 'sshd', 'regreSSHion remote code execution'), 'web_services');
+  assert.equal(categorizeVulnerability('Palo Alto Networks', 'PAN-OS', 'GlobalProtect command injection'), 'network_firewall');
+  assert.equal(categorizeVulnerability('PostgreSQL Global Development Group', 'PostgreSQL', 'Buffer overflow'), 'databases');
+  assert.equal(categorizeVulnerability('UnknownVendor', 'UnknownApp', 'Generic bug without infra keywords'), 'other');
+
+  // 2. Zarządzanie obserwowanym stosem technologicznym (Watchlist)
+  const initialWatchlist = getCveWatchlist();
+  assert.equal(Array.isArray(initialWatchlist.selectedCategories), true);
+  assert.equal(Array.isArray(initialWatchlist.selectedVendors), true);
+  assert.equal(typeof initialWatchlist.audited, 'object');
+
+  const updatedWatchlist = saveCveWatchlist({
+    selectedCategories: ['virtualization', 'containers', 'network_firewall'],
+    selectedVendors: ['VMware', 'Docker', 'Fortinet'],
+    minScore: 7.0,
+    onlyKev: true
+  });
+  assert.deepEqual(updatedWatchlist.selectedCategories, ['virtualization', 'containers', 'network_firewall']);
+  assert.deepEqual(updatedWatchlist.selectedVendors, ['VMware', 'Docker', 'Fortinet']);
+  assert.equal(updatedWatchlist.minScore, 7.0);
+  assert.equal(updatedWatchlist.onlyKev, true);
+
+  // 3. Statusy audytu podatności
+  const testCve = 'CVE-TEST-2026-9999';
+  const inProgressStatus = setCveAuditStatus(testCve, 'in_progress', 'W trakcie weryfikacji przez zespół SecOps');
+  assert.equal(inProgressStatus.status, 'in_progress');
+  assert.equal(inProgressStatus.notes.includes('W trakcie weryfikacji'), true);
+  assert.equal(typeof inProgressStatus.updatedAt, 'string');
+
+  const mitigatedStatus = setCveAuditStatus(testCve, 'mitigated', 'Zaaplikowano łatę bezpieczeństwa');
+  assert.equal(mitigatedStatus.status, 'mitigated');
+
+  assert.throws(() => {
+    setCveAuditStatus(testCve, 'invalid_audit_status');
+  }, /Nieprawidłowy status audytu/);
+
+  const resetStatus = setCveAuditStatus(testCve, 'unreviewed');
+  assert.equal(resetStatus.status, 'unreviewed');
+
+  // 4. Silnik feedu podatności i fallback offline
+  const feedResult = await fetchCveFeed(false);
+  assert.equal(typeof feedResult, 'object');
+  assert.equal(Array.isArray(feedResult.items), true);
+  assert.equal(feedResult.items.length > 0, true);
+  assert.equal(typeof feedResult.categories, 'object');
+
+  const firstItem = feedResult.items[0];
+  assert.equal(typeof firstItem.id, 'string');
+  assert.equal(firstItem.id.startsWith('CVE-'), true);
+  assert.equal(typeof firstItem.vendor, 'string');
+  assert.equal(typeof firstItem.product, 'string');
+  assert.equal(typeof firstItem.title, 'string');
+  assert.equal(typeof firstItem.description, 'string');
+  assert.equal(typeof firstItem.requiredAction, 'string');
+  assert.equal(typeof firstItem.score, 'number');
+  assert.equal(['CRITICAL', 'HIGH', 'MEDIUM'].includes(firstItem.severity), true);
+  assert.equal(firstItem.isKev, true);
+  assert.equal(typeof firstItem.category, 'string');
+  assert.equal(typeof firstItem.categoryName, 'string');
+  assert.equal(firstItem.nvdUrl.includes('nvd.nist.gov'), true);
+  assert.equal(firstItem.cveOrgUrl.includes('cve.org'), true);
+
+  // 5. Weryfikacja endpointów API i logiki integracji z Kanbanem w server.mjs
+  const serverCode = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  assert.equal(serverCode.includes('/api/cve-feed'), true);
+  assert.equal(serverCode.includes('/api/cve-refresh'), true);
+  assert.equal(serverCode.includes('/api/cve-watchlist'), true);
+  assert.equal(serverCode.includes('/api/cve-status'), true);
+  assert.equal(serverCode.includes('/api/cve-to-kanban'), true);
+
+  // 6. Weryfikacja interfejsu SPA i definicji w index.html / public/app.js
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  assert.equal(indexHtml.includes('id="cveWatchlistModalOverlay"'), true);
+  assert.equal(indexHtml.includes('id="cveWatchlistCategoriesContainer"'), true);
+  assert.equal(indexHtml.includes('id="cveWatchlistVendorsInput"'), true);
+
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  assert.equal(appJs.includes('#/tool/cve'), true);
+  assert.equal(appJs.includes('Radar Podatności CVE'), true);
+  assert.equal(appJs.includes('function renderCveRadar'), true);
+  assert.equal(appJs.includes('sendCveToKanban'), true);
+  assert.equal(appJs.includes('updateCveAuditStatus'), true);
+  assert.equal(appJs.includes('openCveWatchlistModal'), true);
+
+  // 7. Weryfikacja konfiguracji Docker
+  const dockerfile = fs.readFileSync(path.resolve('Dockerfile'), 'utf8');
+  assert.equal(dockerfile.includes('cve_engine.mjs'), true);
+
+  const dockerCompose = fs.readFileSync(path.resolve('docker-compose.yml'), 'utf8');
+  assert.equal(dockerCompose.includes('./cve_engine.mjs:/app/cve_engine.mjs:ro'), true);
 });

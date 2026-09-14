@@ -657,6 +657,55 @@
     </div>
   </div>
 
+  <!-- Modal Konfiguracji Obserwowanego Stosu Technologicznego (CVE Watchlist) -->
+  <div id="cveWatchlistModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal" style="max-width: 700px; width: 95%;">
+      <div class="modal-header">
+        <h3 style="color:var(--sw-gold);">MÓJ STOS TECHNOLOGICZNY (WATCHLIST CVE)</h3>
+        <button class="modal-close-btn" onclick="closeCveWatchlistModal()">X</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.8rem; color:#ccc; margin-bottom:14px; line-height:1.4;">
+          Skonfiguruj komponenty infrastruktury oraz producentów oprogramowania używanych w środowisku. Radar CVE pozwoli natychmiast wyodrębnić aktywne luki bezpieczeństwa (CISA KEV) dotyczące wyłącznie Twojej infrastruktury.
+        </p>
+        
+        <div style="margin-bottom:14px;">
+          <label class="modal-label" style="margin-bottom:6px;">KATEGORIE INFRASTRUKTURY:</label>
+          <div id="cveWatchlistCategoriesContainer" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px; background:#111; border:1px solid #27272a; padding:10px; border-radius:4px;">
+            <!-- Generowane dynamicznie -->
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label class="modal-label" for="cveWatchlistVendorsInput">OBSERWOWANI DOSTAWCY I PRODUKTY (rozdzielone przecinkami):</label>
+          <textarea id="cveWatchlistVendorsInput" class="modal-textarea" style="height:80px; font-family:monospace; font-size:0.75rem;" placeholder="np. VMware, Docker, Linux, Nginx, Apache, Microsoft, Fortinet, Palo Alto, Cisco, OpenSSH, PostgreSQL"></textarea>
+          <span style="font-size:0.68rem; color:#71717a;">Wpisz nazwy oprogramowania lub producentów używanych w sieci (dopasowanie częściowe, wielkość liter bez znaczenia).</span>
+        </div>
+
+        <div class="modal-row" style="margin-bottom:6px;">
+          <div>
+            <label class="modal-label" for="cveWatchlistMinScoreSelect">MINIMALNA KRYTYCZNOŚĆ BAZOWA (CVSS):</label>
+            <select id="cveWatchlistMinScoreSelect" class="modal-select">
+              <option value="0">Wszystkie poziomy (od 0.0)</option>
+              <option value="7">Wysokie i Krytyczne (&ge; 7.0)</option>
+              <option value="9">Tylko Krytyczne (&ge; 9.0)</option>
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; justify-content:flex-end; padding-bottom:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.78rem; color:#e4e4e7;">
+              <input type="checkbox" id="cveWatchlistDefaultFilterCheck" style="cursor:pointer; width:15px; height:15px;">
+              <span>Domyślnie aktywuj filtr Mojego Stosu</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeCveWatchlistModal()">Anuluj</button>
+        <button class="btn-action" onclick="saveCveWatchlistModal()">Zapisz Konfigurację</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Fullscreen Auth Lock Overlay (Single-User Gatekeeper) -->
   <div id="authLockOverlay" class="auth-lock-overlay" style="display:none;">
     <div class="auth-lock-card">
