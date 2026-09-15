@@ -7,7 +7,7 @@ import os from 'node:os';
 import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR, initBackupScheduler, executeBackupJob, getBackupSchedulerStatus, checkBackupsDirWritable } from './backup_wiki.mjs';
 import { generateNavigation, extractMarkdownTags } from './build_navigation.mjs';
 import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
-import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus } from './cve_engine.mjs';
+import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, translateLiveText, batchTranslateLive, getTranslationsCache } from './cve_engine.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -1913,6 +1913,37 @@ const server = http.createServer(async (req, res) => {
           console.error('[RSS Engine] Błąd pobierania feeda:', e);
           return sendJson(500, { error: 'Nie udało się pobrać feeda RSS.' });
         }
+      }
+    }
+
+    // ================= SILNIK TRANSLACJI NA ŻYWO (LIVE TRANSLATION) ================= //
+    if (normPath === '/api/translate-live' && req.method === 'POST') {
+      try {
+        const body = await getBody();
+        const { text, texts, items, targetLang = 'pl', sourceLang = 'en' } = body || {};
+
+        if (typeof text === 'string') {
+          if (text.length > 5000) return sendJson(400, { error: 'Tekst przekracza dopuszczalny limit 5000 znaków.' });
+          const translation = await translateLiveText(text, targetLang, sourceLang);
+          return sendJson(200, { success: true, translation });
+        }
+
+        if (Array.isArray(texts)) {
+          if (texts.length > 50) return sendJson(400, { error: 'Maksymalnie 50 tekstów na pojedyncze zapytanie wsadowe.' });
+          const translations = await Promise.all(texts.map(t => translateLiveText(String(t), targetLang, sourceLang)));
+          return sendJson(200, { success: true, translations });
+        }
+
+        if (Array.isArray(items)) {
+          if (items.length > 50) return sendJson(400, { error: 'Maksymalnie 50 elementów na pojedyncze zapytanie wsadowe.' });
+          const translatedItems = await batchTranslateLive(items, targetLang, sourceLang);
+          return sendJson(200, { success: true, items: translatedItems });
+        }
+
+        return sendJson(400, { error: 'Wymagany parametr text, texts lub items.' });
+      } catch (err) {
+        console.error('[Translate API Error]', err);
+        return sendJson(500, { error: 'Błąd podczas przetwarzania translacji na żywo.' });
       }
     }
 

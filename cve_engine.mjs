@@ -4,6 +4,7 @@ import path from 'node:path';
 const DATA_DIR = path.resolve('data');
 const CVE_CACHE_FILE = path.join(DATA_DIR, 'cve_cache.json');
 const CVE_WATCHLIST_FILE = path.join(DATA_DIR, 'cve_watchlist.json');
+const CVE_TRANSLATIONS_FILE = path.join(DATA_DIR, 'cve_translations.json');
 
 const CISA_KEV_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 godziny
@@ -682,4 +683,117 @@ export function translateCveRecord(item) {
     isTranslated: true
   };
 }
+
+let translationsCache = null;
+let saveCacheTimeout = null;
+
+/**
+ * Zwraca bufor tłumaczeń z dysku (data/cve_translations.json)
+ */
+export function getTranslationsCache() {
+  if (translationsCache) return translationsCache;
+  if (fs.existsSync(CVE_TRANSLATIONS_FILE)) {
+    try {
+      translationsCache = JSON.parse(fs.readFileSync(CVE_TRANSLATIONS_FILE, 'utf8'));
+      if (translationsCache && typeof translationsCache === 'object') return translationsCache;
+    } catch (e) {
+      console.warn('[CVE Engine] Błąd odczytu cve_translations.json, inicjalizacja pustego bufora:', e.message);
+    }
+  }
+  translationsCache = {};
+  return translationsCache;
+}
+
+/**
+ * Zapisuje bufor tłumaczeń na dysk (debounced)
+ */
+export function saveTranslationsCache(cache) {
+  translationsCache = cache;
+  if (saveCacheTimeout) clearTimeout(saveCacheTimeout);
+  saveCacheTimeout = setTimeout(() => {
+    try {
+      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(CVE_TRANSLATIONS_FILE, JSON.stringify(translationsCache, null, 2), 'utf8');
+    } catch (e) {
+      console.error('[CVE Engine] Błąd zapisu cve_translations.json:', e.message);
+    }
+  }, 500);
+}
+
+/**
+ * Tłumaczy pojedynczy ciąg znaków na żywo z obsługą bufora dyskowego i bezpiecznym fallbackiem
+ */
+export async function translateLiveText(text, targetLang = 'pl', sourceLang = 'en') {
+  if (!text || typeof text !== 'string') return '';
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  const cache = getTranslationsCache();
+  const cacheKey = `${sourceLang}_${targetLang}:${trimmed}`;
+  if (cache[cacheKey]) {
+    return cache[cacheKey];
+  }
+
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sourceLang)}&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(trimmed)}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      const translated = data[0].map(chunk => (chunk && chunk[0]) ? chunk[0] : '').join('').trim();
+      if (translated) {
+        cache[cacheKey] = translated;
+        saveTranslationsCache(cache);
+        return translated;
+      }
+    }
+  } catch (err) {
+    console.warn(`[Live Translator] Błąd zapytania online (${err.message}). Stosowanie fallbacku.`);
+  }
+
+  const fallback = translateSecOpsRules(trimmed);
+  return fallback || trimmed;
+}
+
+/**
+ * Tłumaczy wsadowo zestaw elementów lub ciągów znaków
+ */
+export async function batchTranslateLive(items, targetLang = 'pl', sourceLang = 'en') {
+  if (!Array.isArray(items)) return [];
+  const results = [];
+  for (const item of items) {
+    if (typeof item === 'string') {
+      results.push(await translateLiveText(item, targetLang, sourceLang));
+    } else if (item && typeof item === 'object') {
+      const title = item.title || item.id || '';
+      const description = item.description || '';
+      const requiredAction = item.requiredAction || '';
+
+      const [translatedTitle, translatedDescription, translatedRequiredAction] = await Promise.all([
+        title ? translateLiveText(title, targetLang, sourceLang) : Promise.resolve(''),
+        description ? translateLiveText(description, targetLang, sourceLang) : Promise.resolve(''),
+        requiredAction ? translateLiveText(requiredAction, targetLang, sourceLang) : Promise.resolve('')
+      ]);
+
+      results.push({
+        ...item,
+        translatedTitle: translatedTitle || item.title || item.id,
+        translatedDescription: translatedDescription || item.description,
+        translatedRequiredAction: translatedRequiredAction || item.requiredAction,
+        isLiveTranslated: true
+      });
+    }
+  }
+  return results;
+}
+
 

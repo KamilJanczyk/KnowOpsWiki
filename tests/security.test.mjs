@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
 import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler, parseScheduleTime, computeNextRunTime } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
-import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, fetchCveFeed, CVE_CATEGORIES, translateSecOpsRules, translateCveRecord, CVE_SECOPS_GLOSSARY } from '../cve_engine.mjs';
+import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, fetchCveFeed, CVE_CATEGORIES, translateSecOpsRules, translateCveRecord, CVE_SECOPS_GLOSSARY, translateLiveText, batchTranslateLive, getTranslationsCache } from '../cve_engine.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
 function isValidImageMagicBytes(buf, ext) {
@@ -1697,3 +1697,78 @@ test('35. Client-Side Translation Engine (Koncepcja A): reguły leksykonu SecOps
   const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
   assert.equal(indexHtml.includes('app.js?v=2.7.0'), true);
 });
+
+test('36. Instrukcja Obsługi & Live Translation Engine (Wariant 1): brak błędów runtime w instrukcji, endpoint API i bufor dyskowy', async () => {
+  // 1. Weryfikacja braku błędu TypeError w renderWikiInstruction()
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  assert.equal(appJs.includes('function renderWikiInstruction'), true);
+  // Sprawdzenie czy nie ma niesparowanych grawisów w linii z szablonem kodu
+  assert.equal(appJs.includes('&#96;&#96;&#96;język ... &#96;&#96;&#96;'), true);
+  assert.equal(appJs.includes('&#96;polecenie&#96;'), true);
+
+  // 2. Symulacja wywołania renderWikiInstruction w kontrolowanym środowisku DOM
+  let renderedContent = '';
+  let renderedBreadcrumb = '';
+  const mockDocument = {
+    getElementById: (id) => ({
+      get innerHTML() { return ''; },
+      set innerHTML(val) {
+        if (id === 'articleContentArea') renderedContent = val;
+        if (id === 'breadcrumbArea') renderedBreadcrumb = val;
+      },
+      setAttribute: () => {},
+      style: {}
+    }),
+    addEventListener: () => {},
+    querySelectorAll: () => []
+  };
+  const mockWindow = { addEventListener: () => {}, location: { hash: '#/tool/instrukcja' } };
+
+  const testScope = new Function('window', 'document', 'localStorage', `
+    ${appJs}
+    renderWikiInstruction();
+  `);
+
+  assert.doesNotThrow(() => {
+    testScope(mockWindow, mockDocument, { getItem: () => null, setItem: () => {}, removeItem: () => {} });
+  });
+  assert.equal(renderedBreadcrumb.includes('Instrukcja obsługi'), true);
+  assert.equal(renderedContent.includes('Instrukcja obsługi portalu KnowOps Wiki'), true);
+  assert.equal(renderedContent.includes('1. Główne moduły systemu'), true);
+
+  // 3. Weryfikacja silnika translacji na żywo w cve_engine.mjs
+  const testEnText = 'Command Injection vulnerability in GlobalProtect';
+  const liveResult = await translateLiveText(testEnText);
+  assert.equal(typeof liveResult, 'string');
+  assert.equal(liveResult.length > 0, true);
+
+  // 4. Weryfikacja bufora dyskowego w data/cve_translations.json
+  const cache = getTranslationsCache();
+  assert.equal(typeof cache, 'object');
+  assert.notEqual(cache, null);
+
+  // 5. Weryfikacja translacji wsadowej (batchTranslateLive)
+  const sampleItems = [
+    {
+      id: 'CVE-2026-TEST1',
+      title: 'Remote Code Execution in OpenSSH',
+      description: 'Allows remote attacker to execute arbitrary code',
+      requiredAction: 'Apply vendor patches immediately'
+    }
+  ];
+  const batchResult = await batchTranslateLive(sampleItems);
+  assert.equal(Array.isArray(batchResult), true);
+  assert.equal(batchResult.length, 1);
+  assert.equal(batchResult[0].id, 'CVE-2026-TEST1');
+  assert.equal(typeof batchResult[0].translatedTitle, 'string');
+  assert.equal(typeof batchResult[0].translatedDescription, 'string');
+  assert.equal(typeof batchResult[0].translatedRequiredAction, 'string');
+  assert.equal(batchResult[0].isLiveTranslated, true);
+
+  // 6. Weryfikacja rejestracji trasy POST /api/translate-live w server.mjs
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  assert.equal(serverMjs.includes("normPath === '/api/translate-live' && req.method === 'POST'"), true);
+  assert.equal(serverMjs.includes('translateLiveText'), true);
+  assert.equal(serverMjs.includes('batchTranslateLive'), true);
+});
+

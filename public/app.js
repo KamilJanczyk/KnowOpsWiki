@@ -3261,7 +3261,7 @@ function renderWikiInstruction() {
         <br>Obsługiwane są również własne tytuły w pierwszej linii, np. <code>&gt; [!WARNING] Zanim zrestartujesz klaster</code>.
       </li>
       <li><strong>Pasek narzędziowy i szablony kodu:</strong> błyskawiczne wstawianie pogrubienia (<strong>B</strong>), kursywy (<em>I</em>), nagłówków (<strong>H1</strong>, <strong>H2</strong>), bloków kodu (<strong>Kod</strong>) z selektorem języków (Bash, PowerShell, YAML, JSON, Python, SQL, Dockerfile, Nginx), tabel Markdown (<strong>Tabela</strong>) oraz schematów <strong>Diagram Mermaid</strong>. Wstawienie kodu z paska automatycznie zaznacza ciało polecenia, co pozwala na natychmiastowe nadpisanie go nową zawartością lub wklejenie ze schowka (Ctrl + V). Zaznaczenie tekstu przed kliknięciem automatycznie otacza go blokiem wybranego języka.</li>
-      <li><strong>Wyróżnianie składni w nakładce edytora:</strong> bloki kodu wieloliniowego (<code>\```język ... \```</code>) oraz jednoliniowego (<code>\`polecenie\`</code>) posiadają wyraźne wyróżnienie kolorystyczne (szmaragdowe tło, bursztynowy identyfikator interpretera, przyciemnione grawisy) analogicznie do grafik (błękitny akcent). Zapewnia to natychmiastową lokalizację poleceń i parametrów konfiguracyjnych w edytowanym tekście z zachowaniem pełnej synchronizacji pozycji kursora.</li>
+      <li><strong>Wyróżnianie składni w nakładce edytora:</strong> bloki kodu wieloliniowego (<code>&#96;&#96;&#96;język ... &#96;&#96;&#96;</code>) oraz jednoliniowego (<code>&#96;polecenie&#96;</code>) posiadają wyraźne wyróżnienie kolorystyczne (szmaragdowe tło, bursztynowy identyfikator interpretera, przyciemnione grawisy) analogicznie do grafik (błękitny akcent). Zapewnia to natychmiastową lokalizację poleceń i parametrów konfiguracyjnych w edytowanym tekście z zachowaniem pełnej synchronizacji pozycji kursora.</li>
       <li><strong>Przycisk „Tagi” w edytorze:</strong> umożliwia wstawienie lub edycję metadanych tagów YAML Frontmatter na samej górze pliku za pomocą jednego kliknięcia. Kursor automatycznie zaznacza sekcję tagów, co pozwala na natychmiastowe wpisanie słów kluczowych.</li>
       <li><strong>Wklejanie grafik ze schowka (Ctrl + V) oraz Drag & Drop:</strong> zrzuty ekranu ze schowka systemowego oraz pliki przeciągnięte na pole edytora są automatycznie przesyłane na serwer i wklejane w formacie <code>![opis](/public/images/...)</code>. Wbudowany walidator Magic Bytes dopuszcza formaty PNG, JPEG, GIF, WebP (do 5 MB).</li>
       <li><strong>Stały pasek akcji artykułu (sticky action header):</strong> podczas czytania dokumentu górna belka pozostaje stale zakotwiczona, wyświetlając czas modyfikacji oraz przyciski: <strong>„Eksportuj offline”</strong>, <strong>„+ Dodaj stronę w tym folderze”</strong>, <strong>„Przenieś dokument”</strong> oraz <strong>„Edytuj ten dokument”</strong>.</li>
@@ -6423,6 +6423,14 @@ function translateSecOpsClient(text, isRemediation = false) {
 function getOrTranslateCveItem(item) {
   if (!item || !item.id) return { title: '', description: '', requiredAction: '' };
 
+  const liveKey = 'knowops_cve_live_v1_' + item.id;
+  try {
+    const cachedLive = localStorage.getItem(liveKey);
+    if (cachedLive) {
+      return JSON.parse(cachedLive);
+    }
+  } catch (e) {}
+
   const cacheKey = 'knowops_cve_trans_v2_' + item.id;
   try {
     const cached = localStorage.getItem(cacheKey);
@@ -6431,17 +6439,62 @@ function getOrTranslateCveItem(item) {
     }
   } catch (e) {}
 
-  const translated = {
+  return {
     title: translateSecOpsClient(item.title || item.id),
     description: translateSecOpsClient(item.description || ''),
-    requiredAction: translateSecOpsClient(item.requiredAction || '', true)
+    requiredAction: translateSecOpsClient(item.requiredAction || '', true),
+    isFallback: true
   };
+}
+
+let activeLiveTransAbort = null;
+async function fetchLiveCveTranslations(items) {
+  if (!items || items.length === 0) return;
+  const payload = items.map(it => ({
+    id: it.id,
+    title: it.title || it.id,
+    description: it.description || '',
+    requiredAction: it.requiredAction || ''
+  }));
 
   try {
-    localStorage.setItem(cacheKey, JSON.stringify(translated));
-  } catch (e) {}
+    const res = await fetch('/api/translate-live', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: payload, targetLang: 'pl', sourceLang: 'en' })
+    });
 
-  return translated;
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.success && Array.isArray(data.items)) {
+      for (const tItem of data.items) {
+        if (!tItem || !tItem.id) continue;
+        const liveObj = {
+          title: tItem.translatedTitle || tItem.title,
+          description: tItem.translatedDescription || tItem.description,
+          requiredAction: tItem.translatedRequiredAction || tItem.requiredAction,
+          isLive: true
+        };
+        try {
+          localStorage.setItem('knowops_cve_live_v1_' + tItem.id, JSON.stringify(liveObj));
+        } catch (e) {}
+
+        const titleEl = document.getElementById('cveCardTitle_' + tItem.id);
+        const descEl = document.getElementById('cveCardDesc_' + tItem.id);
+        const actionEl = document.getElementById('cveCardAction_' + tItem.id);
+        const badgeEl = document.getElementById('cveCardLangBadge_' + tItem.id);
+
+        if (titleEl && liveObj.title) titleEl.textContent = liveObj.title;
+        if (descEl && liveObj.description) descEl.textContent = liveObj.description;
+        if (actionEl && liveObj.requiredAction) actionEl.textContent = liveObj.requiredAction;
+        if (badgeEl) {
+          badgeEl.innerHTML = '<span style="font-size:0.65rem; color:#86efac; background:#052e16; border:1px solid #166534; padding:2px 6px; border-radius:3px; font-weight:600;" title="Tłumaczenie na żywo (Live Engine)">TŁUMACZENIE PL</span>';
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Live Translator] Błąd pobierania tłumaczeń na żywo:', err.message);
+  }
 }
 
 // ================= RADAR PODATNOŚCI CVE (CISA KEV) ================= //
@@ -6923,20 +6976,20 @@ function renderCveCards(items, audited) {
         <div>
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:4px;">
             <div style="font-size:0.78rem; font-weight:600; color:#e4e4e7; flex:1;">
-              <span style="color:#93c5fd;">${vendor}</span> - <span style="color:#ffffff;">${product}</span>: ${displayTitle}
+              <span style="color:#93c5fd;">${vendor}</span> - <span style="color:#ffffff;">${product}</span>: <span id="cveCardTitle_${cveId}">${displayTitle}</span>
             </div>
             <button onclick="window.toggleCveItemLanguage('${cveId}')" class="btn-secondary" style="font-size:0.65rem; padding:2px 8px; border-color:${isCardPl ? '#166534' : '#3f3f46'}; color:${isCardPl ? '#86efac' : '#a1a1aa'}; cursor:pointer; background:${isCardPl ? '#052e16' : '#18181b'}; border-radius:3px; white-space:nowrap;" title="Przełącz język tej karty (PL / EN)">
               ${isCardPl ? 'Język: PL' : 'Język: EN'}
             </button>
           </div>
-          <div style="font-size:0.74rem; color:#a1a1aa; line-height:1.45;">
+          <div id="cveCardDesc_${cveId}" style="font-size:0.74rem; color:#a1a1aa; line-height:1.45;">
             ${displayDesc}
           </div>
         </div>
 
         <!-- Zalecana akcja naprawcza -->
         <div style="background:#18181b; border:1px solid #27272a; border-radius:4px; padding:8px 10px; font-size:0.72rem; color:#d4d4d8;">
-          <span style="color:var(--sw-gold); font-weight:600; text-transform:uppercase;">Wymagana akcja SecOps:</span> ${displayAction}
+          <span style="color:var(--sw-gold); font-weight:600; text-transform:uppercase;">Wymagana akcja SecOps:</span> <span id="cveCardAction_${cveId}">${displayAction}</span>
         </div>
 
         <!-- Dolny pasek akcji i audytu -->
@@ -6945,7 +6998,7 @@ function renderCveCards(items, audited) {
             <a href="https://nvd.nist.gov/vuln/detail/${cveId}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8; text-decoration:none; font-weight:600;">Baza NIST NVD [zewn.]</a>
             <a href="https://www.cve.org/CVERecord?id=${cveId}" target="_blank" rel="noopener noreferrer" style="color:#94a3b8; text-decoration:none;">Katalog CVE.org [zewn.]</a>
             ${statusBadgeHtml}
-            ${langBadgeHtml}
+            <span id="cveCardLangBadge_${cveId}">${langBadgeHtml}</span>
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -6964,6 +7017,25 @@ function renderCveCards(items, audited) {
   }
 
   container.innerHTML = html;
+
+  // Asynchroniczne dociągnięcie tłumaczenia na żywo dla widocznych kart
+  const itemsNeedingLiveTrans = [];
+  for (const item of items) {
+    const cardOverride = cveCardLanguageOverrides[item.id];
+    const isCardPl = cardOverride ? (cardOverride === 'pl') : Boolean(cveFilters.translateToPl);
+    if (isCardPl) {
+      const liveKey = 'knowops_cve_live_v1_' + item.id;
+      let hasLive = false;
+      try { hasLive = Boolean(localStorage.getItem(liveKey)); } catch (e) {}
+      if (!hasLive) {
+        itemsNeedingLiveTrans.push(item);
+      }
+    }
+  }
+
+  if (itemsNeedingLiveTrans.length > 0) {
+    fetchLiveCveTranslations(itemsNeedingLiveTrans);
+  }
 }
 
 window.handleCveSearchInput = function(val) {
@@ -7025,7 +7097,7 @@ window.clearCveTranslationCache = function() {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key && key.startsWith('knowops_cve_trans_')) {
+      if (key && (key.startsWith('knowops_cve_trans_') || key.startsWith('knowops_cve_live_'))) {
         localStorage.removeItem(key);
         count++;
       }
