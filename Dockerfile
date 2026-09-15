@@ -8,5 +8,5 @@ COPY scripts/ ./scripts/
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh && chown -R node:node /app
 EXPOSE 9000
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
 CMD ["node", "server.mjs"]

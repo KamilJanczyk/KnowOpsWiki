@@ -33,7 +33,6 @@ services:
       - ./server.mjs:/app/server.mjs:ro
       - ./backup_wiki.mjs:/app/backup_wiki.mjs:ro
       - ./cve_engine.mjs:/app/cve_engine.mjs:ro
-      - ./entrypoint.sh:/app/entrypoint.sh:ro
     env_file:
       - .env
     environment:
