@@ -734,32 +734,55 @@ export async function translateLiveText(text, targetLang = 'pl', sourceLang = 'e
     return cache[cacheKey];
   }
 
+  // 1. Silnik MyMemory (wysoka dostępność w środowiskach kontenerowych Docker)
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${encodeURIComponent(sourceLang)}|${encodeURIComponent(targetLang)}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'KnowOpsWiki/2.8 (SecOps Wiki)'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.responseData && data.responseData.translatedText) {
+        let translated = String(data.responseData.translatedText).trim();
+        if (translated && !translated.startsWith('MYMEMORY WARNING:')) {
+          cache[cacheKey] = translated;
+          saveTranslationsCache(cache);
+          return translated;
+        }
+      }
+    }
+  } catch (err) {
+    // przejście do silnika zapasowego
+  }
+
+  // 2. Silnik Google GTX (zapasowy)
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sourceLang)}&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(trimmed)}`;
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
-      signal: AbortSignal.timeout(6000)
+      signal: AbortSignal.timeout(5000)
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (Array.isArray(data) && Array.isArray(data[0])) {
-      const translated = data[0].map(chunk => (chunk && chunk[0]) ? chunk[0] : '').join('').trim();
-      if (translated) {
-        cache[cacheKey] = translated;
-        saveTranslationsCache(cache);
-        return translated;
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        const translated = data[0].map(chunk => (chunk && chunk[0]) ? chunk[0] : '').join('').trim();
+        if (translated) {
+          cache[cacheKey] = translated;
+          saveTranslationsCache(cache);
+          return translated;
+        }
       }
     }
-  } catch (err) {
-    console.warn(`[Live Translator] Błąd zapytania online (${err.message}). Stosowanie fallbacku.`);
-  }
+  } catch (err) {}
 
+  // 3. Fallback do reguł leksykalnych SecOps
   const fallback = translateSecOpsRules(trimmed);
   return fallback || trimmed;
 }
