@@ -156,6 +156,54 @@ export function setCveAuditStatus(cveId, status, notes = '') {
 }
 
 /**
+ * Weryfikuje, czy rekord podatności CVE odpowiada kryteriom obserwowanego stosu (Watchlist)
+ * Zapewnia ścisłą koniunkcję (AND) pomiędzy wybranymi kategoriami a obserwowanymi dostawcami/produktami,
+ * jak również sprawdzenie minimalnego progu krytyczności bazowej CVSS.
+ */
+export function isItemMatchingWatchlist(item, watchlist) {
+  if (!watchlist || typeof watchlist !== 'object') return true;
+
+  // 1. Weryfikacja minimalnego progu punktowego CVSS
+  const minScore = typeof watchlist.minScore === 'number' ? watchlist.minScore : 0;
+  if (minScore > 0) {
+    const itemScore = typeof item.score === 'number' ? item.score : 0;
+    if (itemScore < minScore) {
+      return false;
+    }
+  }
+
+  const categories = Array.isArray(watchlist.selectedCategories) ? watchlist.selectedCategories : [];
+  const vendors = Array.isArray(watchlist.selectedVendors) ? watchlist.selectedVendors.map(v => String(v || '').toLowerCase().trim()).filter(Boolean) : [];
+
+  // 2. Jeśli zdefiniowano kategorie, podatność musi należeć do jednej z zaznaczonych kategorii
+  if (categories.length > 0 && !categories.includes(item.category)) {
+    return false;
+  }
+
+  // 3. Jeśli zdefiniowano listę obserwowanych dostawców i produktów, podatność musi pasować do jednego z nich
+  if (vendors.length > 0) {
+    const itemVendor = String(item.vendor || '').toLowerCase();
+    const itemProduct = String(item.product || '').toLowerCase();
+    const itemTitle = String(item.title || '').toLowerCase();
+
+    const vendorMatch = vendors.some(vNorm =>
+      itemVendor.includes(vNorm) || itemProduct.includes(vNorm) || itemTitle.includes(vNorm)
+    );
+
+    if (!vendorMatch) {
+      return false;
+    }
+  }
+
+  // Jeśli użytkownik odznaczył wszystkie kategorie i wyczyścił listę dostawców, brak dopasowania
+  if (categories.length === 0 && vendors.length === 0) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Szacowanie poziomu krytyczności na podstawie opisu luki (jeśli brak oficjalnego CVSS w KEV)
  */
 function estimateSeverity(item) {

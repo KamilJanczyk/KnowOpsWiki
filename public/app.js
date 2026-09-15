@@ -6729,29 +6729,46 @@ function populateCveCategorySelect() {
 }
 
 function isItemMatchingWatchlist(item, watchlist) {
-  if (!watchlist) return true;
+  if (!watchlist || typeof watchlist !== 'object') return true;
 
-  const categories = Array.isArray(watchlist.selectedCategories) ? watchlist.selectedCategories : [];
-  if (categories.length > 0 && categories.includes(item.category)) {
-    return true;
-  }
-
-  const vendors = Array.isArray(watchlist.selectedVendors) ? watchlist.selectedVendors : [];
-  if (vendors.length > 0) {
-    const itemVendor = (item.vendor || '').toLowerCase();
-    const itemProduct = (item.product || '').toLowerCase();
-    const itemTitle = (item.title || '').toLowerCase();
-
-    for (const v of vendors) {
-      const vNorm = v.toLowerCase().trim();
-      if (!vNorm) continue;
-      if (itemVendor.includes(vNorm) || itemProduct.includes(vNorm) || itemTitle.includes(vNorm)) {
-        return true;
-      }
+  // 1. Weryfikacja minimalnego progu punktowego CVSS
+  const minScore = typeof watchlist.minScore === 'number' ? watchlist.minScore : 0;
+  if (minScore > 0) {
+    const itemScore = typeof item.score === 'number' ? item.score : 0;
+    if (itemScore < minScore) {
+      return false;
     }
   }
 
-  return false;
+  const categories = Array.isArray(watchlist.selectedCategories) ? watchlist.selectedCategories : [];
+  const vendors = Array.isArray(watchlist.selectedVendors) ? watchlist.selectedVendors.map(v => String(v || '').toLowerCase().trim()).filter(Boolean) : [];
+
+  // 2. Jeśli zdefiniowano kategorie, podatność musi należeć do jednej z zaznaczonych kategorii
+  if (categories.length > 0 && !categories.includes(item.category)) {
+    return false;
+  }
+
+  // 3. Jeśli zdefiniowano listę obserwowanych dostawców i produktów, podatność musi pasować do jednego z nich
+  if (vendors.length > 0) {
+    const itemVendor = String(item.vendor || '').toLowerCase();
+    const itemProduct = String(item.product || '').toLowerCase();
+    const itemTitle = String(item.title || '').toLowerCase();
+
+    const vendorMatch = vendors.some(vNorm =>
+      itemVendor.includes(vNorm) || itemProduct.includes(vNorm) || itemTitle.includes(vNorm)
+    );
+
+    if (!vendorMatch) {
+      return false;
+    }
+  }
+
+  // Jeśli użytkownik odznaczył wszystkie kategorie i wyczyścił listę dostawców, brak dopasowania
+  if (categories.length === 0 && vendors.length === 0) {
+    return false;
+  }
+
+  return true;
 }
 
 function applyCveFiltersAndRender() {
@@ -7346,6 +7363,13 @@ window.saveCveWatchlistModal = async function() {
       throw new Error(data.error || 'Błąd zapisu konfiguracji');
     }
     cveFeedData.watchlist = data.watchlist;
+    if (data.watchlist && typeof data.watchlist.onlyKev === 'boolean') {
+      const toggleEl = document.getElementById('cveWatchlistToggle');
+      if (toggleEl) {
+        toggleEl.checked = data.watchlist.onlyKev;
+      }
+      cveFilters.onlyWatchlist = data.watchlist.onlyKev;
+    }
     if (overlay) overlay.style.display = 'none';
     alert('Konfiguracja Mojego Stosu Technologicznego została pomyślnie zapisana.');
     applyCveFiltersAndRender();

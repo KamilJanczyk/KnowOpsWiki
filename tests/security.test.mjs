@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
 import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler, parseScheduleTime, computeNextRunTime } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
-import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, fetchCveFeed, CVE_CATEGORIES, translateSecOpsRules, translateCveRecord, CVE_SECOPS_GLOSSARY, translateLiveText, batchTranslateLive, getTranslationsCache } from '../cve_engine.mjs';
+import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, isItemMatchingWatchlist, fetchCveFeed, CVE_CATEGORIES, translateSecOpsRules, translateCveRecord, CVE_SECOPS_GLOSSARY, translateLiveText, batchTranslateLive, getTranslationsCache } from '../cve_engine.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
 function isValidImageMagicBytes(buf, ext) {
@@ -1543,6 +1543,59 @@ test('34. Radar Podatności CVE (CISA KEV): kategoryzacja regułowa, silnik pobi
   assert.deepEqual(updatedWatchlist.selectedVendors, ['VMware', 'Docker', 'Fortinet']);
   assert.equal(updatedWatchlist.minScore, 7.0);
   assert.equal(updatedWatchlist.onlyKev, true);
+
+  // Weryfikacja filtrowania Watchlist (koniunkcja kategorii, dostawców i CVSS)
+  const ciscoCve = {
+    id: 'CVE-2023-20198',
+    vendor: 'Cisco',
+    product: 'IOS XE',
+    title: 'Cisco IOS XE Web UI Privilege Escalation',
+    category: 'network_firewall',
+    score: 10.0
+  };
+  const fortinetCve = {
+    id: 'CVE-2024-21762',
+    vendor: 'Fortinet',
+    product: 'FortiOS',
+    title: 'Fortinet FortiOS Out-of-bounds Write Vulnerability',
+    category: 'network_firewall',
+    score: 9.8
+  };
+  const fortinetLowScoreCve = {
+    id: 'CVE-2024-0001',
+    vendor: 'Fortinet',
+    product: 'FortiOS',
+    title: 'Fortinet Low Score Bug',
+    category: 'network_firewall',
+    score: 6.5
+  };
+  const vmwareCve = {
+    id: 'CVE-2023-34048',
+    vendor: 'VMware',
+    product: 'vCenter Server',
+    title: 'VMware vCenter Server Out-of-Bounds Write',
+    category: 'virtualization',
+    score: 9.8
+  };
+  const opensshCve = {
+    id: 'CVE-2024-6387',
+    vendor: 'OpenSSH',
+    product: 'OpenSSH',
+    title: 'OpenSSH regreSSHion Remote Code Execution',
+    category: 'web_services',
+    score: 8.1
+  };
+
+  // Cisco jest w kategorii network_firewall, ale nie ma go w selectedVendors -> odrzucone
+  assert.equal(isItemMatchingWatchlist(ciscoCve, updatedWatchlist), false);
+  // Fortinet jest w network_firewall oraz na liście dostawców, a CVSS >= 7.0 -> zaakceptowane
+  assert.equal(isItemMatchingWatchlist(fortinetCve, updatedWatchlist), true);
+  // Fortinet o CVSS < 7.0 -> odrzucone przez próg minScore
+  assert.equal(isItemMatchingWatchlist(fortinetLowScoreCve, updatedWatchlist), false);
+  // VMware jest w virtualization i na liście dostawców -> zaakceptowane
+  assert.equal(isItemMatchingWatchlist(vmwareCve, updatedWatchlist), true);
+  // OpenSSH nie ma ani w kategoriach, ani w dostawcach -> odrzucone
+  assert.equal(isItemMatchingWatchlist(opensshCve, updatedWatchlist), false);
 
   // 3. Statusy audytu podatności
   const testCve = 'CVE-TEST-2026-9999';
