@@ -204,6 +204,42 @@ export function isItemMatchingWatchlist(item, watchlist) {
 }
 
 /**
+ * Określa status dostępności łatki/aktualizacji na podstawie wytycznych remediacyjnych CISA KEV
+ * Zwraca znormalizowany obiekt ze statusem:
+ * - 'available': oficjalna łatka / aktualizacja dostępna od producenta
+ * - 'workaround': brak bezpośredniej łaty, wymagane obejście / mitygacja / reguły sieciowe
+ * - 'eol': produkt wycofany ze wsparcia (EOL/EOS), brak łatki, zalecane odłączenie/wycofanie
+ */
+export function detectPatchStatus(requiredAction = '') {
+  const act = String(requiredAction || '').toLowerCase();
+
+  // 1. Produkt wycofany ze wsparcia (EOL / EOS)
+  if (act.includes('end-of-life') || act.includes('end-of-service') || act.includes('eol') || act.includes('eos') || act.includes('legacy') || act.includes('disconnected if still in use')) {
+    return {
+      status: 'eol',
+      label: 'BRAK ŁATKI (PRODUKT EOL - WYCOFAJ)',
+      badgeLabel: 'ŁATKA: BRAK (PRODUKT EOL)'
+    };
+  }
+
+  // 2. Oficjalna aktualizacja lub łatka producenta dostępna
+  if (act.includes('apply update') || act.includes('apply patch') || act.includes('upgrade to') || act.includes('zaktualizować') || act.includes('zastosować aktualizacj')) {
+    return {
+      status: 'available',
+      label: 'ŁATKA DOSTĘPNA (AKTUALIZACJA PRODUCENTA)',
+      badgeLabel: 'ŁATKA: DOSTĘPNA'
+    };
+  }
+
+  // 3. Brak bezpośredniej łatki - wymagane obejście / mitygacja
+  return {
+    status: 'workaround',
+    label: 'TYLKO OBEJŚCIE / MITYGACJA (BRAK ŁATKI)',
+    badgeLabel: 'ŁATKA: TYLKO OBEJŚCIE'
+  };
+}
+
+/**
  * Szacowanie poziomu krytyczności na podstawie opisu luki (jeśli brak oficjalnego CVSS w KEV)
  */
 function estimateSeverity(item) {
@@ -284,6 +320,7 @@ export async function fetchCveFeed(forceRefresh = false) {
         dateAdded,
         dueDate,
         requiredAction: action,
+        patchStatus: detectPatchStatus(action),
         ransomware,
         isKev: true,
         category,
@@ -410,14 +447,19 @@ function getFallbackSeedDataset(errorMessage = '') {
     }
   ];
 
+  const enrichedSeedItems = seedItems.map(it => ({
+    ...it,
+    patchStatus: detectPatchStatus(it.requiredAction)
+  }));
+
   return {
     lastUpdated: new Date().toISOString(),
-    totalCount: seedItems.length,
-    kevCount: seedItems.length,
+    totalCount: enrichedSeedItems.length,
+    kevCount: enrichedSeedItems.length,
     categories: CVE_CATEGORIES,
     isOfflineFallback: true,
     fallbackError: errorMessage,
-    items: seedItems
+    items: enrichedSeedItems
   };
 }
 

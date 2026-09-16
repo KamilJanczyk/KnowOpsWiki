@@ -6508,10 +6508,41 @@ let cveFeedData = {
   fallbackError: ''
 };
 
+function detectPatchStatus(requiredAction = '') {
+  const act = String(requiredAction || '').toLowerCase();
+  if (act.includes('end-of-life') || act.includes('end-of-service') || act.includes('eol') || act.includes('eos') || act.includes('legacy') || act.includes('disconnected if still in use')) {
+    return {
+      status: 'eol',
+      label: 'BRAK ŁATKI (PRODUKT EOL - WYCOFAJ)',
+      badgeLabel: 'ŁATKA: BRAK (PRODUKT EOL)'
+    };
+  }
+  if (act.includes('apply update') || act.includes('apply patch') || act.includes('upgrade to') || act.includes('zaktualizować') || act.includes('zastosować aktualizacj')) {
+    return {
+      status: 'available',
+      label: 'ŁATKA DOSTĘPNA (AKTUALIZACJA PRODUCENTA)',
+      badgeLabel: 'ŁATKA: DOSTĘPNA'
+    };
+  }
+  return {
+    status: 'workaround',
+    label: 'TYLKO OBEJŚCIE / MITYGACJA (BRAK ŁATKI)',
+    badgeLabel: 'ŁATKA: TYLKO OBEJŚCIE'
+  };
+}
+
+function getPatchStatus(item) {
+  if (item && item.patchStatus && item.patchStatus.status) {
+    return item.patchStatus;
+  }
+  return detectPatchStatus(item ? item.requiredAction : '');
+}
+
 let cveFilters = {
   search: '',
   category: 'all',
   minSeverity: 'all',
+  patchStatus: 'all',
   onlyWatchlist: false,
   onlyRansomware: false,
   auditStatus: 'all',
@@ -6604,6 +6635,15 @@ async function renderCveRadar() {
               <option value="in_progress">W trakcie mitygacji (Kanban)</option>
               <option value="mitigated">Załatane / Zaaplikowano łatę</option>
               <option value="not_applicable">Nie dotyczy środowiska</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">DOSTĘPNOŚĆ ŁATKI:</label>
+            <select id="cvePatchStatusSelect" onchange="window.handleCvePatchStatusChange(this.value)" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              <option value="all">Wszystkie statusy łatki</option>
+              <option value="available">Łatka dostępna (Aktualizacja)</option>
+              <option value="workaround">Tylko obejście / mitygacja</option>
+              <option value="eol">Brak łaty (Produkt EOL)</option>
             </select>
           </div>
         </div>
@@ -6826,6 +6866,13 @@ function applyCveFiltersAndRender() {
       return false;
     }
 
+    if (cveFilters.patchStatus && cveFilters.patchStatus !== 'all') {
+      const pInfo = getPatchStatus(item);
+      if (pInfo.status !== cveFilters.patchStatus) {
+        return false;
+      }
+    }
+
     const currentAuditStatus = audited[item.id] ? audited[item.id].status : 'unreviewed';
     if (cveFilters.auditStatus !== 'all' && currentAuditStatus !== cveFilters.auditStatus) {
       return false;
@@ -6950,6 +6997,30 @@ function renderCveCards(items, audited) {
       ? `<span style="font-size:0.62rem; font-weight:700; background:#3b0764; color:#d8b4fe; border:1px solid #a855f7; padding:2px 6px; border-radius:3px; letter-spacing:0.4px;">KAMPANIA RANSOMWARE</span>`
       : '';
 
+    const patchInfo = getPatchStatus(item);
+    let patchBadgeHtml = '';
+    if (patchInfo.status === 'available') {
+      patchBadgeHtml = '<span style="font-size:0.62rem; font-weight:700; background:#052e16; color:#86efac; border:1px solid #166534; padding:2px 6px; border-radius:3px; letter-spacing:0.3px;" title="Oficjalna aktualizacja lub łatka producenta jest dostępna">ŁATKA: DOSTĘPNA</span>';
+    } else if (patchInfo.status === 'eol') {
+      patchBadgeHtml = '<span style="font-size:0.62rem; font-weight:700; background:#450a0a; color:#fca5a5; border:1px solid #dc2626; padding:2px 6px; border-radius:3px; letter-spacing:0.3px;" title="Produkt wycofany ze wsparcia (EOL) - brak łatki">ŁATKA: BRAK (PRODUKT EOL)</span>';
+    } else {
+      patchBadgeHtml = '<span style="font-size:0.62rem; font-weight:700; background:#422006; color:#fde047; border:1px solid #ca8a04; padding:2px 6px; border-radius:3px; letter-spacing:0.3px;" title="Brak bezpośredniej łatki - wymagane obejście konfiguracji lub reguły sieciowe">ŁATKA: TYLKO OBEJŚCIE</span>';
+    }
+
+    let dueDateHtml = `<strong style="color:#fca5a5;">${dueDate}</strong>`;
+    if (item.dueDate) {
+      const dueTime = new Date(item.dueDate).getTime();
+      const now = Date.now();
+      if (!isNaN(dueTime)) {
+        if (now > dueTime) {
+          dueDateHtml = `<strong style="color:#ef4444;" title="Termin mitygacji według CISA minął">${dueDate} (MINĄŁ)</strong>`;
+        } else {
+          const daysLeft = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
+          dueDateHtml = `<strong style="color:#fde047;" title="Pozostało ${daysLeft} dni">${dueDate} (${daysLeft} dni)</strong>`;
+        }
+      }
+    }
+
     let statusBorderColor = '#27272a';
     let statusBadgeHtml = '<span style="font-size:0.65rem; color:#888; background:#18181b; padding:2px 6px; border-radius:3px; border:1px solid #333;">STATUS: Do zbadania</span>';
     if (currentStatus === 'in_progress') {
@@ -6980,12 +7051,13 @@ function renderCveCards(items, audited) {
             <span style="font-family:monospace; font-weight:700; color:var(--sw-gold); font-size:0.95rem; letter-spacing:0.5px;">${cveId}</span>
             <span style="font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:3px; ${severityBadgeStyle}">${severityLabel}</span>
             <span style="font-size:0.65rem; font-weight:600; background:#1e293b; color:#cbd5e1; border:1px solid #475569; padding:2px 6px; border-radius:3px;">${categoryName}</span>
+            ${patchBadgeHtml}
             ${ransomwareBadge}
           </div>
           <div style="display:flex; align-items:center; gap:8px; font-size:0.68rem; color:#71717a;">
             <span>Dodano: <strong style="color:#d4d4d8;">${dateAdded}</strong></span>
             <span>|</span>
-            <span>Termin mitygacji: <strong style="color:#fca5a5;">${dueDate}</strong></span>
+            <span>Termin mitygacji: ${dueDateHtml}</span>
           </div>
         </div>
 
@@ -7002,11 +7074,6 @@ function renderCveCards(items, audited) {
           <div id="cveCardDesc_${cveId}" style="font-size:0.74rem; color:#a1a1aa; line-height:1.45;">
             ${displayDesc}
           </div>
-        </div>
-
-        <!-- Zalecana akcja naprawcza -->
-        <div style="background:#18181b; border:1px solid #27272a; border-radius:4px; padding:8px 10px; font-size:0.72rem; color:#d4d4d8;">
-          <span style="color:var(--sw-gold); font-weight:600; text-transform:uppercase;">Wymagana akcja SecOps:</span> <span id="cveCardAction_${cveId}">${displayAction}</span>
         </div>
 
         <!-- Dolny pasek akcji i audytu -->
@@ -7082,6 +7149,12 @@ window.handleCveAuditStatusChange = function(val) {
   applyCveFiltersAndRender();
 };
 
+window.handleCvePatchStatusChange = function(val) {
+  cveFilters.patchStatus = val;
+  cveFilters.currentPage = 1;
+  applyCveFiltersAndRender();
+};
+
 window.handleCveWatchlistToggle = function(checked) {
   cveFilters.onlyWatchlist = Boolean(checked);
   cveFilters.currentPage = 1;
@@ -7128,6 +7201,7 @@ window.resetCveFilters = function() {
   cveFilters.search = '';
   cveFilters.category = 'all';
   cveFilters.minSeverity = 'all';
+  cveFilters.patchStatus = 'all';
   cveFilters.onlyWatchlist = false;
   cveFilters.onlyRansomware = false;
   cveFilters.auditStatus = 'all';
@@ -7137,6 +7211,7 @@ window.resetCveFilters = function() {
   const searchInput = document.getElementById('cveSearchInput');
   const catSelect = document.getElementById('cveCategorySelect');
   const sevSelect = document.getElementById('cveSeveritySelect');
+  const patchSelect = document.getElementById('cvePatchStatusSelect');
   const auditSelect = document.getElementById('cveAuditStatusSelect');
   const watchToggle = document.getElementById('cveWatchlistToggle');
   const rswToggle = document.getElementById('cveRansomwareToggle');
@@ -7144,6 +7219,7 @@ window.resetCveFilters = function() {
   if (searchInput) searchInput.value = '';
   if (catSelect) catSelect.value = 'all';
   if (sevSelect) sevSelect.value = 'all';
+  if (patchSelect) patchSelect.value = 'all';
   if (auditSelect) auditSelect.value = 'all';
   if (watchToggle) watchToggle.checked = false;
   if (rswToggle) rswToggle.checked = false;

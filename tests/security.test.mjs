@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { extractMarkdownTags } from '../build_navigation.mjs';
 import { exportWikiZip, createWikiBackup, checkBackupsDirWritable, getBackupSchedulerStatus, initBackupScheduler, stopBackupScheduler, parseScheduleTime, computeNextRunTime } from '../backup_wiki.mjs';
 import { extractFirstH1, slugifyTitle, computeTargetFilename } from '../scripts/sync_markdown_filenames.mjs';
-import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, isItemMatchingWatchlist, fetchCveFeed, CVE_CATEGORIES, translateSecOpsRules, translateCveRecord, CVE_SECOPS_GLOSSARY, translateLiveText, batchTranslateLive, getTranslationsCache } from '../cve_engine.mjs';
+import { categorizeVulnerability, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, isItemMatchingWatchlist, detectPatchStatus, fetchCveFeed, CVE_CATEGORIES, translateSecOpsRules, translateCveRecord, CVE_SECOPS_GLOSSARY, translateLiveText, batchTranslateLive, getTranslationsCache } from '../cve_engine.mjs';
 
 // 1. Walidacja Sygnatur Binarnych Obrazów (Magic Bytes)
 function isValidImageMagicBytes(buf, ext) {
@@ -1636,6 +1636,13 @@ test('34. Radar Podatności CVE (CISA KEV): kategoryzacja regułowa, silnik pobi
   assert.equal(typeof firstItem.categoryName, 'string');
   assert.equal(firstItem.nvdUrl.includes('nvd.nist.gov'), true);
   assert.equal(firstItem.cveOrgUrl.includes('cve.org'), true);
+  assert.equal(typeof firstItem.patchStatus, 'object');
+  assert.equal(['available', 'workaround', 'eol'].includes(firstItem.patchStatus.status), true);
+
+  // Weryfikacja logiki wykrywania statusu łatki (Patch Status Detection)
+  assert.equal(detectPatchStatus('Apply updates per vendor instructions.').status, 'available');
+  assert.equal(detectPatchStatus('Apply mitigations per vendor instructions, follow BOD guidance').status, 'workaround');
+  assert.equal(detectPatchStatus('The impacted product is end-of-life and should be disconnected if still in use.').status, 'eol');
 
   // 5. Weryfikacja endpointów API i logiki integracji z Kanbanem w server.mjs
   const serverCode = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
@@ -1658,6 +1665,11 @@ test('34. Radar Podatności CVE (CISA KEV): kategoryzacja regułowa, silnik pobi
   assert.equal(appJs.includes('sendCveToKanban'), true);
   assert.equal(appJs.includes('updateCveAuditStatus'), true);
   assert.equal(appJs.includes('openCveWatchlistModal'), true);
+  assert.equal(appJs.includes('cvePatchStatusSelect'), true);
+  assert.equal(appJs.includes('detectPatchStatus'), true);
+  assert.equal(appJs.includes('ŁATKA: DOSTĘPNA'), true);
+  assert.equal(appJs.includes('ŁATKA: TYLKO OBEJŚCIE'), true);
+  assert.equal(appJs.includes('ŁATKA: BRAK (PRODUKT EOL)'), true);
 
   // 7. Weryfikacja konfiguracji Docker
   const dockerfile = fs.readFileSync(path.resolve('Dockerfile'), 'utf8');
