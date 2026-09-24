@@ -1837,3 +1837,18 @@ test('36. Instrukcja Obsługi & Live Translation Engine (Wariant 1): brak błęd
   assert.equal(serverMjs.includes('batchTranslateLive'), true);
 });
 
+test('37. Ewidencja Nadgodzin: weryfikacja logiki API, przeliczania bilansu i obsługi w interfejsie', () => {
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  assert.equal(serverMjs.includes("normPath === '/api/overtime'"), true);
+  assert.equal(serverMjs.includes("normPath === '/api/overtime-toggle' && req.method === 'POST'"), true);
+  assert.equal(serverMjs.includes('calculateOvertimeStats'), true);
+
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  assert.equal(appJs.includes('renderOvertimeModule'), true);
+  assert.equal(appJs.includes('loadOvertimeData'), true);
+  assert.equal(appJs.includes('toggleOvertimeItem'), true);
+  assert.equal(appJs.includes('submitOvertimeForm'), true);
+});
+
+
+

@@ -109,6 +109,50 @@ export function getTrashManifest() {
   return manifest;
 }
 
+const DATA_DIR = path.resolve('data');
+const OVERTIME_FILE = path.join(DATA_DIR, 'overtime.json');
+
+export function getOvertimeData() {
+  if (fs.existsSync(OVERTIME_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(OVERTIME_FILE, 'utf8'));
+      if (data && Array.isArray(data.entries)) {
+        return data;
+      }
+    } catch (e) {
+      console.error('[Overtime Error] Błąd odczytu overtime.json:', e.message);
+    }
+  }
+  const defaultData = { entries: [] };
+  try {
+    atomicWriteFile(OVERTIME_FILE, JSON.stringify(defaultData, null, 2), 'utf8');
+  } catch (e) {}
+  return defaultData;
+}
+
+export function saveOvertimeData(data) {
+  atomicWriteFile(OVERTIME_FILE, JSON.stringify(data, null, 2), 'utf8');
+  return data;
+}
+
+export function calculateOvertimeStats(entries = []) {
+  let totalHours = 0;
+  let takenHours = 0;
+  for (const e of entries) {
+    const h = typeof e.hours === 'number' ? e.hours : parseFloat(e.hours) || 0;
+    totalHours += h;
+    if (e.isTaken) {
+      takenHours += h;
+    }
+  }
+  const remainingHours = totalHours - takenHours;
+  return {
+    totalHours: Math.round(totalHours * 100) / 100,
+    takenHours: Math.round(takenHours * 100) / 100,
+    remainingHours: Math.round(remainingHours * 100) / 100
+  };
+}
+
 export function saveTrashManifest(items) {
   try {
     atomicWriteFile(DOCS_TRASH_MANIFEST_FILE, JSON.stringify(items, null, 2), 'utf8');
@@ -2044,6 +2088,98 @@ const server = http.createServer(async (req, res) => {
         console.error('[CVE to Kanban Error]', err);
         return sendJson(500, { error: `Błąd podczas tworzenia zadania w Kanban: ${err.message}` });
       }
+    }
+
+    // ================= EWIDENCJA NADGODZIN ================= //
+    if (normPath === '/api/overtime') {
+      if (req.method === 'GET') {
+        const data = getOvertimeData();
+        return sendJson(200, {
+          success: true,
+          entries: data.entries,
+          stats: calculateOvertimeStats(data.entries)
+        });
+      }
+
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { date, startTime, endTime, hours, description } = body;
+
+        const parsedHours = Math.round((parseFloat(hours) || 0) * 100) / 100;
+        if (parsedHours <= 0) {
+          return sendJson(400, { error: 'Ilość godzin musi być większa od 0.' });
+        }
+
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const finalDate = (date && dateRegex.test(date))
+          ? date
+          : new Date().toISOString().split('T')[0];
+
+        const newEntry = {
+          id: `ovt_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+          date: finalDate,
+          startTime: String(startTime || '').trim(),
+          endTime: String(endTime || '').trim(),
+          hours: parsedHours,
+          description: String(description || '').trim().slice(0, 500),
+          isTaken: false,
+          createdAt: new Date().toISOString()
+        };
+
+        const data = getOvertimeData();
+        data.entries.unshift(newEntry);
+        data.entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+        saveOvertimeData(data);
+
+        return sendJson(200, {
+          success: true,
+          entry: newEntry,
+          entries: data.entries,
+          stats: calculateOvertimeStats(data.entries)
+        });
+      }
+
+      if (req.method === 'DELETE') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { id } = body;
+        if (!id) return sendJson(400, { error: 'Wymagany parametr id' });
+
+        const data = getOvertimeData();
+        data.entries = data.entries.filter(e => e.id !== id);
+        saveOvertimeData(data);
+
+        return sendJson(200, {
+          success: true,
+          entries: data.entries,
+          stats: calculateOvertimeStats(data.entries)
+        });
+      }
+    }
+
+    if (normPath === '/api/overtime-toggle' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { id, isTaken } = body;
+      if (!id) return sendJson(400, { error: 'Wymagany parametr id' });
+
+      const data = getOvertimeData();
+      const target = data.entries.find(e => e.id === id);
+      if (!target) {
+        return sendJson(404, { error: 'Nie znaleziono wpisu o podanym id' });
+      }
+
+      target.isTaken = Boolean(isTaken);
+      target.updatedAt = new Date().toISOString();
+      saveOvertimeData(data);
+
+      return sendJson(200, {
+        success: true,
+        entry: target,
+        entries: data.entries,
+        stats: calculateOvertimeStats(data.entries)
+      });
     }
 
     if (normPath === '/api/create-backup' && req.method === 'POST') {

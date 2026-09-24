@@ -546,6 +546,7 @@ async function renderSidebar() {
     const isMonitorActive = (currentHash === 'tool/monitor');
     const isRssActive = (currentHash === 'tool/rss');
     const isCveActive = (currentHash === 'tool/cve');
+    const isOvertimeActive = (currentHash === 'tool/overtime');
     const isInstrukcjaActive = (currentHash === 'tool/instrukcja');
 
     sidebarNav.innerHTML = `
@@ -561,6 +562,9 @@ async function renderSidebar() {
         </a>
         <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}">
           <span class="label">Biuletyn RSS SecOps</span>
+        </a>
+        <a href="#/tool/overtime" class="sidebar-tile-btn ${isOvertimeActive ? 'active' : ''}">
+          <span class="label">Ewidencja Nadgodzin</span>
         </a>
         <a href="#/tool/passgen" class="sidebar-tile-btn ${isPassgenActive ? 'active' : ''}">
           <span class="label">Hasłomat SecOps</span>
@@ -881,6 +885,11 @@ async function handleHashNavigation() {
   if (hash === 'tool/rss') {
     selectCategory('kanban_board', '');
     renderRssReader();
+    return;
+  }
+  if (hash === 'tool/overtime') {
+    selectCategory('kanban_board', '');
+    renderOvertimeModule();
     return;
   }
   if (hash === 'tool/instrukcja') {
@@ -7451,6 +7460,421 @@ window.saveCveWatchlistModal = async function() {
     applyCveFiltersAndRender();
   } catch (err) {
     alert('Nie udało się zapisać konfiguracji: ' + err.message);
+  }
+};
+
+// ================= EWIDENCJA NADGODZIN ================= //
+
+let overtimeData = {
+  entries: [],
+  stats: { totalHours: 0, takenHours: 0, remainingHours: 0 }
+};
+
+let overtimeFilterMonth = 'all';
+
+async function renderOvertimeModule() {
+  const contentArea = document.getElementById('articleContentArea');
+  const breadcrumbArea = document.getElementById('breadcrumbArea');
+  if (breadcrumbArea) breadcrumbArea.innerHTML = 'Pulpit &gt; Ewidencja Nadgodzin';
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  let timeOptionsStart = '<option value="">-- Wybierz (lub wpisz h) --</option>';
+  let timeOptionsEnd = '<option value="">-- Wybierz (lub wpisz h) --</option>';
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const hh = String(h).padStart(2, '0');
+      const mm = String(m).padStart(2, '0');
+      const timeVal = `${hh}:${mm}`;
+      timeOptionsStart += `<option value="${timeVal}">${timeVal}</option>`;
+      timeOptionsEnd += `<option value="${timeVal}">${timeVal}</option>`;
+    }
+  }
+
+  contentArea.innerHTML = `
+    <div class="overtime-wrapper" style="max-width:1100px; line-height:1.5;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px; border-bottom:1px solid #27272a; padding-bottom:14px;">
+        <div>
+          <h2 style="color:var(--sw-gold); margin:0 0 6px 0; text-transform:uppercase; font-size:1.3rem; letter-spacing:0.5px;">EWIDENCJA NADGODZIN</h2>
+          <p style="font-size:0.78rem; color:#aaa; margin:0;">
+            Szybka rejestracja wypracowanych nadgodzin, automatyczne wyliczanie czasu oraz bilans godzin odebranych.
+          </p>
+        </div>
+        <div>
+          <button class="btn-action" onclick="window.loadOvertimeData()" style="font-size:0.75rem; padding:6px 14px;">
+            Odśwież Listę
+          </button>
+        </div>
+      </div>
+
+      <!-- Formularz Dodawania Nadgodzin -->
+      <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:16px; margin-bottom:20px;">
+        <h3 style="color:#fff; font-size:0.85rem; margin:0 0 12px 0; text-transform:uppercase; letter-spacing:0.4px;">Szybki Formularz: Dodaj Nadgodziny</h3>
+
+        <form id="overtimeForm" onsubmit="window.submitOvertimeForm(event)" style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+            <div>
+              <label style="display:block; font-size:0.72rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">1. DATA (ROK-MIESIĄC-DZIEŃ):</label>
+              <input type="date" id="ovtDateInput" value="${todayStr}" required style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:7px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+            </div>
+
+            <div>
+              <label style="display:block; font-size:0.72rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">2. GODZINA ROZPOCZĘCIA:</label>
+              <select id="ovtStartTimeSelect" onchange="window.handleOvertimeTimeChange()" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:7px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+                ${timeOptionsStart}
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block; font-size:0.72rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">3. GODZINA ZAKOŃCZENIA:</label>
+              <select id="ovtEndTimeSelect" onchange="window.handleOvertimeTimeChange()" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:7px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+                ${timeOptionsEnd}
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block; font-size:0.72rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">4. ILOŚĆ GODZIN (H):</label>
+              <input type="number" id="ovtHoursInput" step="0.5" min="0.5" max="24" placeholder="np. 2.5" required style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:7px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+            </div>
+          </div>
+
+          <!-- Szybki wybór popularnych wartości -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#18181b; padding:8px 12px; border-radius:4px; border:1px solid #27272a;">
+            <span style="font-size:0.7rem; color:#888; font-weight:600;">Szybki wybór:</span>
+            <button type="button" class="btn-secondary" onclick="window.setQuickOvertimeHours(0.5)" style="font-size:0.7rem; padding:3px 8px;">0.5h (30m)</button>
+            <button type="button" class="btn-secondary" onclick="window.setQuickOvertimeHours(1.0)" style="font-size:0.7rem; padding:3px 8px;">1h</button>
+            <button type="button" class="btn-secondary" onclick="window.setQuickOvertimeHours(1.5)" style="font-size:0.7rem; padding:3px 8px;">1.5h</button>
+            <button type="button" class="btn-secondary" onclick="window.setQuickOvertimeHours(2.0)" style="font-size:0.7rem; padding:3px 8px;">2h</button>
+            <button type="button" class="btn-secondary" onclick="window.setQuickOvertimeHours(2.5)" style="font-size:0.7rem; padding:3px 8px;">2.5h</button>
+            <button type="button" class="btn-secondary" onclick="window.setQuickOvertimeHours(3.0)" style="font-size:0.7rem; padding:3px 8px;">3h</button>
+            <button type="button" class="btn-secondary" onclick="window.setQuickOvertimeHours(4.0)" style="font-size:0.7rem; padding:3px 8px;">4h</button>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:0.72rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">5. OPIS / PRZYCZYNA NADGODZIN:</label>
+            <input type="text" id="ovtDescInput" placeholder="np. Awaria sieci po godzinach, wdrożenie produkcyjne SAN..." required style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:8px 12px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+          </div>
+
+          <div style="display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn-action" style="padding:8px 20px; font-size:0.8rem; font-weight:bold;">
+              + Zapisz Nadgodziny
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Filtry i Tabela Wpisów -->
+      <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:16px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid #222; padding-bottom:10px;">
+          <h3 style="color:var(--sw-gold); font-size:0.88rem; margin:0; text-transform:uppercase;">HISTORIA I WIDOK OGÓLNY WPISÓW</h3>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label style="font-size:0.72rem; color:#aaa;">Filtruj miesiąc:</label>
+            <select id="ovtMonthFilterSelect" onchange="window.handleOvertimeMonthFilter(this.value)" style="background:#18181b; border:1px solid #333; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.75rem;">
+              <option value="all">Wszystkie wpisy</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="overtimeListContainer">
+          <div style="text-align:center; padding:20px; color:#888; font-size:0.8rem;">Pobieranie ewidencji nadgodzin...</div>
+        </div>
+      </div>
+
+      <!-- Pasek Bilansu na Dole -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:30px;">
+        <div style="background:#111; border:1px solid #333; border-radius:6px; padding:12px 16px;">
+          <div style="font-size:0.7rem; color:#888; text-transform:uppercase; font-weight:600;">1. Przepracowane Nadgodziny (Łącznie)</div>
+          <div id="ovtStatTotal" style="font-size:1.5rem; font-weight:700; color:var(--sw-gold); margin-top:4px;">0.0 h</div>
+        </div>
+
+        <div style="background:#111; border:1px solid #166534; border-radius:6px; padding:12px 16px;">
+          <div style="font-size:0.7rem; color:#86efac; text-transform:uppercase; font-weight:600;">2. Odebrane / Rozliczone (Wolne)</div>
+          <div id="ovtStatTaken" style="font-size:1.5rem; font-weight:700; color:#4ade80; margin-top:4px;">0.0 h</div>
+        </div>
+
+        <div style="background:#111; border:1px solid #1e3a8a; border-radius:6px; padding:12px 16px;">
+          <div style="font-size:0.7rem; color:#93c5fd; text-transform:uppercase; font-weight:600;">3. Pozostały Bilans Netto (Do Odebrania)</div>
+          <div id="ovtStatRemaining" style="font-size:1.5rem; font-weight:700; color:#38bdf8; margin-top:4px;">0.0 h</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  await loadOvertimeData();
+}
+
+window.handleOvertimeTimeChange = function() {
+  const startEl = document.getElementById('ovtStartTimeSelect');
+  const endEl = document.getElementById('ovtEndTimeSelect');
+  const hoursEl = document.getElementById('ovtHoursInput');
+  if (!startEl || !endEl || !hoursEl) return;
+
+  const startVal = startEl.value;
+  const endVal = endEl.value;
+  if (!startVal || !endVal) return;
+
+  const [sH, sM] = startVal.split(':').map(Number);
+  const [eH, eM] = endVal.split(':').map(Number);
+
+  let startMins = sH * 60 + sM;
+  let endMins = eH * 60 + eM;
+
+  if (endMins <= startMins) {
+    endMins += 24 * 60;
+  }
+
+  const diffMins = endMins - startMins;
+  const diffHours = Math.round((diffMins / 60) * 10) / 10;
+  if (diffHours > 0) {
+    hoursEl.value = String(diffHours);
+  }
+};
+
+window.setQuickOvertimeHours = function(val) {
+  const hoursEl = document.getElementById('ovtHoursInput');
+  if (hoursEl) hoursEl.value = String(val);
+};
+
+window.loadOvertimeData = async function() {
+  try {
+    const res = await fetch('/api/overtime?t=' + Date.now());
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd pobierania danych nadgodzin');
+    }
+
+    overtimeData.entries = data.entries || [];
+    overtimeData.stats = data.stats || { totalHours: 0, takenHours: 0, remainingHours: 0 };
+
+    populateOvertimeMonthFilterSelect();
+    renderOvertimeTableAndStats();
+  } catch (err) {
+    const container = document.getElementById('overtimeListContainer');
+    if (container) {
+      container.innerHTML = `
+        <div style="background:#271010; border:1px solid #7f1d1d; color:#fca5a5; padding:14px; border-radius:4px; font-size:0.8rem;">
+          Błąd pobierania ewidencji nadgodzin: ${escapeHtml(err.message)}
+        </div>
+      `;
+    }
+  }
+};
+
+function populateOvertimeMonthFilterSelect() {
+  const select = document.getElementById('ovtMonthFilterSelect');
+  if (!select) return;
+
+  const monthsSet = new Set();
+  for (const entry of overtimeData.entries) {
+    if (entry.date && entry.date.length >= 7) {
+      monthsSet.add(entry.date.slice(0, 7));
+    }
+  }
+
+  const sortedMonths = Array.from(monthsSet).sort().reverse();
+  let html = '<option value="all">Wszystkie wpisy</option>';
+  for (const ym of sortedMonths) {
+    html += `<option value="${escapeHtml(ym)}" ${overtimeFilterMonth === ym ? 'selected' : ''}>${escapeHtml(ym)}</option>`;
+  }
+  select.innerHTML = html;
+  select.value = overtimeFilterMonth;
+}
+
+window.handleOvertimeMonthFilter = function(val) {
+  overtimeFilterMonth = val;
+  renderOvertimeTableAndStats();
+};
+
+function renderOvertimeTableAndStats() {
+  const container = document.getElementById('overtimeListContainer');
+  if (!container) return;
+
+  const entries = overtimeData.entries || [];
+
+  const filtered = entries.filter(e => {
+    if (overtimeFilterMonth !== 'all' && e.date && !e.date.startsWith(overtimeFilterMonth)) {
+      return false;
+    }
+    return true;
+  });
+
+  let totalHours = 0;
+  let takenHours = 0;
+  for (const e of filtered) {
+    const h = typeof e.hours === 'number' ? e.hours : parseFloat(e.hours) || 0;
+    totalHours += h;
+    if (e.isTaken) takenHours += h;
+  }
+  const remainingHours = totalHours - takenHours;
+
+  const statTotal = document.getElementById('ovtStatTotal');
+  const statTaken = document.getElementById('ovtStatTaken');
+  const statRemaining = document.getElementById('ovtStatRemaining');
+
+  if (statTotal) statTotal.textContent = (Math.round(totalHours * 100) / 100).toFixed(1) + ' h';
+  if (statTaken) statTaken.textContent = (Math.round(takenHours * 100) / 100).toFixed(1) + ' h';
+  if (statRemaining) statRemaining.textContent = (Math.round(remainingHours * 100) / 100).toFixed(1) + ' h';
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="background:#18181b; border:1px solid #27272a; padding:24px; text-align:center; color:#888; border-radius:4px; font-size:0.8rem;">
+        Brak zarejestrowanych nadgodzin w wybranym okresie.
+      </div>
+    `;
+    return;
+  }
+
+  let tableHtml = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.78rem; text-align:left;">
+        <thead>
+          <tr style="background:#18181b; border-bottom:1px solid #333; color:#a1a1aa; font-size:0.7rem; text-transform:uppercase;">
+            <th style="padding:8px 10px; width:110px;">Data</th>
+            <th style="padding:8px 10px; width:160px;">Godziny / Czas</th>
+            <th style="padding:8px 10px;">Opis / Przyczyna Nadgodzin</th>
+            <th style="padding:8px 10px; width:140px; text-align:center;">Odebrane</th>
+            <th style="padding:8px 10px; width:90px; text-align:right;">Akcje</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  for (const e of filtered) {
+    const id = escapeHtml(e.id);
+    const date = escapeHtml(e.date || '-');
+    const hours = typeof e.hours === 'number' ? e.hours.toFixed(1) : parseFloat(e.hours || 0).toFixed(1);
+    const startT = escapeHtml(e.startTime || '');
+    const endT = escapeHtml(e.endTime || '');
+    const timeDisplay = (startT && endT) ? `${startT} - ${endT} (${hours}h)` : `${hours}h`;
+    const desc = escapeHtml(e.description || '-');
+    const isTaken = Boolean(e.isTaken);
+
+    const rowBg = isTaken ? 'background:#052e16; opacity:0.8;' : 'background:#111;';
+    const statusText = isTaken
+      ? '<span style="color:#86efac; font-weight:600; font-size:0.7rem;">ODEBRANE</span>'
+      : '<span style="color:#aaa; font-size:0.7rem;">DO ODEBRANIA</span>';
+
+    tableHtml += `
+      <tr style="${rowBg} border-bottom:1px solid #222;">
+        <td style="padding:10px; font-family:monospace; font-weight:bold; color:var(--sw-gold);">${date}</td>
+        <td style="padding:10px; color:#fff; font-weight:600;">${timeDisplay}</td>
+        <td style="padding:10px; color:#d4d4d8;">${desc}</td>
+        <td style="padding:10px; text-align:center;">
+          <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="checkbox" ${isTaken ? 'checked' : ''} onchange="window.toggleOvertimeItem('${id}', this.checked)" style="cursor:pointer; width:15px; height:15px;">
+            ${statusText}
+          </label>
+        </td>
+        <td style="padding:10px; text-align:right;">
+          <button class="btn-secondary" onclick="window.deleteOvertimeItem('${id}')" style="font-size:0.68rem; padding:3px 8px; border-color:#7f1d1d; color:#fca5a5;" title="Usuń wpis nadgodzin">
+            Usuń
+          </button>
+        </td>
+      </tr>
+    `;
+  }
+
+  tableHtml += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  container.innerHTML = tableHtml;
+}
+
+window.submitOvertimeForm = async function(e) {
+  if (e) e.preventDefault();
+  const dateInput = document.getElementById('ovtDateInput');
+  const startSelect = document.getElementById('ovtStartTimeSelect');
+  const endSelect = document.getElementById('ovtEndTimeSelect');
+  const hoursInput = document.getElementById('ovtHoursInput');
+  const descInput = document.getElementById('ovtDescInput');
+
+  if (!dateInput || !hoursInput || !descInput) return;
+
+  const date = dateInput.value;
+  const startTime = startSelect ? startSelect.value : '';
+  const endTime = endSelect ? endSelect.value : '';
+  const hours = parseFloat(hoursInput.value) || 0;
+  const description = descInput.value.trim();
+
+  if (hours <= 0) {
+    alert('Podaj prawidłową ilość godzin (większą od 0).');
+    return;
+  }
+  if (!description) {
+    alert('Podaj opis lub przyczynę nadgodzin.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/overtime', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, startTime, endTime, hours, description })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu nadgodzin');
+    }
+
+    overtimeData.entries = data.entries || [];
+    overtimeData.stats = data.stats || { totalHours: 0, takenHours: 0, remainingHours: 0 };
+
+    descInput.value = '';
+    if (startSelect) startSelect.value = '';
+    if (endSelect) endSelect.value = '';
+
+    populateOvertimeMonthFilterSelect();
+    renderOvertimeTableAndStats();
+  } catch (err) {
+    alert('Błąd dodawania nadgodzin: ' + err.message);
+  }
+};
+
+window.toggleOvertimeItem = async function(id, isTaken) {
+  try {
+    const res = await fetch('/api/overtime-toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, isTaken })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd aktualizacji stanu');
+    }
+
+    overtimeData.entries = data.entries || [];
+    overtimeData.stats = data.stats || { totalHours: 0, takenHours: 0, remainingHours: 0 };
+
+    renderOvertimeTableAndStats();
+  } catch (err) {
+    alert('Błąd aktualizacji stanu nadgodzin: ' + err.message);
+    await loadOvertimeData();
+  }
+};
+
+window.deleteOvertimeItem = async function(id) {
+  if (!confirm('Czy na pewno chcesz usunąć ten wpis nadgodzin?')) return;
+  try {
+    const res = await fetch('/api/overtime', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd usuwania wpisu');
+    }
+
+    overtimeData.entries = data.entries || [];
+    overtimeData.stats = data.stats || { totalHours: 0, takenHours: 0, remainingHours: 0 };
+
+    populateOvertimeMonthFilterSelect();
+    renderOvertimeTableAndStats();
+  } catch (err) {
+    alert('Błąd usuwania wpisu nadgodzin: ' + err.message);
   }
 };
 
