@@ -7567,11 +7567,20 @@ async function renderOvertimeModule() {
       <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:16px; margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid #222; padding-bottom:10px;">
           <h3 style="color:var(--sw-gold); font-size:0.88rem; margin:0; text-transform:uppercase;">HISTORIA I WIDOK OGÓLNY WPISÓW</h3>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <label style="font-size:0.72rem; color:#aaa;">Filtruj miesiąc:</label>
             <select id="ovtMonthFilterSelect" onchange="window.handleOvertimeMonthFilter(this.value)" style="background:#18181b; border:1px solid #333; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.75rem;">
               <option value="all">Wszystkie wpisy</option>
             </select>
+            <button class="btn-secondary" onclick="window.copyOvertimeAsExcel()" style="font-size:0.72rem; padding:4px 10px;" title="Kopiuj dane w formacie TSV gotowym do wklejenia w Excel / Google Sheets">
+              Kopiuj do Excela
+            </button>
+            <button class="btn-secondary" onclick="window.copyOvertimeAsMarkdown()" style="font-size:0.72rem; padding:4px 10px;" title="Kopiuj jako tabelę w formacie Markdown">
+              Kopiuj Tabela Markdown
+            </button>
+            <button class="btn-secondary" onclick="window.copyOvertimeAsTextReport()" style="font-size:0.72rem; padding:4px 10px;" title="Kopiuj jako sformatowany raport tekstowy">
+              Kopiuj Raport Tekstowy
+            </button>
           </div>
         </div>
 
@@ -7877,5 +7886,133 @@ window.deleteOvertimeItem = async function(id) {
     alert('Błąd usuwania wpisu nadgodzin: ' + err.message);
   }
 };
+
+function getFilteredOvertimeEntries() {
+  const entries = overtimeData.entries || [];
+  return entries.filter(e => {
+    if (overtimeFilterMonth !== 'all' && e.date && !e.date.startsWith(overtimeFilterMonth)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+window.copyOvertimeAsExcel = function() {
+  const filtered = getFilteredOvertimeEntries();
+  if (filtered.length === 0) {
+    alert('Brak wpisów nadgodzin do skopiowania w wybranym okresie.');
+    return;
+  }
+
+  let tsv = 'Data\tGodziny\tZakres czasu\tOpis / Przyczyna\tStatus\n';
+  let totalH = 0;
+  let takenH = 0;
+
+  for (const e of filtered) {
+    const d = e.date || '';
+    const h = typeof e.hours === 'number' ? e.hours : parseFloat(e.hours || 0);
+    totalH += h;
+    if (e.isTaken) takenH += h;
+
+    const startT = e.startTime || '';
+    const endT = e.endTime || '';
+    const range = (startT && endT) ? `${startT} - ${endT}` : '-';
+    const desc = (e.description || '').replace(/[\t\r\n]/g, ' ');
+    const status = e.isTaken ? 'ODEBRANE' : 'DO ODEBRANIA';
+
+    tsv += `${d}\t${h.toFixed(1)}\t${range}\t${desc}\t${status}\n`;
+  }
+
+  const remH = totalH - takenH;
+  tsv += `PODSUMOWANIE\tSuma: ${totalH.toFixed(1)}h\tOdebrane: ${takenH.toFixed(1)}h\tPozostało: ${remH.toFixed(1)}h\t-\n`;
+
+  navigator.clipboard.writeText(tsv).then(() => {
+    alert('Tabela (format Excel / TSV) została skopiowana do schowka.');
+  }).catch(err => {
+    alert('Nie udało się skopiować tabeli: ' + err.message);
+  });
+};
+
+window.copyOvertimeAsMarkdown = function() {
+  const filtered = getFilteredOvertimeEntries();
+  if (filtered.length === 0) {
+    alert('Brak wpisów nadgodzin do skopiowania w wybranym okresie.');
+    return;
+  }
+
+  let md = '| Data | Godziny | Zakres czasu | Opis / Przyczyna | Status |\n';
+  md += '| --- | --- | --- | --- | --- |\n';
+  let totalH = 0;
+  let takenH = 0;
+
+  for (const e of filtered) {
+    const d = e.date || '';
+    const h = typeof e.hours === 'number' ? e.hours : parseFloat(e.hours || 0);
+    totalH += h;
+    if (e.isTaken) takenH += h;
+
+    const startT = e.startTime || '';
+    const endT = e.endTime || '';
+    const range = (startT && endT) ? `${startT} - ${endT}` : '-';
+    const desc = (e.description || '').replace(/\|/g, '\\|');
+    const status = e.isTaken ? 'ODEBRANE' : 'DO ODEBRANIA';
+
+    md += `| ${d} | ${h.toFixed(1)}h | ${range} | ${desc} | ${status} |\n`;
+  }
+
+  const remH = totalH - takenH;
+  md += `\n**Podsumowanie:** Suma: **${totalH.toFixed(1)}h** | Odebrane: **${takenH.toFixed(1)}h** | Pozostało: **${remH.toFixed(1)}h**\n`;
+
+  navigator.clipboard.writeText(md).then(() => {
+    alert('Tabela w formacie Markdown została skopiowana do schowka.');
+  }).catch(err => {
+    alert('Nie udało się skopiować tabeli: ' + err.message);
+  });
+};
+
+window.copyOvertimeAsTextReport = function() {
+  const filtered = getFilteredOvertimeEntries();
+  if (filtered.length === 0) {
+    alert('Brak wpisów nadgodzin do skopiowania w wybranym okresie.');
+    return;
+  }
+
+  const monthLabel = overtimeFilterMonth === 'all' ? 'Wszystkie okresy' : `Okres: ${overtimeFilterMonth}`;
+  let txt = `RAPORT EWIDENCJI NADGODZIN (${monthLabel})\n`;
+  txt += `Data wygenerowania: ${new Date().toISOString().split('T')[0]}\n`;
+  txt += `==================================================\n\n`;
+
+  let totalH = 0;
+  let takenH = 0;
+
+  for (const e of filtered) {
+    const d = e.date || '';
+    const h = typeof e.hours === 'number' ? e.hours : parseFloat(e.hours || 0);
+    totalH += h;
+    if (e.isTaken) takenH += h;
+
+    const startT = e.startTime || '';
+    const endT = e.endTime || '';
+    const range = (startT && endT) ? ` (${startT} - ${endT})` : '';
+    const desc = e.description || '-';
+    const status = e.isTaken ? '[ODEBRANE]' : '[DO ODEBRANIA]';
+
+    txt += `- ${d}: ${h.toFixed(1)}h${range} - ${desc} ${status}\n`;
+  }
+
+  const remH = totalH - takenH;
+  txt += `\n--------------------------------------------------\n`;
+  txt += `BILANS GODZIN:\n`;
+  txt += `  * Łącznie wypracowane: ${totalH.toFixed(1)} h\n`;
+  txt += `  * Odebrane / wolne:    ${takenH.toFixed(1)} h\n`;
+  txt += `  * Pozostało netto:     ${remH.toFixed(1)} h\n`;
+
+  navigator.clipboard.writeText(txt).then(() => {
+    alert('Raport tekstowy został skopiowany do schowka.');
+  }).catch(err => {
+    alert('Nie udało się skopiować raportu: ' + err.message);
+  });
+};
+
 
 

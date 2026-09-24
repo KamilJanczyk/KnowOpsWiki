@@ -1848,7 +1848,11 @@ test('37. Ewidencja Nadgodzin: weryfikacja logiki API, przeliczania bilansu i ob
   assert.equal(appJs.includes('loadOvertimeData'), true);
   assert.equal(appJs.includes('toggleOvertimeItem'), true);
   assert.equal(appJs.includes('submitOvertimeForm'), true);
+  assert.equal(appJs.includes('copyOvertimeAsExcel'), true);
+  assert.equal(appJs.includes('copyOvertimeAsMarkdown'), true);
+  assert.equal(appJs.includes('copyOvertimeAsTextReport'), true);
 });
+
 
 
 
