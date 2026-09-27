@@ -1853,6 +1853,17 @@ test('37. Ewidencja Nadgodzin: weryfikacja logiki API, przeliczania bilansu i ob
   assert.equal(appJs.includes('copyOvertimeAsTextReport'), true);
 });
 
+test('38. Markdown Quotes Integrity: brak szkodliwej zamiany apostrofów na grawisy oraz ochrona Smart Quotes', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // Weryfikacja braku szkodliwej zamiany text.replace(/[´'']/g, '`')
+  assert.equal(appJs.includes("text.replace(/[´'']/g, '`')"), false);
+
+  // Weryfikacja sanitizacji Smart Quotes w przycisku Kopiuj kod
+  assert.equal(appJs.includes(".replace(/[’‘]/g, \"'\")"), true);
+});
+
+
 
 
 

@@ -1023,7 +1023,8 @@ function addCopyButtons(container = null) {
 
     btn.addEventListener('click', async () => {
       const code = pre.querySelector('code');
-      const textToCopy = code ? code.textContent : pre.textContent;
+      const rawText = code ? code.textContent : pre.textContent;
+      const textToCopy = (rawText || '').replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
 
       try {
         await navigator.clipboard.writeText(textToCopy);
@@ -1047,7 +1048,7 @@ function addCopyButtons(container = null) {
 function parseMarkdown(text) {
   if (!text) return '';
 
-  const normalizedText = text.replace(/[´'']/g, '`');
+  const normalizedText = text;
   let html = '';
   try {
     if (typeof window.markdownit !== 'undefined') {
