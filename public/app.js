@@ -1028,6 +1028,13 @@ function addCopyButtons(container = null) {
 
       try {
         await navigator.clipboard.writeText(textToCopy);
+
+        // Usunięcie podświetlenia z poprzedniego bloku i podświetlenie aktualnego
+        document.querySelectorAll('pre.code-block-last-copied').forEach(el => {
+          el.classList.remove('code-block-last-copied');
+        });
+        pre.classList.add('code-block-last-copied');
+
         btn.textContent = 'Skopiowano!';
         btn.classList.add('copied');
         setTimeout(() => {

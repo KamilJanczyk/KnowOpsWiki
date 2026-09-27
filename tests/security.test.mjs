@@ -1861,7 +1861,11 @@ test('38. Markdown Quotes Integrity: brak szkodliwej zamiany apostrofów na graw
 
   // Weryfikacja sanitizacji Smart Quotes w przycisku Kopiuj kod
   assert.equal(appJs.includes(".replace(/[’‘]/g, \"'\")"), true);
+
+  // Weryfikacja podświetlania ostatnio skopiowanego bloku kodu
+  assert.equal(appJs.includes('code-block-last-copied'), true);
 });
+
 
 
 

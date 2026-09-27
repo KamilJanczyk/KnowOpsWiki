@@ -450,7 +450,12 @@
     .markdown-body li { margin-bottom: 6px; font-size: 0.85rem; line-height: 1.5; color: #cccccc; }
     .markdown-body li > ul, .markdown-body li > ol { margin-top: 6px; margin-bottom: 0; padding-left: 20px; }
     .markdown-body code { background: #1a1a1a; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #e2e8f0; }
-    .markdown-body pre { background: #121212; border: 1px solid #282828; padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 14px; position: relative; }
+    .markdown-body pre { background: #121212; border: 1px solid #282828; padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 14px; position: relative; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+    .markdown-body pre.code-block-last-copied {
+      border-color: var(--sw-gold) !important;
+      box-shadow: 0 0 12px rgba(212, 175, 55, 0.3) !important;
+    }
+    .markdown-body pre.code-block-last-copied .copy-code-btn { opacity: 1 !important; }
     .markdown-body pre code { background: none; padding: 0; color: #e2e8f0; }
     .copy-code-btn {
       position: absolute; top: 6px; right: 6px; background: #27272a; border: 1px solid #3f3f46; color: #a1a1aa;
