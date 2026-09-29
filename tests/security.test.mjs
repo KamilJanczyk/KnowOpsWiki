@@ -1900,6 +1900,53 @@ test('39. Right Sidebar Kanban Reordering: weryfikacja znaczników przesuwania z
   assert.equal(sampleTasks[1].sidebarOrder, 20);
 });
 
+test('40. Sidebar Cleanup & Centrum Administracyjne: weryfikacja optymalizacji lewego paska i nowego widoku administracyjnego', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja czystosci lewego paska narzedziowego w index.html
+  const toolsSectionMatch = indexHtml.match(/<div class="left-sidebar-tools"[^>]*>([\s\S]*?)<\/div>\s*<div class="sidebar-dept-header-box">/);
+  assert.ok(toolsSectionMatch, 'Sekcja .left-sidebar-tools powinna istniec w index.html');
+  const toolsHtml = toolsSectionMatch[1];
+
+  // Tylko Przeskanuj, Drukuj / PDF oraz Importuj Plik
+  assert.equal(toolsHtml.includes('triggerRescan()'), true);
+  assert.equal(toolsHtml.includes('window.print()'), true);
+  assert.equal(toolsHtml.includes('openImportFileModal()'), true);
+
+  // Usuniecie zbednych i zduplikowanych przyciskow z lewego paska
+  assert.equal(toolsHtml.includes('openCreateItemModal()'), false);
+  assert.equal(toolsHtml.includes('downloadWikiZip()'), false);
+  assert.equal(toolsHtml.includes('openOrphanedImagesModal()'), false);
+  assert.equal(toolsHtml.includes('openTrashDocumentsModal()'), false);
+  assert.equal(toolsHtml.includes('openBackupsModal()'), false);
+  assert.equal(toolsHtml.includes('openSyncFilenamesModal()'), false);
+
+  // 2. Weryfikacja zmiany nazwy przycisku w naglowku artykulu
+  assert.equal(appJs.includes('+ DODAJ STRONĘ / DZIAŁ'), true);
+  assert.equal(appJs.includes('openCreateItemModalForCurrentFolder()'), true);
+
+  // 3. Weryfikacja kafelka Centrum Administracyjne w menu Pulpitu
+  assert.equal(appJs.includes("const isAdminActive = (currentHash === 'tool/admin');"), true);
+  assert.equal(appJs.includes('href="#/tool/admin"'), true);
+  assert.equal(appJs.includes('Centrum Administracyjne'), true);
+
+  // 4. Weryfikacja routera hash dla sciezki tool/admin
+  assert.equal(appJs.includes("if (hash === 'tool/admin')"), true);
+  assert.equal(appJs.includes('renderAdminCenter()'), true);
+
+  // 5. Weryfikacja widoku Centrum Administracyjnego oraz wywolywanych operacji
+  assert.equal(appJs.includes('function renderAdminCenter()'), true);
+  assert.equal(appJs.includes('Pulpit &gt; Centrum Administracyjne'), true);
+  assert.equal(appJs.includes('downloadWikiZip()'), true);
+  assert.equal(appJs.includes('openBackupsModal()'), true);
+  assert.equal(appJs.includes('openTrashDocumentsModal()'), true);
+  assert.equal(appJs.includes('openOrphanedImagesModal()'), true);
+  assert.equal(appJs.includes('openSyncFilenamesModal()'), true);
+  assert.equal(appJs.includes('window.renderAdminCenter = renderAdminCenter;'), true);
+});
+
+
 
 
 

@@ -548,6 +548,7 @@ async function renderSidebar() {
     const isCveActive = (currentHash === 'tool/cve');
     const isOvertimeActive = (currentHash === 'tool/overtime');
     const isInstrukcjaActive = (currentHash === 'tool/instrukcja');
+    const isAdminActive = (currentHash === 'tool/admin');
 
     sidebarNav.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:2px; margin-top:6px;">
@@ -580,6 +581,9 @@ async function renderSidebar() {
         </a>
         <a href="#/tool/instrukcja" class="sidebar-tile-btn ${isInstrukcjaActive ? 'active' : ''}">
           <span class="label">Instrukcja Obsługi</span>
+        </a>
+        <a href="#/tool/admin" class="sidebar-tile-btn ${isAdminActive ? 'active' : ''}">
+          <span class="label">Centrum Administracyjne</span>
         </a>
       </div>
     `;
@@ -897,6 +901,11 @@ async function handleHashNavigation() {
     renderWikiInstruction();
     return;
   }
+  if (hash === 'tool/admin') {
+    selectCategory('kanban_board', '');
+    renderAdminCenter();
+    return;
+  }
 
   // Handle category/subcategory link e.g. "01_Sciagi/06_Komendy_GNU_Linux"
   const parts = hash.split('/');
@@ -1183,7 +1192,7 @@ async function loadArticle(articlePath) {
       <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
       <div style="display:flex; gap:6px;">
         <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
-        <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ W TYM FOLDERZE</button>
+        <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ / DZIAŁ</button>
         <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
         <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
       </div>
@@ -3309,13 +3318,63 @@ function renderWikiInstruction() {
     <h3 style="color:#ffffff; font-size:0.92rem; margin-top:20px; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:4px;">6. Eksport offline i narzędzia CLI</h3>
     <ul style="font-size:0.82rem; color:#d4d4d8; margin-left:20px; margin-bottom:16px; display:flex; flex-direction:column; gap:6px;">
       <li><strong>Autonomiczny eksport offline (HTML z Base64):</strong> przycisk <strong>„Eksportuj offline”</strong> na pasku artykułu konwertuje procedurę do pojedynczego, w pełni samowystarczalnego pliku HTML. Wszystkie obrazy są automatycznie przekształcane do formatu Base64 Data URI, a w nagłówku osadzany jest kompletny arkusz stylów. Plik można bezpiecznie przenieść i otworzyć w dowolnej przeglądarce na odciętej od sieci stacji roboczej.</li>
-      <li><strong>Synchronizacja nazw plików z nagłówkiem H1 (GUI oraz CLI):</strong> narzędzie dostępne bezpośrednio w lewym menu bocznym pod przyciskiem <strong>„Uporządkuj nazwy z H1”</strong> oraz w konsoli (<code>./sync_markdown_filenames.sh</code>). Porównuje fizyczne nazwy plików w <code>docs/</code> z pierwszym nagłówkiem <code># Tytuł</code>, zachowuje prefiksy numeryczne i transliteruje polskie znaki diakrytyczne. Okno modalne prezentuje podgląd różnic z wykrywaniem kolizji i pozwala na selektywne zatwierdzenie zmian jednym kliknięciem bez dotykania terminala.</li>
+      <li><strong>Synchronizacja nazw plików z nagłówkiem H1 (GUI oraz CLI):</strong> narzędzie dostępne w Centrum Administracyjnym pod przyciskiem <strong>„Uporządkuj nazwy z H1”</strong> oraz w konsoli (<code>./sync_markdown_filenames.sh</code>). Porównuje fizyczne nazwy plików w <code>docs/</code> z pierwszym nagłówkiem <code># Tytuł</code>, zachowuje prefiksy numeryczne i transliteruje polskie znaki diakrytyczne. Okno modalne prezentuje podgląd różnic z wykrywaniem kolizji i pozwala na selektywne zatwierdzenie zmian jednym kliknięciem bez dotykania terminala.</li>
       <li><strong>Podręczny brudnopis (scratchpad – skrót Alt+N):</strong> wciśnięcie skrótu <code>Alt + N</code> wysuwa panel roboczy z autozapisem, edytorem monospaced, szybką checklistą i przyciskiem przekształcenia notatki w nowy dokument Wiki.</li>
       <li><strong>Import z adresu URL (web scraper):</strong> przycisk <strong>„Importuj plik (MD / HTML)”</strong> w lewym panelu umożliwia pobranie artykułu z zewnętrznego adresu URL i automatyczną konwersję do Markdown z filtrowaniem treści głównej i ochroną anty-SSRF.</li>
       <li><strong>Zoptymalizowany druk i eksport do PDF:</strong> przycisk <strong>„Drukuj / PDF”</strong> (lub skrót Ctrl+P) aktywuje arkusz stylów formatu A4 portrait z marginesami 12x15mm, zapewniając dopasowanie tabel i bloków kodu bez obcinania zawartości.</li>
     </ul>
   </div>`;
 }
+
+function renderAdminCenter() {
+  const contentArea = document.getElementById('articleContentArea');
+  const breadcrumbArea = document.getElementById('breadcrumbArea');
+  if (breadcrumbArea) breadcrumbArea.innerHTML = 'Pulpit &gt; Centrum Administracyjne';
+
+  contentArea.innerHTML = `
+    <div class="admin-center-box" style="max-width:960px; line-height:1.6;">
+      <div style="background:#111113; border:1px solid #27272a; padding:24px; border-radius:8px; margin-bottom:20px;">
+        <h2 style="color:var(--sw-gold); font-size:1.2rem; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">CENTRUM ADMINISTRACYJNE I KONSERWACJA BAZY WIEDZY</h2>
+        <p style="font-size:0.84rem; color:#a1a1aa; margin-bottom:0;">Zarządzanie bezpieczeństwem danych, kopiami zapasowymi, archiwizacją, koszem usuniętych dokumentów oraz integralnością struktury plików bazy KnowOps.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px;">
+        <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h3 style="color:#60a5fa; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Kopie Zapasowe i Bezpieczeństwo</h3>
+            <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Zarządzanie archiwami całej bazy wiedzy. Możliwość natychmiastowego pobrania pełnego archiwum ZIP lub inspekcji 7 rotacyjnych migawek generowanych przez automatyczny harmonogram serwera.</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn-action" style="width:100%; background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="downloadWikiZip()" title="Pobierz całą bazę wiedzy jako archiwum ZIP">Kopia ZIP (Baza i Media)</button>
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #1e3a5f; color:#93c5fd; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openBackupsModal()" title="Zarządzanie rotacyjnymi kopiami zapasowymi">Kopie Auto (Retencja 7)</button>
+          </div>
+        </div>
+
+        <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h3 style="color:#f87171; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Konserwacja i Kosz Bazy</h3>
+            <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Narzędzia retencji i czyszczenia. Przeglądanie kosza usuniętych artykułów i folderów oraz automatyczna detekcja i przenoszenie osieroconych plików graficznych do strefy kwarantanny.</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #451a1a; color:#fca5a5; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openTrashDocumentsModal()" title="Kosz bazy wiedzy (przywracanie usuniętych stron i folderów)">Kosz Wiki (Dokumenty i Foldery)</button>
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#e4e4e7; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openOrphanedImagesModal()" title="Skanuj i usuń nieużywane grafiki">Oczyść Osierocone Grafiki</button>
+          </div>
+        </div>
+
+        <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h3 style="color:#34d399; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Integralność i Nazewnictwo</h3>
+            <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Automatyczna analiza i weryfikacja spójności fizycznych nazw plików Markdown z nagłówkami H1 pierwszego poziomu. Wykrywanie niezgodności oraz masowa aktualizacja.</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #059669; color:#6ee7b7; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openSyncFilenamesModal()" title="Porównaj i zsynchronizuj nazwy plików Markdown z nagłówkami H1">Uporządkuj Nazwy Plików z H1</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+window.renderAdminCenter = renderAdminCenter;
 
 
 function buildRecursiveFolderOptions(items, prefix = '&nbsp;&nbsp;&nbsp;&nbsp;') {
