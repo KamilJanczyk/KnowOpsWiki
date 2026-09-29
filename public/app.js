@@ -1182,7 +1182,9 @@ async function loadArticle(articlePath) {
       throw new Error(`Plik ${articlePath} nie został odnaleziony na serwerze.`);
     }
 
-        const pathParts = articlePath.split('/');
+    window.currentArticleMarkdown = markdownText;
+
+    const pathParts = articlePath.split('/');
     if (breadcrumbArea) {
       const bCrumbText = pathParts.map(p => p.replace('.md', '').replace(/_/g, ' ')).join(' &gt; ');
       breadcrumbArea.innerHTML = bCrumbText;
@@ -1190,8 +1192,10 @@ async function loadArticle(articlePath) {
 
     const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:0; z-index:100; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
       <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
-      <div style="display:flex; gap:6px;">
+      <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
         <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
+        <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ / PDF</button>
         <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ / DZIAŁ</button>
         <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
         <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
@@ -1244,6 +1248,40 @@ async function loadArticle(articlePath) {
     </div>`;
   }
 }
+
+window.copyCurrentArticleMarkdown = async function(btn) {
+  try {
+    let text = window.currentArticleMarkdown || '';
+    if (!text) {
+      const contentEl = document.querySelector('#articleContentArea .markdown-body');
+      if (contentEl) text = contentEl.innerText || '';
+    }
+    if (!text) {
+      if (btn) btn.textContent = 'Brak treści';
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    if (btn) {
+      const originalText = btn.textContent;
+      btn.textContent = 'SKOPIOWANO!';
+      btn.style.borderColor = '#22c55e';
+      btn.style.color = '#86efac';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.borderColor = '#3f3f46';
+        btn.style.color = '#ffffff';
+      }, 1500);
+    }
+  } catch (err) {
+    console.warn('Błąd kopiowania artykułu:', err);
+    if (btn) {
+      btn.textContent = 'BŁĄD';
+      setTimeout(() => {
+        btn.textContent = 'KOPIUJ';
+      }, 1500);
+    }
+  }
+};
 
 window.exportArticleOfflineHtml = async function() {
   const contentArea = document.getElementById('articleContentArea');

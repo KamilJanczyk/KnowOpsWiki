@@ -1909,10 +1909,10 @@ test('40. Sidebar Cleanup & Centrum Administracyjne: weryfikacja optymalizacji l
   assert.ok(toolsSectionMatch, 'Sekcja .left-sidebar-tools powinna istniec w index.html');
   const toolsHtml = toolsSectionMatch[1];
 
-  // Tylko Przeskanuj, Drukuj / PDF oraz Importuj Plik
+  // Tylko Przeskanuj oraz Importuj Plik w lewym pasku
   assert.equal(toolsHtml.includes('triggerRescan()'), true);
-  assert.equal(toolsHtml.includes('window.print()'), true);
   assert.equal(toolsHtml.includes('openImportFileModal()'), true);
+  assert.equal(toolsHtml.includes('window.print()'), false);
 
   // Usuniecie zbednych i zduplikowanych przyciskow z lewego paska
   assert.equal(toolsHtml.includes('openCreateItemModal()'), false);
@@ -1922,7 +1922,11 @@ test('40. Sidebar Cleanup & Centrum Administracyjne: weryfikacja optymalizacji l
   assert.equal(toolsHtml.includes('openBackupsModal()'), false);
   assert.equal(toolsHtml.includes('openSyncFilenamesModal()'), false);
 
-  // 2. Weryfikacja zmiany nazwy przycisku w naglowku artykulu
+  // 2. Weryfikacja przyciskow w gornym pasku artykulu (KOPIUJ, DRUKUJ / PDF, zmiana nazwy dodawania)
+  assert.equal(appJs.includes('copyCurrentArticleMarkdown(this)'), true);
+  assert.equal(appJs.includes('window.copyCurrentArticleMarkdown = async function'), true);
+  assert.equal(appJs.includes('window.currentArticleMarkdown = markdownText;'), true);
+  assert.equal(appJs.includes('window.print()'), true);
   assert.equal(appJs.includes('+ DODAJ STRONĘ / DZIAŁ'), true);
   assert.equal(appJs.includes('openCreateItemModalForCurrentFolder()'), true);
 
