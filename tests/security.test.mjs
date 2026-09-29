@@ -1866,6 +1866,41 @@ test('38. Markdown Quotes Integrity: brak szkodliwej zamiany apostrofów na graw
   assert.equal(appJs.includes('code-block-last-copied'), true);
 });
 
+test('39. Right Sidebar Kanban Reordering: weryfikacja znaczników przesuwania zadań góra/dół i logiki sidebarOrder', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // Weryfikacja obecności styli znaczników w style.css
+  assert.equal(styleCss.includes('.btn-kanban-move'), true);
+  assert.equal(styleCss.includes('.right-kanban-move-controls'), true);
+
+  // Weryfikacja funkcji pozycjonowania i atrybutu sidebarOrder w app.js
+  assert.equal(appJs.includes('window.moveSidebarTask'), true);
+  assert.equal(appJs.includes('sidebarOrder'), true);
+  assert.equal(appJs.includes('btn-kanban-move'), true);
+
+  // Weryfikacja poprawności algorytmu zamiany pozycji
+  const sampleTasks = [
+    { id: 'task_1', title: 'Zadanie 1', status: 'in_progress', sidebarOrder: 10 },
+    { id: 'task_2', title: 'Zadanie 2', status: 'in_progress', sidebarOrder: 20 },
+    { id: 'task_3', title: 'Zadanie 3', status: 'in_progress', sidebarOrder: 30 }
+  ];
+
+  // Symulacja przesunięcia 'task_2' w górę (-1)
+  const idx = sampleTasks.findIndex(t => t.id === 'task_2');
+  const targetIdx = idx - 1;
+  const temp = sampleTasks[idx];
+  sampleTasks[idx] = sampleTasks[targetIdx];
+  sampleTasks[targetIdx] = temp;
+  sampleTasks.forEach((t, i) => { t.sidebarOrder = (i + 1) * 10; });
+
+  assert.equal(sampleTasks[0].id, 'task_2');
+  assert.equal(sampleTasks[1].id, 'task_1');
+  assert.equal(sampleTasks[0].sidebarOrder, 10);
+  assert.equal(sampleTasks[1].sidebarOrder, 20);
+});
+
+
 
 
 

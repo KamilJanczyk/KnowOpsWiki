@@ -1413,6 +1413,12 @@ function renderKanbanCards() {
     const filtered = kanbanTasks.filter(t => t.status === status && !t.archived);
     const prioWeights = { high: 3, medium: 2, low: 1 };
     filtered.sort((a, b) => {
+      const hasOrderA = typeof a.sidebarOrder === 'number';
+      const hasOrderB = typeof b.sidebarOrder === 'number';
+      if (hasOrderA && hasOrderB) return a.sidebarOrder - b.sidebarOrder;
+      if (hasOrderA) return -1;
+      if (hasOrderB) return 1;
+
       const aTotal = (a.subtasks || []).length;
       const aDone = (a.subtasks || []).filter(s => s.done).length;
       const aFinished = aTotal > 0 && aDone === aTotal;
@@ -3927,6 +3933,12 @@ async function loadRightSidebarKanban() {
     const activeTasks = tasks.filter(t => t.status === 'in_progress' && !t.archived);
     const prioWeights = { high: 3, medium: 2, low: 1 };
     activeTasks.sort((a, b) => {
+      const hasOrderA = typeof a.sidebarOrder === 'number';
+      const hasOrderB = typeof b.sidebarOrder === 'number';
+      if (hasOrderA && hasOrderB) return a.sidebarOrder - b.sidebarOrder;
+      if (hasOrderA) return -1;
+      if (hasOrderB) return 1;
+
       const aTotal = (a.subtasks || []).length;
       const aDone = (a.subtasks || []).filter(s => s.done).length;
       const aFinished = aTotal > 0 && aDone === aTotal;
@@ -3945,7 +3957,10 @@ async function loadRightSidebarKanban() {
     }
 
     let html = '';
-    for (const t of activeTasks) {
+    for (let i = 0; i < activeTasks.length; i++) {
+      const t = activeTasks[i];
+      const isFirst = (i === 0);
+      const isLast = (i === activeTasks.length - 1);
       const prioClass = `prio-${t.priority || 'medium'}`;
       const subtasks = t.subtasks || [];
       const total = subtasks.length;
@@ -4017,7 +4032,13 @@ async function loadRightSidebarKanban() {
 
       html += `
         <div class="right-kanban-item ${prioClass}">
-          <div class="right-kanban-item-title">${escapeHtml(t.title)}</div>
+          <div class="right-kanban-item-header">
+            <div class="right-kanban-item-title">${escapeHtml(t.title)}</div>
+            <div class="right-kanban-move-controls">
+              <button type="button" class="btn-kanban-move" onclick="window.moveSidebarTask('${safeTaskId}', -1)" title="Przesuń zadanie w górę" ${isFirst ? 'disabled' : ''}>^</button>
+              <button type="button" class="btn-kanban-move" onclick="window.moveSidebarTask('${safeTaskId}', 1)" title="Przesuń zadanie w dół" ${isLast ? 'disabled' : ''}>v</button>
+            </div>
+          </div>
           ${t.description ? `<div class="right-kanban-item-desc">${escapeHtml(t.description)}</div>` : ''}
           ${subtasksListHtml}
         </div>
@@ -4029,6 +4050,63 @@ async function loadRightSidebarKanban() {
     container.innerHTML = `<div style="font-size:0.65rem; color:#ef4444; text-align:center;">Błąd ładowania</div>`;
   }
 }
+
+window.moveSidebarTask = async function(taskId, direction) {
+  let tasks = window.kanbanTasks || kanbanTasks;
+  if (!tasks || tasks.length === 0) {
+    try {
+      const res = await fetch('/api/kanban?t=' + Date.now());
+      const data = await res.json();
+      tasks = data.tasks || [];
+      kanbanTasks = tasks;
+      window.kanbanTasks = tasks;
+    } catch (e) {
+      return;
+    }
+  }
+
+  const activeTasks = tasks.filter(t => t.status === 'in_progress' && !t.archived);
+  const prioWeights = { high: 3, medium: 2, low: 1 };
+  activeTasks.sort((a, b) => {
+    const hasOrderA = typeof a.sidebarOrder === 'number';
+    const hasOrderB = typeof b.sidebarOrder === 'number';
+    if (hasOrderA && hasOrderB) return a.sidebarOrder - b.sidebarOrder;
+    if (hasOrderA) return -1;
+    if (hasOrderB) return 1;
+
+    const aTotal = (a.subtasks || []).length;
+    const aDone = (a.subtasks || []).filter(s => s.done).length;
+    const aFinished = aTotal > 0 && aDone === aTotal;
+
+    const bTotal = (b.subtasks || []).length;
+    const bDone = (b.subtasks || []).filter(s => s.done).length;
+    const bFinished = bTotal > 0 && bDone === bTotal;
+
+    if (aFinished !== bFinished) return aFinished ? 1 : -1;
+    return (prioWeights[b.priority || 'medium'] || 2) - (prioWeights[a.priority || 'medium'] || 2);
+  });
+
+  const currentIndex = activeTasks.findIndex(t => t.id === taskId);
+  if (currentIndex === -1) return;
+
+  const targetIndex = currentIndex + direction;
+  if (targetIndex < 0 || targetIndex >= activeTasks.length) return;
+
+  const temp = activeTasks[currentIndex];
+  activeTasks[currentIndex] = activeTasks[targetIndex];
+  activeTasks[targetIndex] = temp;
+
+  activeTasks.forEach((t, idx) => {
+    t.sidebarOrder = (idx + 1) * 10;
+  });
+
+  await saveKanbanTasks();
+  await loadRightSidebarKanban();
+  const cardsInProgress = document.getElementById('cards-in_progress');
+  if (cardsInProgress && typeof renderKanbanCards === 'function') {
+    renderKanbanCards();
+  }
+};
 
 window.toggleSidebarSubtask = async function(taskId, subtaskId) {
   let tasks = window.kanbanTasks || kanbanTasks;
