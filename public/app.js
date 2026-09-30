@@ -491,18 +491,155 @@ function saveExpandedDirs() {
   } catch (e) {}
 }
 
+window.accordionMode = localStorage.getItem('knowops_accordion_mode') !== 'false';
+
+window.toggleAccordionMode = function() {
+  window.accordionMode = !window.accordionMode;
+  try {
+    localStorage.setItem('knowops_accordion_mode', window.accordionMode ? 'true' : 'false');
+  } catch (e) {}
+  const btn = document.getElementById('btnToggleAccordion');
+  if (btn) {
+    btn.innerText = window.accordionMode ? 'Akordeon: WŁ' : 'Akordeon: WYŁ';
+    btn.style.color = window.accordionMode ? 'var(--sw-gold)' : '#71717a';
+  }
+};
+
+window.collapseAllSidebarDirs = function() {
+  const dirs = document.querySelectorAll('#sidebarNav div[id^="dir-"]');
+  dirs.forEach(d => {
+    d.style.display = 'none';
+    const h = d.previousElementSibling;
+    if (h) {
+      const arr = h.querySelector('.dir-arrow');
+      if (arr) arr.innerText = '>';
+    }
+    const rel = d.getAttribute('data-rel');
+    if (rel) expandedDirs[rel] = false;
+  });
+  saveExpandedDirs();
+};
+
+window.expandAllSidebarDirs = function() {
+  const dirs = document.querySelectorAll('#sidebarNav div[id^="dir-"]');
+  dirs.forEach(d => {
+    d.style.display = 'block';
+    const h = d.previousElementSibling;
+    if (h) {
+      const arr = h.querySelector('.dir-arrow');
+      if (arr) arr.innerText = 'v';
+    }
+    const rel = d.getAttribute('data-rel');
+    if (rel) expandedDirs[rel] = true;
+  });
+  saveExpandedDirs();
+};
+
+window.filterSidebarTree = function(query) {
+  const q = (query || '').trim().toLowerCase();
+  const clearBtn = document.getElementById('sidebarTreeFilterClear');
+  if (clearBtn) {
+    clearBtn.style.display = q ? 'block' : 'none';
+  }
+
+  const nav = document.getElementById('sidebarNav');
+  if (!nav) return;
+
+  const fileItems = nav.querySelectorAll('.topic-item');
+  const groupHeaders = nav.querySelectorAll('.topic-group-header');
+  const dirContainers = nav.querySelectorAll('div[id^="dir-"]');
+
+  if (!q) {
+    fileItems.forEach(el => el.style.display = '');
+    groupHeaders.forEach(el => el.style.display = '');
+    dirContainers.forEach(el => {
+      const rel = el.getAttribute('data-rel');
+      const isExp = (rel && expandedDirs[rel]) || false;
+      el.style.display = isExp ? 'block' : 'none';
+      const h = el.previousElementSibling;
+      if (h) {
+        const arr = h.querySelector('.dir-arrow');
+        if (arr) arr.innerText = isExp ? 'v' : '>';
+      }
+    });
+    return;
+  }
+
+  fileItems.forEach(fi => {
+    const text = (fi.textContent || '').toLowerCase();
+    const matches = text.includes(q);
+    fi.style.display = matches ? 'block' : 'none';
+  });
+
+  dirContainers.forEach(dc => {
+    const matchingFiles = dc.querySelectorAll('.topic-item');
+    let hasMatchingChild = false;
+    matchingFiles.forEach(mf => {
+      if (mf.style.display !== 'none') hasMatchingChild = true;
+    });
+
+    const header = dc.previousElementSibling;
+    const headerText = header ? (header.textContent || '').toLowerCase() : '';
+    const headerMatches = headerText.includes(q);
+
+    if (hasMatchingChild || headerMatches) {
+      if (header) header.style.display = '';
+      dc.style.display = 'block';
+      if (header) {
+        const arr = header.querySelector('.dir-arrow');
+        if (arr) arr.innerText = 'v';
+      }
+      if (headerMatches) {
+        matchingFiles.forEach(mf => mf.style.display = 'block');
+      }
+    } else {
+      if (header) header.style.display = 'none';
+      dc.style.display = 'none';
+    }
+  });
+};
+
+window.clearSidebarTreeFilter = function() {
+  const input = document.getElementById('sidebarTreeFilterInput');
+  if (input) {
+    input.value = '';
+    window.filterSidebarTree('');
+    input.focus();
+  }
+};
+
 window.toggleSidebarDir = function(relPath) {
   const dirId = 'dir-' + relPath.replace(/[^a-zA-Z0-9]/g, '-');
   const el = document.getElementById(dirId);
   if (el) {
-    const isCollapsed = (el.style.display === 'none');
-    el.style.display = isCollapsed ? 'block' : 'none';
+    const isOpening = (el.style.display === 'none');
+
+    if (isOpening && window.accordionMode) {
+      const parentContainer = el.parentElement;
+      if (parentContainer) {
+        const siblingDirs = parentContainer.querySelectorAll(':scope > div[id^="dir-"]');
+        siblingDirs.forEach(sib => {
+          if (sib !== el) {
+            sib.style.display = 'none';
+            const sibHeader = sib.previousElementSibling;
+            if (sibHeader) {
+              const arr = sibHeader.querySelector('.dir-arrow');
+              if (arr) arr.innerText = '>';
+            }
+            const sibRel = sib.getAttribute('data-rel');
+            if (sibRel) expandedDirs[sibRel] = false;
+          }
+        });
+      }
+    }
+
+    el.style.display = isOpening ? 'block' : 'none';
     const header = el.previousElementSibling;
     const arrow = header ? header.querySelector('.dir-arrow') : null;
     if (arrow) {
-      arrow.innerText = isCollapsed ? 'v' : '>';
+      arrow.innerText = isOpening ? 'v' : '>';
     }
-    expandedDirs[relPath] = isCollapsed;
+    expandedDirs[relPath] = isOpening;
     saveExpandedDirs();
   }
 };
@@ -536,6 +673,8 @@ async function renderSidebar() {
     if (sidebarTitle) sidebarTitle.innerText = 'PULPIT';
     const deptToolbar = document.getElementById('currentDeptToolbar');
     if (deptToolbar) deptToolbar.style.display = 'none';
+    const filterBox = document.getElementById('sidebarTreeFilterBox');
+    if (filterBox) filterBox.style.display = 'none';
     const currentHash = decodeURIComponent(window.location.hash.replace('#/', ''));
 
     const isKanbanActive = (!currentHash || currentHash === 'kanban' || currentHash === 'playbooks');
@@ -611,9 +750,18 @@ async function renderSidebar() {
     }
   }
   const deptToolbar = document.getElementById('currentDeptToolbar');
+  const filterBox = document.getElementById('sidebarTreeFilterBox');
   const canManageDept = Boolean(targetSub && targetSub.relPath && targetSub.id !== 'glowne');
   if (deptToolbar) {
     deptToolbar.style.display = canManageDept ? 'grid' : 'none';
+  }
+  if (filterBox) {
+    filterBox.style.display = 'block';
+    const accBtn = document.getElementById('btnToggleAccordion');
+    if (accBtn) {
+      accBtn.innerText = window.accordionMode ? 'Akordeon: WŁ' : 'Akordeon: WYŁ';
+      accBtn.style.color = window.accordionMode ? 'var(--sw-gold)' : '#71717a';
+    }
   }
   if (btnRenameDept) {
     btnRenameDept.style.display = canManageDept ? 'block' : 'none';
@@ -663,6 +811,16 @@ async function renderSidebar() {
     });
   }
 
+  function countFilesRecursive(it) {
+    if (!it) return 0;
+    if (it.type === 'file') return 1;
+    let count = 0;
+    for (const child of (it.items || [])) {
+      count += countFilesRecursive(child);
+    }
+    return count;
+  }
+
   function renderTree(items, depth = 0) {
     let subHtml = '';
     const sortedItems = sortItemsFilesFirst(items);
@@ -674,8 +832,10 @@ async function renderSidebar() {
         const depthColors = ['var(--sw-gold)', '#60a5fa', '#34d399', '#a78bfa', '#cbd5e1'];
         const folderColor = depthColors[depth] || depthColors[depthColors.length - 1];
         const depthClass = `depth-${Math.min(depth, 4)}`;
+        const fileCount = countFilesRecursive(item);
+        const countBadge = `<span class="dir-count-badge">(${fileCount})</span>`;
         subHtml += `<li class="topic-group-header ${depthClass}" data-depth="${depth}" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: ${folderColor}; margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'directory')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${item.title}</span>
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}${countBadge}</span>
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
             <button type="button" class="btn-rename-folder-tree" title="Zmień nazwę tego folderu" onclick="event.stopPropagation(); window.openRenameFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">R</button>
             <button type="button" class="btn-move-folder-tree" title="Przenieś ten folder" onclick="event.stopPropagation(); window.openMoveFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">P</button>
@@ -683,7 +843,7 @@ async function renderSidebar() {
             <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 2px;">${isExpanded ? 'v' : '>'}</span>
           </div>
         </li>`;
-        subHtml += `<div id="${dirId}" style="display: ${isExpanded ? 'block' : 'none'};">`;
+        subHtml += `<div id="${dirId}" data-rel="${escapeHtml(item.relPath)}" style="display: ${isExpanded ? 'block' : 'none'};">`;
         subHtml += renderTree(item.items, depth + 1);
         subHtml += `</div>`;
       } else {
@@ -705,6 +865,11 @@ async function renderSidebar() {
     html = renderTree((targetSub.files || []).map(f => ({ type: 'file', title: f.title, relPath: f.relPath })), 0);
   }
   sidebarNav.innerHTML = html;
+
+  const filterInput = document.getElementById('sidebarTreeFilterInput');
+  if (filterInput && filterInput.value.trim()) {
+    window.filterSidebarTree(filterInput.value);
+  }
 }
 
 

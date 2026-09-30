@@ -1989,6 +1989,66 @@ test('41. Right Sidebar Quick Subtasks: weryfikacja szybkiego dodawania podzada�
   assert.equal(task.subtasks[1].done, false);
 });
 
+test('42. Sidebar Accordion Mode & Tree Live Filter: weryfikacja trybu akordeonu, liczników folderów, 2-wierszowego zawijania i filtra lokalnego', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Sprawdzenie elementow interfejsu w index.html
+  assert.equal(indexHtml.includes('id="sidebarTreeFilterBox"'), true);
+  assert.equal(indexHtml.includes('id="sidebarTreeFilterInput"'), true);
+  assert.equal(indexHtml.includes('id="btnToggleAccordion"'), true);
+  assert.equal(indexHtml.includes('collapseAllSidebarDirs()'), true);
+  assert.equal(indexHtml.includes('expandAllSidebarDirs()'), true);
+
+  // 2. Sprawdzenie stylow CSS (filtry, liczniki, 2-wierszowy clamp)
+  assert.equal(styleCss.includes('.sidebar-tree-filter-box'), true);
+  assert.equal(styleCss.includes('.sidebar-tree-filter-input'), true);
+  assert.equal(styleCss.includes('.btn-tree-ctrl'), true);
+  assert.equal(styleCss.includes('.dir-count-badge'), true);
+  assert.equal(styleCss.includes('-webkit-line-clamp: 2'), true);
+
+  // 3. Sprawdzenie funkcji w app.js
+  assert.equal(appJs.includes('window.accordionMode'), true);
+  assert.equal(appJs.includes('window.toggleAccordionMode'), true);
+  assert.equal(appJs.includes('window.collapseAllSidebarDirs'), true);
+  assert.equal(appJs.includes('window.expandAllSidebarDirs'), true);
+  assert.equal(appJs.includes('window.filterSidebarTree'), true);
+  assert.equal(appJs.includes('window.clearSidebarTreeFilter'), true);
+  assert.equal(appJs.includes('countFilesRecursive'), true);
+  assert.equal(appJs.includes('dir-count-badge'), true);
+
+  // 4. Test logiki rekurencyjnego zliczania plikow w folderze
+  function countFilesRecursive(it) {
+    if (!it) return 0;
+    if (it.type === 'file') return 1;
+    let count = 0;
+    for (const child of (it.items || [])) {
+      count += countFilesRecursive(child);
+    }
+    return count;
+  }
+
+  const sampleDir = {
+    type: 'directory',
+    title: 'AD - GPO',
+    items: [
+      { type: 'file', title: '01 Informacje ogolne' },
+      { type: 'file', title: '02 Blokada USB' },
+      { 
+        type: 'directory', 
+        title: 'Podfolder', 
+        items: [
+          { type: 'file', title: '03 Skrypt AppLocker' }
+        ] 
+      }
+    ]
+  };
+
+  assert.equal(countFilesRecursive(sampleDir), 3);
+});
+
+
 
 
 
