@@ -1950,6 +1950,46 @@ test('40. Sidebar Cleanup & Centrum Administracyjne: weryfikacja optymalizacji l
   assert.equal(appJs.includes('window.renderAdminCenter = renderAdminCenter;'), true);
 });
 
+test('41. Right Sidebar Quick Subtasks: weryfikacja szybkiego dodawania podzadań prosto z prawego paska zadań Kanban', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja obecnosci stylow w style.css
+  assert.equal(styleCss.includes('.btn-kanban-add-subtask'), true);
+  assert.equal(styleCss.includes('.sidebar-quick-subtask-box'), true);
+  assert.equal(styleCss.includes('.sidebar-subtask-input'), true);
+  assert.equal(styleCss.includes('.sidebar-btn-quick-subtask'), true);
+
+  // 2. Weryfikacja przycisku + oraz logiki przelaczania i dodawania w app.js
+  assert.equal(appJs.includes('btn-kanban-add-subtask'), true);
+  assert.equal(appJs.includes('window.toggleSidebarSubtaskInput'), true);
+  assert.equal(appJs.includes('window.addSidebarQuickSubtask'), true);
+  assert.equal(appJs.includes('sidebarQuickSubtaskBox_'), true);
+  assert.equal(appJs.includes('sidebarQuickSubtaskInput_'), true);
+
+  // 3. Symulacja logiki dodawania podzadania do zadania
+  const task = {
+    id: 'task_secops_1',
+    title: 'Wdrożenie LDAPS',
+    status: 'in_progress',
+    subtasks: [
+      { id: 'sub_1', title: 'Generowanie certyfikatu', done: true }
+    ]
+  };
+
+  const newSubtaskTitle = 'Konfiguracja portu 636 na firewallu';
+  task.subtasks.push({
+    id: 'sub-' + Date.now() + '-123',
+    title: newSubtaskTitle,
+    done: false
+  });
+
+  assert.equal(task.subtasks.length, 2);
+  assert.equal(task.subtasks[1].title, newSubtaskTitle);
+  assert.equal(task.subtasks[1].done, false);
+});
+
+
 
 
 

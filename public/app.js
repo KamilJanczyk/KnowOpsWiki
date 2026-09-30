@@ -4127,26 +4127,98 @@ async function loadRightSidebarKanban() {
         `;
       }
 
+      const isInputActive = (window._lastActiveSidebarSubtaskInputTaskId === t.id);
+      const quickAddHtml = `
+        <div id="sidebarQuickSubtaskBox_${safeTaskId}" class="sidebar-quick-subtask-box" style="display: ${isInputActive ? 'flex' : 'none'};">
+          <input type="text" id="sidebarQuickSubtaskInput_${safeTaskId}" placeholder="+ Wpisz podzadanie..." class="quick-subtask-input sidebar-subtask-input" onkeydown="if(event.key==='Enter'){ event.preventDefault(); window.addSidebarQuickSubtask('${safeTaskId}'); } else if(event.key==='Escape'){ window.toggleSidebarSubtaskInput('${safeTaskId}'); }">
+          <button type="button" class="btn-quick-subtask sidebar-btn-quick-subtask" onclick="window.addSidebarQuickSubtask('${safeTaskId}')" title="Dodaj podzadanie">+</button>
+        </div>
+      `;
+
       html += `
         <div class="right-kanban-item ${prioClass}">
           <div class="right-kanban-item-header">
             <div class="right-kanban-item-title">${escapeHtml(t.title)}</div>
             <div class="right-kanban-move-controls">
+              <button type="button" class="btn-kanban-move btn-kanban-add-subtask" onclick="window.toggleSidebarSubtaskInput('${safeTaskId}')" title="Dodaj podzadanie do tego zadania">+</button>
               <button type="button" class="btn-kanban-move" onclick="window.moveSidebarTask('${safeTaskId}', -1)" title="Przesuń zadanie w górę" ${isFirst ? 'disabled' : ''}>^</button>
               <button type="button" class="btn-kanban-move" onclick="window.moveSidebarTask('${safeTaskId}', 1)" title="Przesuń zadanie w dół" ${isLast ? 'disabled' : ''}>v</button>
             </div>
           </div>
           ${t.description ? `<div class="right-kanban-item-desc">${escapeHtml(t.description)}</div>` : ''}
           ${subtasksListHtml}
+          ${quickAddHtml}
         </div>
       `;
     }
     container.innerHTML = html;
+    if (window._lastActiveSidebarSubtaskInputTaskId) {
+      const activeTaskId = window._lastActiveSidebarSubtaskInputTaskId;
+      window._lastActiveSidebarSubtaskInputTaskId = null;
+      const activeInput = document.getElementById(`sidebarQuickSubtaskInput_${activeTaskId}`);
+      if (activeInput) {
+        setTimeout(() => activeInput.focus(), 50);
+      }
+    }
   } catch (err) {
     console.warn('Błąd ładowania zadań do prawego paska:', err);
     container.innerHTML = `<div style="font-size:0.65rem; color:#ef4444; text-align:center;">Błąd ładowania</div>`;
   }
 }
+
+window.toggleSidebarSubtaskInput = function(taskId) {
+  const box = document.getElementById(`sidebarQuickSubtaskBox_${taskId}`);
+  const input = document.getElementById(`sidebarQuickSubtaskInput_${taskId}`);
+  if (!box) return;
+  const isHidden = (box.style.display === 'none' || !box.style.display);
+  box.style.display = isHidden ? 'flex' : 'none';
+  if (isHidden && input) {
+    input.focus();
+    input.select();
+  }
+};
+
+window.addSidebarQuickSubtask = async function(taskId) {
+  const input = document.getElementById(`sidebarQuickSubtaskInput_${taskId}`);
+  if (!input) return;
+  const title = input.value.trim();
+  if (!title) {
+    window.toggleSidebarSubtaskInput(taskId);
+    return;
+  }
+
+  let tasks = window.kanbanTasks || kanbanTasks;
+  if (!tasks || tasks.length === 0) {
+    try {
+      const res = await fetch('/api/kanban?t=' + Date.now());
+      const data = await res.json();
+      tasks = data.tasks || [];
+      kanbanTasks = tasks;
+      window.kanbanTasks = tasks;
+    } catch (e) {
+      console.warn('Nie udało się pobrać zadań:', e);
+    }
+  }
+
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  if (!task.subtasks) task.subtasks = [];
+  task.subtasks.push({
+    id: 'sub-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    title: title,
+    done: false
+  });
+
+  await saveKanbanTasks();
+  const cardsInProgress = document.getElementById('cards-in_progress');
+  if (cardsInProgress && typeof renderKanbanCards === 'function') {
+    renderKanbanCards();
+  }
+
+  window._lastActiveSidebarSubtaskInputTaskId = taskId;
+  await loadRightSidebarKanban();
+};
 
 window.moveSidebarTask = async function(taskId, direction) {
   let tasks = window.kanbanTasks || kanbanTasks;
