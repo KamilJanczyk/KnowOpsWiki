@@ -2199,7 +2199,7 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   assert.equal(simulatedTabs.some(t => t.path === newActive), true);
 });
 
-test('44. Ergonomia UI: Hover Preview (Quick Peek), Split View (2 Kolumny) oraz Uproszczenie Tablicy Kanban', async () => {
+test('44. Ergonomia UI: Split View (2 Kolumny) oraz Uproszczenie Tablicy Kanban (całkowite wycofanie podglądu hover preview)', async () => {
   const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
@@ -2235,12 +2235,12 @@ test('44. Ergonomia UI: Hover Preview (Quick Peek), Split View (2 Kolumny) oraz 
   assert.equal(styleCss.includes('.btn-split-toggle'), true, 'style.css musi definiować styl przycisku podziału ekranu');
   assert.equal(styleCss.includes('.btn-close-split'), true, 'style.css musi definiować styl przycisku zamykania kolumny pomocniczej');
 
-  // Weryfikacja ukrywania widoku dzielonego i okna hover preview w regułach wydruku print
+  // Weryfikacja ukrywania widoku dzielonego w regułach wydruku print
   const printIndex = styleCss.indexOf('@media print');
   assert.equal(printIndex !== -1, true, 'style.css musi zawierać sekcję @media print');
   const printChunk = styleCss.slice(printIndex, printIndex + 1200);
   assert.equal(printChunk.includes('.split-pane-right'), true, 'Widok dzielony musi być ukryty na wydruku');
-  assert.equal(printChunk.includes('.hover-preview-popover'), true, 'Okno hover preview musi być ukryte na wydruku');
+  assert.equal(printChunk.includes('.hover-preview-popover'), false, 'Klasa hover-preview-popover nie powinna istnieć w regułach wydruku');
 
   // 3. Weryfikacja funkcji JavaScript Widoku Dzielonego w app.js
   assert.equal(appJs.includes('window.openSplitView'), true, 'app.js musi eksportować window.openSplitView');
@@ -2250,121 +2250,17 @@ test('44. Ergonomia UI: Hover Preview (Quick Peek), Split View (2 Kolumny) oraz 
   assert.equal(appJs.includes('Alt+D'), true, 'app.js musi obsługiwać skrót klawiszowy Alt+D');
   assert.equal(appJs.includes('e.altKey && e.button === 0'), true, 'app.js musi obsługiwać otwieranie w kolumnie obok przez Alt+LPM');
 
-  // 4. Weryfikacja struktury DOM i logiki Hover Preview (Quick Peek)
-  assert.equal(indexHtml.includes('id="hoverPreviewPopover"'), true, 'index.html musi zawierać kontener #hoverPreviewPopover');
-  assert.equal(styleCss.includes('.hover-preview-popover'), true, 'style.css musi definiować klasę .hover-preview-popover');
-  assert.equal(styleCss.includes('.hover-preview-header'), true, 'style.css musi definiować .hover-preview-header');
-  assert.equal(styleCss.includes('.hover-preview-body'), true, 'style.css musi definiować .hover-preview-body');
-  assert.equal(styleCss.includes('.hover-preview-footer'), true, 'style.css musi definiować .hover-preview-footer');
+  // 4. Weryfikacja całkowitego wycofania mechanizmu Hover Preview (Quick Peek)
+  assert.equal(indexHtml.includes('id="hoverPreviewPopover"'), false, 'index.html nie może zawierać kontenera #hoverPreviewPopover');
+  assert.equal(styleCss.includes('.hover-preview-popover'), false, 'style.css nie może definiować klasy .hover-preview-popover');
+  assert.equal(styleCss.includes('.hover-preview-header'), false, 'style.css nie może definiować klasy .hover-preview-header');
+  assert.equal(styleCss.includes('.hover-preview-body'), false, 'style.css nie może definiować klasy .hover-preview-body');
+  assert.equal(styleCss.includes('.hover-preview-footer'), false, 'style.css nie może definiować klasy .hover-preview-footer');
 
-  assert.equal(appJs.includes('window.showHoverPreview'), true, 'app.js musi posiadać window.showHoverPreview');
-  assert.equal(appJs.includes('window.hideHoverPreview'), true, 'app.js musi posiadać window.hideHoverPreview');
-  assert.equal(appJs.includes('window.hoverPreviewCache'), true, 'app.js musi posiadać pamięć podręczną hoverPreviewCache');
-
-  // 5. Test logiki ekstrakcji podglądu dokumentu (extractDocPreviewLines)
-  function simulateExtractDocPreviewLines(rawMarkdown, maxLines = 12) {
-    if (!rawMarkdown) return { title: 'Brak treści', lines: [] };
-    let lines = rawMarkdown.replace(/\r\n/g, '\n').split('\n');
-    if (lines.length > 0 && lines[0].trim() === '---') {
-      let endFm = -1;
-      for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim() === '---') {
-          endFm = i;
-          break;
-        }
-      }
-      if (endFm !== -1) {
-        lines = lines.slice(endFm + 1);
-      }
-    }
-    let title = '';
-    const contentLines = [];
-    for (let i = 0; i < lines.length; i++) {
-      const trimmed = lines[i].trim();
-      if (!trimmed) continue;
-      if (!title && trimmed.startsWith('#')) {
-        title = trimmed.replace(/^#+\s*/, '').replace(/[*_`]/g, '').trim();
-        continue;
-      }
-      if (trimmed.startsWith('![') || trimmed.startsWith('<img')) continue;
-      let cleanLine = trimmed
-        .replace(/^[-*+]\s+/, '- ')
-        .replace(/^\d+\.\s+/, (m) => m)
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        .replace(/[*_`]/g, '');
-      contentLines.push(cleanLine);
-      if (contentLines.length >= maxLines) break;
-    }
-    return { title: title || 'Dokument', lines: contentLines };
-  }
-
-  const sampleMarkdown = `---
-title: Testowy Dokument
-tags: [test, secops]
----
-
-# Architektura Systemu Bezpieczeństwa
-
-Wprowadzenie do zasad działania platformy.
-Poniżej znajduje się opis kluczowych komponentów:
-- Węzeł brzegowy Firewall
-- Serwer proxy i inspekcji SSL
-- System logowania SIEM
-1. Krok pierwszy wdrożenia
-2. Krok drugi konfiguracji
-Linia 7 dokumentu testowego
-Linia 8 dokumentu testowego
-Linia 9 dokumentu testowego
-Linia 10 dokumentu testowego
-Linia 11 dokumentu testowego
-Linia 12 dokumentu testowego
-Linia 13 która powinna zostać odcięta przez limit 12 linii
-`;
-
-  const preview = simulateExtractDocPreviewLines(sampleMarkdown, 12);
-  assert.equal(preview.title, 'Architektura Systemu Bezpieczeństwa', 'Tytuł powinien zostać poprawnie wyodrębniony z pierwszego H1');
-  assert.equal(preview.lines.length, 12, 'Liczba wierszy podglądu musi być ograniczona do dokładnie 12');
-  assert.equal(preview.lines.some(l => l.includes('title: Testowy Dokument')), false, 'Frontmatter YAML musi być usunięty z treści podglądu');
-  assert.equal(preview.lines.some(l => l.includes('Linia 13')), false, 'Wiersze powyżej limitu 12 nie mogą znaleźć się w podglądzie');
-  assert.equal(preview.lines[0], 'Wprowadzenie do zasad działania platformy.');
-  assert.equal(preview.lines[2], '- Węzeł brzegowy Firewall');
-
-  // 6. Weryfikacja blokowania podglądu dla folderów, menu górnego i nagłówków
-  assert.equal(appJs.includes('window.isFolderPath'), true, 'app.js musi eksportować funkcję isFolderPath');
-  assert.equal(appJs.includes("e.target.closest('.top-dropdown-menu')"), true, 'Najechanie na menu rozwijane folderów musi być zignorowane');
-  assert.equal(appJs.includes("e.target.closest('.topic-group-header')"), true, 'Najechanie na folder w drzewie musi być zignorowane');
-  assert.equal(appJs.includes("anchor.classList.contains('top-dropdown-item')"), true, 'Odnośniki podkategorii / folderów w menu nie mogą wyzwalać podglądu');
-  assert.equal(appJs.includes("route.toLowerCase().endsWith('.md')"), true, 'Podgląd może być generowany wyłącznie dla plików kończących się rozszerzeniem .md');
-
-  // Symulacja funkcji isFolderPath
-  function simulateIsFolderPath(route, mockNav) {
-    if (!route) return true;
-    const clean = String(route).replace(/^#\/?/, '').trim();
-    if (!clean) return true;
-    if (!clean.toLowerCase().endsWith('.md')) return true;
-    if (mockNav && Array.isArray(mockNav.categories)) {
-      for (const cat of mockNav.categories) {
-        if (cat.id === clean) return true;
-        for (const sub of (cat.subcategories || [])) {
-          if (sub.id === clean || sub.relPath === clean) return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  const mockNavData = {
-    categories: [
-      { id: '01_Cyberbezpieczenstwo', title: 'Cyberbezpieczeństwo', subcategories: [
-        { id: '01_SOC', relPath: '01_Cyberbezpieczenstwo/01_SOC', title: 'SOC i IR' }
-      ]}
-    ]
-  };
-
-  assert.equal(simulateIsFolderPath('01_Cyberbezpieczenstwo', mockNavData), true, 'Dział główny to folder');
-  assert.equal(simulateIsFolderPath('01_Cyberbezpieczenstwo/01_SOC', mockNavData), true, 'Podkategoria to folder');
-  assert.equal(simulateIsFolderPath('01_Cyberbezpieczenstwo/01_SOC/instrukcja.md', mockNavData), false, 'Plik .md to dokument');
-  assert.equal(simulateIsFolderPath('kanban', mockNavData), true, 'Trasy bez .md są traktowane jako foldery/narzędzia');
+  assert.equal(appJs.includes('window.showHoverPreview'), false, 'app.js nie może posiadać window.showHoverPreview');
+  assert.equal(appJs.includes('window.hideHoverPreview'), false, 'app.js nie może posiadać window.hideHoverPreview');
+  assert.equal(appJs.includes('window.hoverPreviewCache'), false, 'app.js nie może posiadać pamięci podręcznej hoverPreviewCache');
+  assert.equal(appJs.includes('hoverPreviewPopover'), false, 'app.js nie może odwoływać się do elementu hoverPreviewPopover');
 });
 
 
