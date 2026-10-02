@@ -283,6 +283,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Otwieranie wewnętrznych odnośników w nowej zakładce aplikacji przy kliknięciu środkowym przyciskiem myszy
+  document.addEventListener('auxclick', (e) => {
+    if (e.button === 1) {
+      if (e.target.closest('.doc-tab')) return;
+      const anchor = e.target.closest('a[href^="#/"]');
+      if (anchor) {
+        e.preventDefault();
+        const targetPath = decodeURIComponent(anchor.getAttribute('href').replace(/^#\/?/, '')).trim();
+        if (targetPath && typeof window.registerDocTab === 'function') {
+          window.registerDocTab(targetPath);
+        }
+      }
+    }
+  });
+
   window.addEventListener('hashchange', async () => {
     if (isAuthRequired && !getStoredToken()) {
       showLockScreen();

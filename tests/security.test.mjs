@@ -1760,7 +1760,7 @@ test('35. Client-Side Translation Engine (Koncepcja A): reguły leksykonu SecOps
   assert.equal(appJs.includes('ORYGINAŁ EN'), true);
 
   const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
-  assert.equal(indexHtml.includes('app.js?v=2.7.0'), true);
+  assert.equal(indexHtml.includes('app.js?v=2.8.0'), true);
 });
 
 test('36. Instrukcja Obsługi & Live Translation Engine (Wariant 1): brak błędów runtime w instrukcji, endpoint API i bufor dyskowy', async () => {
