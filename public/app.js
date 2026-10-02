@@ -260,13 +260,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Zamknięcie otwartych okien modalnych klawiszem Esc, skrót Alt+N dla brudnopisu oraz Ctrl+L dla blokady
+  // Zamknięcie otwartych okien modalnych klawiszem Esc, skrót Alt+N dla brudnopisu, Alt+D dla Split View oraz Ctrl+L dla blokady
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const overlays = document.querySelectorAll('.custom-modal-overlay');
       overlays.forEach(modal => { modal.style.display = 'none'; });
       if (typeof window.closeScratchpad === 'function') {
         window.closeScratchpad();
+      }
+      if (typeof window.hideHoverPreview === 'function') {
+        window.hideHoverPreview();
       }
     }
     if (e.altKey && (e.key === 'n' || e.key === 'N' || e.key === 's' || e.key === 'S')) {
@@ -279,6 +282,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       if (typeof window.addCurrentPageToTabs === 'function') {
         window.addCurrentPageToTabs();
+      }
+    }
+    if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      if (typeof window.toggleSplitView === 'function') {
+        window.toggleSplitView();
       }
     }
     if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
@@ -321,8 +330,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Otwieranie odnośników w nowej zakładce aplikacji skrótem Ctrl + LPM (lub Cmd + LPM)
+  // Otwieranie w zakładce (Ctrl+LPM) lub otwarcie w kolumnie obok (Alt+LPM)
   document.addEventListener('click', (e) => {
+    if (typeof window.hideHoverPreview === 'function') {
+      window.hideHoverPreview();
+    }
+    if (e.altKey && e.button === 0) {
+      if (e.target.closest('.doc-tab') || e.target.closest('.doc-tabs-bar')) return;
+      const route = extractTargetRoute(e.target);
+      if (route && (typeof window.isSystemRoute !== 'function' || !window.isSystemRoute(route))) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.openSplitView === 'function') {
+          window.openSplitView(route);
+        }
+        return;
+      }
+    }
     if (e.ctrlKey || e.metaKey) {
       if (e.target.closest('.doc-tab') || e.target.closest('.doc-tabs-bar')) return;
       const route = extractTargetRoute(e.target);
@@ -335,6 +359,53 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   }, true);
+
+  // Ukrywanie podglądu przy przewijaniu strony
+  window.addEventListener('scroll', () => {
+    if (typeof window.hideHoverPreview === 'function') window.hideHoverPreview();
+  }, { passive: true });
+  const mainContentEl = document.querySelector('.main-content');
+  if (mainContentEl) {
+    mainContentEl.addEventListener('scroll', () => {
+      if (typeof window.hideHoverPreview === 'function') window.hideHoverPreview();
+    }, { passive: true });
+  }
+
+  // Obsługa najechania kursorem myszy (Quick Peek / Hover Preview)
+  const hoverPopoverEl = document.getElementById('hoverPreviewPopover');
+  if (hoverPopoverEl) {
+    hoverPopoverEl.addEventListener('mouseenter', () => {
+      if (typeof window.cancelHoverPreviewHideTimer === 'function') {
+        window.cancelHoverPreviewHideTimer();
+      }
+    });
+    hoverPopoverEl.addEventListener('mouseleave', () => {
+      if (typeof window.scheduleHoverPreviewHide === 'function') {
+        window.scheduleHoverPreviewHide();
+      }
+    });
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const anchor = e.target.closest('a[href^="#/"], a[href^="#"], .topic-item a, .doc-tab');
+    if (!anchor) return;
+    if (e.target.closest('#hoverPreviewPopover') || e.target.closest('.doc-tab-close')) return;
+
+    const route = extractTargetRoute(anchor);
+    if (!route || (typeof window.isSystemRoute === 'function' && window.isSystemRoute(route))) return;
+
+    if (typeof window.scheduleHoverPreview === 'function') {
+      window.scheduleHoverPreview(anchor, route, e.shiftKey);
+    }
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const anchor = e.target.closest('a[href^="#/"], a[href^="#"], .topic-item a, .doc-tab');
+    if (!anchor) return;
+    if (typeof window.scheduleHoverPreviewHide === 'function') {
+      window.scheduleHoverPreviewHide();
+    }
+  });
 
   window.addEventListener('hashchange', async () => {
     if (isAuthRequired && !getStoredToken()) {
@@ -1146,12 +1217,17 @@ function renderDocTabs() {
   if (!container) return;
 
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  const splitBtnText = window.isSplitViewActive ? 'Zamknij Split' : 'Podziel Ekran';
+  const splitActiveCls = window.isSplitViewActive ? 'active' : '';
 
   if (!openDocTabs || openDocTabs.length === 0) {
     container.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px;">
         <span class="doc-tabs-empty-hint">Brak zakładek. Otwieraj w zakładkach klikając kółkiem myszy (scroll) lub [Ctrl + LPM].</span>
-        <button type="button" class="btn-add-current-tab" onclick="window.addCurrentPageToTabs()" title="Przypnij bieżący dokument do paska zakładek (Alt+T)">+ PRZYPNIJ BIEŻĄCĄ STRONĘ</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button type="button" class="btn-add-current-tab" onclick="window.addCurrentPageToTabs()" title="Przypnij bieżący dokument do paska zakładek (Alt+T)">+ PRZYPNIJ BIEŻĄCĄ STRONĘ</button>
+          <button type="button" class="btn-split-toggle ${splitActiveCls}" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">${splitBtnText}</button>
+        </div>
       </div>`;
     return;
   }
@@ -1161,7 +1237,7 @@ function renderDocTabs() {
     const isActive = (tab.path === currentPath);
     html += `<div class="doc-tab ${isActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)}" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
       `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
-      `<button type="button" class="doc-tab-close" title="Zamknij zakładkę (lub kliknij kółkiem myszy)" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">×</button>` +
+      `<button type="button" class="doc-tab-close" title="Zamknij zakładkę (lub kliknij kółkiem myszy)" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
     `</div>`;
   }
 
@@ -1169,6 +1245,8 @@ function renderDocTabs() {
   if (!isCurrentInTabs) {
     html += `<button type="button" class="btn-add-current-tab" onclick="window.addCurrentPageToTabs()" title="Przypnij bieżący dokument do paska zakładek (Alt+T)">+ Przypnij bieżącą stronę</button>`;
   }
+
+  html += `<button type="button" class="btn-split-toggle ${splitActiveCls}" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">${splitBtnText}</button>`;
 
   container.innerHTML = html;
 
@@ -1262,6 +1340,387 @@ window.openDocTabAndSwitch = window.openDocTabAndSwitch;
 window.addCurrentPageToTabs = window.addCurrentPageToTabs;
 window.getOpenDocTabs = () => openDocTabs;
 window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
+
+/* ===== SILNIK WIDOKU DZIELONEGO (SPLIT VIEW / DUAL COLUMN) ===== */
+window.isSplitViewActive = false;
+window.secondaryArticlePath = null;
+
+function renderSecondaryPicker() {
+  const contentArea = document.getElementById('secondaryArticleContentArea');
+  const breadcrumbArea = document.getElementById('secondaryBreadcrumbArea');
+  if (breadcrumbArea) {
+    breadcrumbArea.innerHTML = `<span style="color:var(--sw-gold); font-weight:700;">Widok Podzielony</span> - Wybierz dokument pomocniczy`;
+  }
+  if (!contentArea) return;
+
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  const tabs = (window.getOpenDocTabs ? window.getOpenDocTabs() : []).filter(t => t.path !== currentPath);
+  let tabsHtml = '';
+  if (tabs.length > 0) {
+    tabsHtml = `<div style="margin-bottom:16px;">
+      <div style="font-size:0.75rem; color:#a1a1aa; margin-bottom:8px; font-weight:600;">OTWARTE ZAKŁADKI:</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        ${tabs.map(t => `
+          <button type="button" class="btn-action" style="text-align:left; background:#27272a; border:1px solid #3f3f46; color:#f4f4f5; padding:8px 12px; border-radius:4px; font-size:0.8rem; cursor:pointer;" onclick="window.loadSecondaryArticle('${escapeHtml(t.path)}')">
+            <span style="color:var(--sw-gold); font-weight:700;">${escapeHtml(t.title)}</span>
+            <div style="font-size:0.7rem; color:#71717a;">${escapeHtml(t.path)}</div>
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
+  contentArea.innerHTML = `
+    <div style="padding:20px; background:#18181b; border:1px solid #27272a; border-radius:6px; margin-top:10px;">
+      <h3 style="color:var(--sw-gold); margin-top:0; font-size:1.0rem;">DRUGA KOLUMNA DOKUMENTU</h3>
+      <p style="font-size:0.8rem; color:#a1a1aa; line-height:1.5;">
+        Możesz czytać dwa artykuły jednocześnie obok siebie. Wybierz stronę z powyższej listy zakładek lub kliknij odnośnik w lewym panelu z klawiszem <strong>Alt</strong>.
+      </p>
+      ${tabsHtml}
+      <div style="font-size:0.75rem; color:#71717a; border-top:1px solid #27272a; padding-top:10px; margin-top:12px;">
+        Wskazówka: Użyj skrótu <strong>Alt+D</strong>, aby szybko włączać lub wyłączać podział ekranu.
+      </div>
+    </div>
+  `;
+}
+
+window.renderSecondaryPicker = renderSecondaryPicker;
+
+window.openSplitView = async function(path) {
+  const container = document.getElementById('splitViewContainer');
+  const inner = document.getElementById('contentInnerContainer');
+  const rightPane = document.getElementById('splitPaneRight');
+  if (!container || !rightPane) return;
+
+  window.isSplitViewActive = true;
+  container.classList.add('split-active');
+  if (inner) inner.classList.add('split-expanded');
+  rightPane.style.display = 'flex';
+
+  const splitBtns = document.querySelectorAll('.btn-split-toggle');
+  splitBtns.forEach(btn => {
+    btn.classList.add('active');
+    btn.textContent = 'Zamknij Split';
+  });
+
+  if (path) {
+    await window.loadSecondaryArticle(path);
+  } else if (!window.secondaryArticlePath) {
+    renderSecondaryPicker();
+  }
+};
+
+window.closeSplitView = function() {
+  const container = document.getElementById('splitViewContainer');
+  const inner = document.getElementById('contentInnerContainer');
+  const rightPane = document.getElementById('splitPaneRight');
+  if (!container || !rightPane) return;
+
+  window.isSplitViewActive = false;
+  window.secondaryArticlePath = null;
+  container.classList.remove('split-active');
+  if (inner) inner.classList.remove('split-expanded');
+  rightPane.style.display = 'none';
+
+  const splitBtns = document.querySelectorAll('.btn-split-toggle');
+  splitBtns.forEach(btn => {
+    btn.classList.remove('active');
+    btn.textContent = 'Podziel Ekran';
+  });
+};
+
+window.toggleSplitView = function(path) {
+  if (window.isSplitViewActive) {
+    if (path && path !== window.secondaryArticlePath) {
+      window.loadSecondaryArticle(path);
+    } else {
+      window.closeSplitView();
+    }
+  } else {
+    window.openSplitView(path);
+  }
+};
+
+window.loadSecondaryArticle = async function(articlePath) {
+  articlePath = decodeURIComponent(articlePath || '').replace(/^#\/?/, '').trim();
+  if (!articlePath) return;
+
+  window.secondaryArticlePath = articlePath;
+  const rightPane = document.getElementById('splitPaneRight');
+  const contentArea = document.getElementById('secondaryArticleContentArea');
+  const breadcrumbArea = document.getElementById('secondaryBreadcrumbArea');
+  if (!contentArea) return;
+
+  if (rightPane && rightPane.style.display === 'none') {
+    window.openSplitView(articlePath);
+    return;
+  }
+
+  if (breadcrumbArea) {
+    breadcrumbArea.innerHTML = `<span style="color:var(--sw-gold); font-weight:700;">Podgląd obok:</span> ${escapeHtml(articlePath)}`;
+  }
+  contentArea.innerHTML = `<p style="padding:20px; color:#888;">Ładowanie dokumentu pomocniczego...</p>`;
+
+  try {
+    let markdownText = '';
+    const apiRes = await fetch(`/api/get-page?relPath=${encodeURIComponent(articlePath)}&t=` + Date.now());
+    if (apiRes.ok) {
+      const apiData = await apiRes.json();
+      markdownText = apiData.content || '';
+    }
+    if (!markdownText) {
+      const res = await fetch(`/docs/${articlePath}?t=` + Date.now());
+      if (res.ok) {
+        const rawText = await res.text();
+        if (!rawText.trim().startsWith('<!DOCTYPE')) {
+          markdownText = rawText;
+        }
+      }
+    }
+
+    if (!markdownText) {
+      contentArea.innerHTML = `<p style="color:#ef4444; padding:20px;">Nie udało się załadować pliku: ${escapeHtml(articlePath)}</p>`;
+      return;
+    }
+
+    contentArea.innerHTML = `<div class="markdown-body">${parseMarkdown(markdownText)}</div>`;
+
+    const codeBlocks = contentArea.querySelectorAll('pre');
+    codeBlocks.forEach(pre => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-code-btn';
+      btn.textContent = 'Kopiuj';
+      btn.onclick = () => {
+        const code = pre.querySelector('code');
+        navigator.clipboard.writeText(code ? code.innerText : pre.innerText);
+        btn.textContent = 'Skopiowano!';
+        setTimeout(() => { btn.textContent = 'Kopiuj'; }, 2000);
+      };
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+    });
+
+  } catch (err) {
+    contentArea.innerHTML = `<p style="color:#ef4444; padding:20px;">Błąd: ${escapeHtml(err.message)}</p>`;
+  }
+};
+
+/* ===== SILNIK PODGLĄDU NAWIGACYJNEGO (HOVER PREVIEW / QUICK PEEK) ===== */
+const hoverPreviewCache = new Map();
+let hoverPreviewTimer = null;
+let hoverPreviewHideTimer = null;
+let hoverPreviewActiveTarget = null;
+
+function isSystemRoute(route) {
+  if (!route) return true;
+  const clean = String(route).replace(/^#\/?/, '').trim();
+  const systemRoutes = ['kanban', 'overtime', 'cve', 'tools', 'rss', 'search', 'trash', 'backups', 'orphaned', 'settings', 'sync-filenames'];
+  if (systemRoutes.includes(clean)) return true;
+  if (clean.startsWith('tool/')) return true;
+  if (clean.startsWith('search?')) return true;
+  return false;
+}
+
+function extractDocPreviewLines(rawMarkdown, maxLines = 12) {
+  if (!rawMarkdown) return { title: 'Brak treści', lines: [] };
+
+  let lines = rawMarkdown.replace(/\r\n/g, '\n').split('\n');
+
+  if (lines.length > 0 && lines[0].trim() === '---') {
+    let endFm = -1;
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim() === '---') {
+        endFm = i;
+        break;
+      }
+    }
+    if (endFm !== -1) {
+      lines = lines.slice(endFm + 1);
+    }
+  }
+
+  let title = '';
+  const contentLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    if (!title && trimmed.startsWith('#')) {
+      title = trimmed.replace(/^#+\s*/, '').replace(/[*_`]/g, '').trim();
+      continue;
+    }
+
+    if (trimmed.startsWith('![') || trimmed.startsWith('<img')) continue;
+
+    let cleanLine = trimmed
+      .replace(/^[-*+]\s+/, '- ')
+      .replace(/^\d+\.\s+/, (m) => m)
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[*_`]/g, '');
+
+    contentLines.push(cleanLine);
+    if (contentLines.length >= maxLines) break;
+  }
+
+  return {
+    title: title || 'Dokument',
+    lines: contentLines
+  };
+}
+
+async function getDocContentForPreview(docPath) {
+  const cleanPath = String(docPath || '').replace(/^#\/?/, '').trim();
+  if (!cleanPath || isSystemRoute(cleanPath)) return null;
+
+  if (hoverPreviewCache.has(cleanPath)) {
+    return hoverPreviewCache.get(cleanPath);
+  }
+
+  try {
+    let rawText = '';
+    const apiRes = await fetch(`/api/get-page?relPath=${encodeURIComponent(cleanPath)}&t=` + Date.now());
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      rawText = data.content || '';
+    }
+    if (!rawText) {
+      const res = await fetch(`/docs/${cleanPath}?t=` + Date.now());
+      if (res.ok) {
+        const text = await res.text();
+        if (!text.trim().startsWith('<!DOCTYPE')) {
+          rawText = text;
+        }
+      }
+    }
+
+    if (!rawText) return null;
+
+    const parsed = extractDocPreviewLines(rawText, 12);
+    const result = {
+      path: cleanPath,
+      title: parsed.title,
+      lines: parsed.lines
+    };
+
+    hoverPreviewCache.set(cleanPath, result);
+    return result;
+  } catch (err) {
+    console.warn('[HoverPreview] Błąd pobierania podglądu:', err);
+    return null;
+  }
+}
+
+async function showHoverPreview(targetEl, route) {
+  const popover = document.getElementById('hoverPreviewPopover');
+  if (!popover || !targetEl || !route) return;
+
+  const data = await getDocContentForPreview(route);
+  if (!data) return;
+
+  hoverPreviewActiveTarget = targetEl;
+
+  const linesHtml = data.lines.length > 0
+    ? data.lines.map(l => `<p style="margin:0 0 4px 0;">${escapeHtml(l)}</p>`).join('')
+    : '<p style="color:#71717a; font-style:italic;">(Dokument nie zawiera tekstu wstępnego)</p>';
+
+  const safePath = escapeHtml(data.path);
+  const safeTitle = escapeHtml(data.title);
+
+  popover.innerHTML = `
+    <div class="hover-preview-header">
+      <span class="hover-preview-title">${safeTitle}</span>
+      <span style="font-size:0.68rem; color:#a1a1aa; font-family:monospace;">${safePath}</span>
+    </div>
+    <div class="hover-preview-body">
+      ${linesHtml}
+    </div>
+    <div class="hover-preview-footer">
+      <span style="font-size:0.68rem; color:#71717a;">Podgląd Quick Peek (12 linii)</span>
+      <div style="display:flex; gap:6px;">
+        <button type="button" class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#e4e4e7; font-size:0.68rem; padding:2px 8px; border-radius:3px; cursor:pointer;" onclick="window.location.hash='#/${safePath}'; window.hideHoverPreview();">Otwórz</button>
+        <button type="button" class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:700; font-size:0.68rem; padding:2px 8px; border-radius:3px; cursor:pointer;" onclick="window.openSplitView('${safePath}'); window.hideHoverPreview();">Otwórz obok</button>
+      </div>
+    </div>
+  `;
+
+  popover.style.display = 'flex';
+
+  const rect = targetEl.getBoundingClientRect();
+  const popoverWidth = 440;
+  const popoverHeight = popover.offsetHeight || 240;
+
+  let left = rect.left;
+  if (left + popoverWidth > window.innerWidth - 16) {
+    left = window.innerWidth - popoverWidth - 16;
+  }
+  if (left < 16) left = 16;
+
+  let top = rect.bottom + 8;
+  if (top + popoverHeight > window.innerHeight - 16) {
+    top = rect.top - popoverHeight - 8;
+  }
+  if (top < 16) top = 16;
+
+  popover.style.left = `${Math.round(left)}px`;
+  popover.style.top = `${Math.round(top)}px`;
+}
+
+function hideHoverPreview() {
+  if (hoverPreviewTimer) {
+    clearTimeout(hoverPreviewTimer);
+    hoverPreviewTimer = null;
+  }
+  if (hoverPreviewHideTimer) {
+    clearTimeout(hoverPreviewHideTimer);
+    hoverPreviewHideTimer = null;
+  }
+  const popover = document.getElementById('hoverPreviewPopover');
+  if (popover) {
+    popover.style.display = 'none';
+  }
+  hoverPreviewActiveTarget = null;
+}
+
+function scheduleHoverPreview(targetEl, route, immediate = false) {
+  if (hoverPreviewHideTimer) {
+    clearTimeout(hoverPreviewHideTimer);
+    hoverPreviewHideTimer = null;
+  }
+  if (hoverPreviewTimer) clearTimeout(hoverPreviewTimer);
+
+  const delay = immediate ? 0 : 350;
+  hoverPreviewTimer = setTimeout(() => {
+    showHoverPreview(targetEl, route);
+  }, delay);
+}
+
+function scheduleHoverPreviewHide() {
+  if (hoverPreviewTimer) {
+    clearTimeout(hoverPreviewTimer);
+    hoverPreviewTimer = null;
+  }
+  hoverPreviewHideTimer = setTimeout(() => {
+    hideHoverPreview();
+  }, 200);
+}
+
+function cancelHoverPreviewHideTimer() {
+  if (hoverPreviewHideTimer) {
+    clearTimeout(hoverPreviewHideTimer);
+    hoverPreviewHideTimer = null;
+  }
+}
+
+window.showHoverPreview = showHoverPreview;
+window.hideHoverPreview = hideHoverPreview;
+window.scheduleHoverPreview = scheduleHoverPreview;
+window.scheduleHoverPreviewHide = scheduleHoverPreviewHide;
+window.cancelHoverPreviewHideTimer = cancelHoverPreviewHideTimer;
+window.hoverPreviewCache = hoverPreviewCache;
+window.extractDocPreviewLines = extractDocPreviewLines;
+window.isSystemRoute = isSystemRoute;
 
 async function handleHashNavigation() {
   if (monitorIntervalId) {
@@ -1634,6 +2093,7 @@ async function loadArticle(articlePath) {
       <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
       <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
         <button class="btn-action" style="background:#27272a; border:1px solid #52525b; color:var(--sw-gold); font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.addCurrentPageToTabs()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ ZAKŁADKA</button>
+        <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">PODZIEL EKRAN</button>
         <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
         <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
         <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ / PDF</button>
@@ -1862,6 +2322,18 @@ async function loadKanbanBoard() {
       playbooksData = pbData.playbooks || [];
     }
 
+    // Automatyczna migracja zadan todo do in_progress
+    let hasMigrated = false;
+    for (const t of kanbanTasks) {
+      if (t.status === 'todo') {
+        t.status = 'in_progress';
+        hasMigrated = true;
+      }
+    }
+    if (hasMigrated) {
+      await saveKanbanTasks();
+    }
+
     const archivedCount = kanbanTasks.filter(t => t.archived || t.status === 'done').length;
 
     let html = `<div class="kanban-wrapper">
@@ -1874,12 +2346,8 @@ async function loadKanbanBoard() {
       </div>
 
       <div class="kanban-grid">
-        <div class="kanban-col" id="col-todo">
-          <div class="col-title col-todo-title">DO ZROBIENIA</div>
-          <div class="task-cards-container" id="cards-todo"></div>
-        </div>
         <div class="kanban-col" id="col-in_progress">
-          <div class="col-title col-progress-title">W TRAKCIE</div>
+          <div class="col-title col-progress-title">ZADANIA W TRAKCIE REALIZACJI</div>
           <div class="task-cards-container" id="cards-in_progress"></div>
         </div>
       </div>
@@ -1915,7 +2383,7 @@ let modalDraftSubtasks = [];
 let editingTaskId = null;
 
 function renderKanbanCards() {
-  const statuses = ['todo', 'in_progress'];
+  const statuses = ['in_progress'];
   statuses.forEach(status => {
     const container = document.getElementById(`cards-${status}`);
     if (!container) return;
@@ -2015,11 +2483,7 @@ function renderKanbanCards() {
           <span class="card-date">${safeDate}</span>
           <div class="card-actions">
             <button onclick="openEditTaskModal('${safeId}')" title="Edytuj / Podzadania" style="background:#27272a; color:#f4f4f5; padding:2px 6px; font-size:0.7rem;">Edytuj</button>
-            ${status !== 'todo' ? `<button onclick="moveTask('${safeId}', 'prev')" title="Cofnij">&lt;</button>` : ''}
-            ${status === 'in_progress' 
-              ? `<button onclick="archiveTask('${safeId}')" style="background:#10b981; color:#fff;" title="Przenieś do Zrobione / Archiwum">Zrobione</button>`
-              : `<button onclick="moveTask('${safeId}', 'next')" title="Dalej">&gt;</button>`
-            }
+            <button onclick="archiveTask('${safeId}')" style="background:#10b981; color:#fff;" title="Przenieś do Zrobione / Archiwum">Zrobione</button>
           </div>
         </div>
       </div>`;
@@ -2199,7 +2663,7 @@ async function submitNewTask() {
       title,
       category,
       priority,
-      status: 'todo',
+      status: 'in_progress',
       archived: false,
       description,
       subtasks: modalDraftSubtasks,
@@ -2247,7 +2711,7 @@ function closeArchiveModal() {
 }
 
 async function moveTask(taskId, dir) {
-  const statuses = ['todo', 'in_progress'];
+  const statuses = ['in_progress'];
   const task = kanbanTasks.find(t => t.id === taskId);
   if (!task) return;
 

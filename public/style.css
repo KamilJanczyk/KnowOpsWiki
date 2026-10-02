@@ -962,6 +962,10 @@
       #articleEditorModal,
       #toastContainer,
       .article-action-header,
+      .split-pane-right,
+      .hover-preview-popover,
+      .btn-split-toggle,
+      .btn-close-split,
       #articleContentArea > .article-action-header,
       #articleContentArea > div:first-child {
         display: none !important;
@@ -1840,5 +1844,154 @@
       padding-top: 12px;
       margin-top: 4px;
     }
+
+    /* ===== WIDOK DZIELONY (SPLIT VIEW / 2 KOLUMNY OBOK SIEBIE) ===== */
+    .split-view-container {
+      display: block;
+      width: 100%;
+    }
+    .split-view-container.split-active {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+    }
+    .content-inner-container.split-expanded {
+      max-width: 98% !important;
+    }
+    .split-pane {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .split-pane-left {
+      width: 100%;
+    }
+    .split-pane-right {
+      display: flex;
+      flex-direction: column;
+      background: var(--sw-dark-bg);
+      border-left: 1px solid #3f3f46;
+      padding-left: 16px;
+      min-width: 0;
+    }
+    .split-pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #27272a;
+    }
+    .btn-close-split {
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      color: #a1a1aa;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-close-split:hover {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #ffffff;
+    }
+    .btn-split-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      color: #e4e4e7;
+      cursor: pointer;
+      margin-left: auto;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .btn-split-toggle:hover {
+      background: #323238;
+      border-color: var(--sw-gold);
+      color: var(--sw-gold);
+    }
+    .btn-split-toggle.active {
+      background: #262419;
+      border-color: var(--sw-gold);
+      color: var(--sw-gold);
+      font-weight: 700;
+    }
+
+    /* ===== PODGLĄD NAWIGACYJNY (HOVER PREVIEW / QUICK PEEK) ===== */
+    .hover-preview-popover {
+      position: fixed;
+      z-index: 9999;
+      width: 440px;
+      max-width: calc(100vw - 32px);
+      max-height: 280px;
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75), 0 0 1px rgba(255, 255, 255, 0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      pointer-events: auto;
+      animation: hoverPreviewFadeIn 0.15s ease-out;
+    }
+    @keyframes hoverPreviewFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hover-preview-header {
+      padding: 8px 12px;
+      background: #27272a;
+      border-bottom: 1px solid #3f3f46;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .hover-preview-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--sw-gold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hover-preview-body {
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: #d4d4d8;
+      overflow-y: auto;
+      max-height: 200px;
+      scrollbar-width: thin;
+      scrollbar-color: #52525b #18181b;
+    }
+    .hover-preview-body p {
+      margin: 0 0 6px 0;
+    }
+    .hover-preview-body p:last-child {
+      margin-bottom: 0;
+    }
+    .hover-preview-footer {
+      padding: 6px 12px;
+      background: #141416;
+      border-top: 1px solid #27272a;
+      font-size: 0.68rem;
+      color: #71717a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
 
 

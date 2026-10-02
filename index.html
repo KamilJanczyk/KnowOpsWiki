@@ -80,11 +80,24 @@
 
     <!-- Center Article Area (Centered Content) -->
     <main class="main-content">
-      <div class="content-inner-container">
+      <div class="content-inner-container" id="contentInnerContainer">
         <div class="doc-tabs-bar" id="docTabsBar"></div>
-        <div class="breadcrumb-nav" id="breadcrumbArea">Ładowanie aplikacji...</div>
-        <div class="markdown-body" id="articleContentArea">
-          <p style="padding:20px; color:#888;">Ładowanie zasobów...</p>
+        <div class="split-view-container" id="splitViewContainer">
+          <div class="split-pane split-pane-left" id="splitPaneLeft">
+            <div class="breadcrumb-nav" id="breadcrumbArea">Ładowanie aplikacji...</div>
+            <div class="markdown-body" id="articleContentArea">
+              <p style="padding:20px; color:#888;">Ładowanie zasobów...</p>
+            </div>
+          </div>
+          <div class="split-pane split-pane-right" id="splitPaneRight" style="display:none;">
+            <div class="split-pane-header">
+              <div class="breadcrumb-nav" id="secondaryBreadcrumbArea" style="margin:0; border:none; padding:0;">Dokument pomocniczy</div>
+              <button type="button" class="btn-close-split" onclick="window.closeSplitView()" title="Zamknij widok dzielony">X</button>
+            </div>
+            <div class="markdown-body" id="secondaryArticleContentArea">
+              <p style="padding:20px; color:#888;">Wybierz dokument do otwarcia obok.</p>
+            </div>
+          </div>
         </div>
       </div>
     </main>
@@ -726,6 +739,9 @@
       <div class="auth-lock-footer">Automatyczne wygaszanie sesji po 6 godzinach.</div>
     </div>
   </div>
+
+  <!-- Hover Preview Popover -->
+  <div id="hoverPreviewPopover" class="hover-preview-popover" style="display:none;"></div>
 
 </body>
 </html>
