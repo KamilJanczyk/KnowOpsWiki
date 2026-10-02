@@ -279,7 +279,7 @@
     }
 
     .main-content { flex: 1; padding: 0 28px 20px 28px; min-width: 0; background: var(--sw-dark-bg); display: flex; justify-content: center; max-height: calc(100vh - 44px); overflow-y: auto; }
-    .content-inner-container { max-width: 1250px; width: 100%; display: flex; flex-direction: column; padding-top: 14px; }
+    .content-inner-container { max-width: 1250px; width: 100%; display: block; padding-top: 14px; }
     /* Scalony dwupoziomowy naglowek (Unified Two-Tier Header) */
     .unified-doc-header {
       position: sticky;
@@ -292,7 +292,6 @@
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
       display: flex;
       flex-direction: column;
-      overflow: hidden;
     }
     .doc-tabs-bar {
       display: flex;
@@ -305,12 +304,15 @@
       height: 42px;
       background: #18181b;
       border: none;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
       border-bottom: 1px solid #27272a;
       scrollbar-width: thin;
       scrollbar-color: #52525b #18181b;
     }
     .doc-tabs-bar.no-action-bar {
       border-bottom: none;
+      border-radius: 6px;
     }
     .doc-tabs-bar::-webkit-scrollbar {
       height: 4px;
@@ -539,6 +541,8 @@
       align-items: center;
       background: #141416;
       border: none;
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
       padding: 6px 12px;
       min-height: 38px;
     }

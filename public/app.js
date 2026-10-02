@@ -1291,8 +1291,14 @@ function renderDocTabs() {
   container.innerHTML = html;
 
   const activeTabEl = container.querySelector('.doc-tab.active');
-  if (activeTabEl && typeof activeTabEl.scrollIntoView === 'function') {
-    activeTabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  if (activeTabEl) {
+    const tabLeft = activeTabEl.offsetLeft;
+    const tabRight = tabLeft + activeTabEl.offsetWidth;
+    if (tabLeft < container.scrollLeft) {
+      container.scrollLeft = tabLeft - 8;
+    } else if (tabRight > container.scrollLeft + container.clientWidth) {
+      container.scrollLeft = tabRight - container.clientWidth + 8;
+    }
   }
 }
 
@@ -1885,6 +1891,10 @@ async function loadArticle(articlePath) {
   currentArticlePath = articlePath;
   const contentArea = document.getElementById('articleContentArea');
   const breadcrumbArea = document.getElementById('breadcrumbArea');
+  const mainContent = document.querySelector('.main-content');
+  if (mainContent) {
+    mainContent.scrollTop = 0;
+  }
 
   try {
     let markdownText = '';
