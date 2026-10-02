@@ -1760,7 +1760,7 @@ test('35. Client-Side Translation Engine (Koncepcja A): reguły leksykonu SecOps
   assert.equal(appJs.includes('ORYGINAŁ EN'), true);
 
   const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
-  assert.equal(indexHtml.includes('app.js?v=2.8.0'), true);
+  assert.equal(/app\.js\?v=2\.[0-9]+\.0/.test(indexHtml), true);
 });
 
 test('36. Instrukcja Obsługi & Live Translation Engine (Wariant 1): brak błędów runtime w instrukcji, endpoint API i bufor dyskowy', async () => {
@@ -2065,6 +2065,8 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   assert.equal(styleCss.includes('.doc-tab.active'), true, 'Brak stylu .doc-tab.active');
   assert.equal(styleCss.includes('.doc-tab-title'), true, 'Brak stylu .doc-tab-title');
   assert.equal(styleCss.includes('.doc-tab-close'), true, 'Brak stylu .doc-tab-close');
+  assert.equal(styleCss.includes('.doc-tabs-empty-hint'), true, 'Brak stylu .doc-tabs-empty-hint');
+  assert.equal(styleCss.includes('.btn-add-current-tab'), true, 'Brak stylu .btn-add-current-tab');
   assert.equal(styleCss.includes('--sw-gold'), true);
 
   // Ukrywanie paska zakładek przy drukowaniu (@media print)
@@ -2080,6 +2082,8 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   assert.equal(appJs.includes('window.switchDocTab'), true);
   assert.equal(appJs.includes('window.closeDocTab'), true);
   assert.equal(appJs.includes('window.initDocTabs'), true);
+  assert.equal(appJs.includes('window.openDocTabAndSwitch'), true);
+  assert.equal(appJs.includes('window.addCurrentPageToTabs'), true);
 
   // 4. Test logiki mapowania tytułów (getDocTabTitleForPath)
   function testGetDocTabTitle(path, customTitle = null) {

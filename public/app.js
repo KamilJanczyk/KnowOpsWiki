@@ -275,6 +275,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.toggleScratchpad();
       }
     }
+    if (e.altKey && (e.key === 't' || e.key === 'T')) {
+      e.preventDefault();
+      if (typeof window.addCurrentPageToTabs === 'function') {
+        window.addCurrentPageToTabs();
+      }
+    }
     if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
       if (isAuthRequired && (!document.getElementById('authLockOverlay') || document.getElementById('authLockOverlay').style.display !== 'flex')) {
         e.preventDefault();
@@ -283,20 +289,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Otwieranie wewnętrznych odnośników w nowej zakładce aplikacji przy kliknięciu środkowym przyciskiem myszy
+  function extractTargetRoute(el) {
+    if (!el) return null;
+    const anchor = el.closest('a');
+    if (anchor && anchor.getAttribute('href')) {
+      const href = anchor.getAttribute('href');
+      if (href.startsWith('#/')) return decodeURIComponent(href.replace(/^#\/?/, '')).trim();
+      if (href.startsWith('#')) return decodeURIComponent(href.replace(/^#/, '')).trim();
+    }
+    const topicItem = el.closest('.topic-item');
+    if (topicItem) {
+      const childA = topicItem.querySelector('a[href^="#/"]');
+      if (childA) return decodeURIComponent(childA.getAttribute('href').replace(/^#\/?/, '')).trim();
+    }
+    if (el.dataset && el.dataset.relPath) return el.dataset.relPath.trim();
+    return null;
+  }
+
+  // Otwieranie odnośników w nowej zakładce aplikacji przy kliknięciu kółkiem myszy (scroll / ŚPM)
   document.addEventListener('auxclick', (e) => {
     if (e.button === 1) {
-      if (e.target.closest('.doc-tab')) return;
-      const anchor = e.target.closest('a[href^="#/"]');
-      if (anchor) {
+      if (e.target.closest('.doc-tab') || e.target.closest('.doc-tabs-bar')) return;
+      const route = extractTargetRoute(e.target);
+      if (route) {
         e.preventDefault();
-        const targetPath = decodeURIComponent(anchor.getAttribute('href').replace(/^#\/?/, '')).trim();
-        if (targetPath && typeof window.registerDocTab === 'function') {
-          window.registerDocTab(targetPath);
+        e.stopPropagation();
+        if (typeof window.openDocTabAndSwitch === 'function') {
+          window.openDocTabAndSwitch(route);
         }
       }
     }
   });
+
+  // Otwieranie odnośników w nowej zakładce aplikacji skrótem Ctrl + LPM (lub Cmd + LPM)
+  document.addEventListener('click', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.target.closest('.doc-tab') || e.target.closest('.doc-tabs-bar')) return;
+      const route = extractTargetRoute(e.target);
+      if (route) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.openDocTabAndSwitch === 'function') {
+          window.openDocTabAndSwitch(route);
+        }
+      }
+    }
+  }, true);
 
   window.addEventListener('hashchange', async () => {
     if (isAuthRequired && !getStoredToken()) {
@@ -1109,21 +1147,27 @@ function renderDocTabs() {
 
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
 
-  if (openDocTabs.length === 0) {
-    openDocTabs.push({
-      path: currentPath,
-      title: getDocTabTitleForPath(currentPath)
-    });
-    saveDocTabsToStorage();
+  if (!openDocTabs || openDocTabs.length === 0) {
+    container.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px;">
+        <span class="doc-tabs-empty-hint">Brak zakładek. Otwieraj w zakładkach klikając kółkiem myszy (scroll) lub [Ctrl + LPM].</span>
+        <button type="button" class="btn-add-current-tab" onclick="window.addCurrentPageToTabs()" title="Przypnij bieżący dokument do paska zakładek (Alt+T)">+ PRZYPNIJ BIEŻĄCĄ STRONĘ</button>
+      </div>`;
+    return;
   }
 
   let html = '';
   for (const tab of openDocTabs) {
     const isActive = (tab.path === currentPath);
-    html += `<div class="doc-tab ${isActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)}" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
+    html += `<div class="doc-tab ${isActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)}" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
       `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
-      `<button type="button" class="doc-tab-close" title="Zamknij zakładkę" onclick="window.closeDocTab('${escapeHtml(tab.path)}', event)">×</button>` +
+      `<button type="button" class="doc-tab-close" title="Zamknij zakładkę (lub kliknij kółkiem myszy)" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">×</button>` +
     `</div>`;
+  }
+
+  const isCurrentInTabs = openDocTabs.some(t => t.path === currentPath);
+  if (!isCurrentInTabs) {
+    html += `<button type="button" class="btn-add-current-tab" onclick="window.addCurrentPageToTabs()" title="Przypnij bieżący dokument do paska zakładek (Alt+T)">+ Przypnij bieżącą stronę</button>`;
   }
 
   container.innerHTML = html;
@@ -1157,18 +1201,12 @@ window.closeDocTab = function(path, event) {
   const isClosingActive = (cleanPath === currentPath);
 
   openDocTabs.splice(idx, 1);
+  saveDocTabsToStorage();
 
   if (openDocTabs.length === 0) {
-    openDocTabs = [{ path: 'kanban', title: 'Tablica Kanban' }];
-    saveDocTabsToStorage();
     renderDocTabs();
-    if (currentPath !== 'kanban') {
-      window.location.hash = '#/kanban';
-    }
     return;
   }
-
-  saveDocTabsToStorage();
 
   if (isClosingActive) {
     const nextIdx = Math.min(idx, openDocTabs.length - 1);
@@ -1177,6 +1215,26 @@ window.closeDocTab = function(path, event) {
   } else {
     renderDocTabs();
   }
+};
+
+window.openDocTabAndSwitch = function(path, customTitle = null) {
+  const clean = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
+  registerDocTab(clean, customTitle);
+  if (window.location.hash === '#/' + clean) {
+    renderDocTabs();
+  } else {
+    window.location.hash = '#/' + clean;
+  }
+};
+
+window.addCurrentPageToTabs = function() {
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  let title = null;
+  const h1El = document.querySelector('#articleContentArea h1');
+  if (h1El && h1El.innerText.trim()) {
+    title = h1El.innerText.trim();
+  }
+  registerDocTab(currentPath, title);
 };
 
 window.renameDocTab = function(oldPath, newPath, newTitle = null) {
@@ -1194,23 +1252,14 @@ window.renameDocTab = function(oldPath, newPath, newTitle = null) {
 
 window.initDocTabs = function() {
   openDocTabs = loadDocTabsFromStorage();
-  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
-  if (!openDocTabs.some(t => t.path === currentPath)) {
-    if (openDocTabs.length >= MAX_DOC_TABS) {
-      openDocTabs.splice(0, 1);
-    }
-    openDocTabs.push({
-      path: currentPath,
-      title: getDocTabTitleForPath(currentPath)
-    });
-    saveDocTabsToStorage();
-  }
   renderDocTabs();
 };
 
 window.MAX_DOC_TABS = MAX_DOC_TABS;
 window.registerDocTab = registerDocTab;
 window.renderDocTabs = renderDocTabs;
+window.openDocTabAndSwitch = window.openDocTabAndSwitch;
+window.addCurrentPageToTabs = window.addCurrentPageToTabs;
 window.getOpenDocTabs = () => openDocTabs;
 window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
 
@@ -1223,13 +1272,13 @@ async function handleHashNavigation() {
 
   if (!hash || hash === 'kanban') {
     selectCategory('kanban_board', '');
-    registerDocTab('kanban', 'Tablica Kanban');
+    renderDocTabs();
     await loadKanbanBoard();
     return;
   }
   if (hash === 'playbooks') {
     selectCategory('kanban_board', '');
-    registerDocTab('playbooks', 'Playbooki');
+    renderDocTabs();
     await loadKanbanBoard();
     const section = document.getElementById('kanbanPlaybooksSection');
     if (section) {
@@ -1239,61 +1288,61 @@ async function handleHashNavigation() {
   }
   if (hash === 'notes') {
     selectCategory('kanban_board', '');
-    registerDocTab('notes', 'Szybkie Notatki');
+    renderDocTabs();
     await loadQuickNotes();
     return;
   }
   if (hash === 'tool/passgen') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/passgen', 'Hasłomat SecOps');
+    renderDocTabs();
     renderPassphraseGenerator();
     return;
   }
   if (hash === 'tool/cidr') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/cidr', 'Kalkulator CIDR');
+    renderDocTabs();
     renderCidrCalculator();
     return;
   }
   if (hash === 'tool/raid') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/raid', 'Kalkulator RAID');
+    renderDocTabs();
     renderRaidCalculator();
     return;
   }
   if (hash === 'tool/monitor') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/monitor', 'Monitor Serwera');
+    renderDocTabs();
     renderServerMonitor();
     return;
   }
   if (hash === 'tool/cve') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/cve', 'Radar CVE');
+    renderDocTabs();
     renderCveRadar();
     return;
   }
   if (hash === 'tool/rss') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/rss', 'Biuletyn RSS');
+    renderDocTabs();
     renderRssReader();
     return;
   }
   if (hash === 'tool/overtime') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/overtime', 'Ewidencja Nadgodzin');
+    renderDocTabs();
     renderOvertimeModule();
     return;
   }
   if (hash === 'tool/instrukcja') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/instrukcja', 'Instrukcja Obsługi');
+    renderDocTabs();
     renderWikiInstruction();
     return;
   }
   if (hash === 'tool/admin') {
     selectCategory('kanban_board', '');
-    registerDocTab('tool/admin', 'Centrum Administracyjne');
+    renderDocTabs();
     renderAdminCenter();
     return;
   }
@@ -1584,6 +1633,7 @@ async function loadArticle(articlePath) {
     const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:0; z-index:100; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
       <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
       <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <button class="btn-action" style="background:#27272a; border:1px solid #52525b; color:var(--sw-gold); font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.addCurrentPageToTabs()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ ZAKŁADKA</button>
         <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
         <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
         <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ / PDF</button>
@@ -1642,13 +1692,18 @@ async function loadArticle(articlePath) {
     if (!resolvedDocTitle) {
       resolvedDocTitle = getDocTabTitleForPath(articlePath);
     }
-    if (typeof registerDocTab === 'function') {
-      registerDocTab(articlePath, resolvedDocTitle);
+    const existingTab = openDocTabs.find(t => t.path === articlePath);
+    if (existingTab && resolvedDocTitle && existingTab.title !== resolvedDocTitle) {
+      existingTab.title = resolvedDocTitle;
+      saveDocTabsToStorage();
+    }
+    if (typeof renderDocTabs === 'function') {
+      renderDocTabs();
     }
 
   } catch (err) {
-    if (typeof registerDocTab === 'function') {
-      registerDocTab(articlePath, getDocTabTitleForPath(articlePath));
+    if (typeof renderDocTabs === 'function') {
+      renderDocTabs();
     }
     contentArea.innerHTML = `<div class="markdown-body">
       <h2>Błąd ładowania artykułu</h2>
