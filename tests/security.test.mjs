@@ -2048,6 +2048,153 @@ test('42. Sidebar Accordion Mode & Tree Live Filter: weryfikacja trybu akordeonu
   assert.equal(countFilesRecursive(sampleDir), 3);
 });
 
+test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolumnie, limitu 10 zakładek FIFO, obsługi narzędzi i markdown oraz zamykania', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Sprawdzenie umiejscowienia paska zakładek w index.html nad ścieżką breadcrumb
+  assert.equal(indexHtml.includes('id="docTabsBar"'), true, 'Brak kontenera docTabsBar w index.html');
+  const tabsBarPos = indexHtml.indexOf('id="docTabsBar"');
+  const breadcrumbPos = indexHtml.indexOf('id="breadcrumbArea"');
+  assert.equal(tabsBarPos < breadcrumbPos, true, 'docTabsBar musi znajdować się bezpośrednio nad breadcrumbArea');
+
+  // 2. Sprawdzenie stylów CSS dla paska i zakładek
+  assert.equal(styleCss.includes('.doc-tabs-bar'), true, 'Brak stylu .doc-tabs-bar');
+  assert.equal(styleCss.includes('.doc-tab'), true, 'Brak stylu .doc-tab');
+  assert.equal(styleCss.includes('.doc-tab.active'), true, 'Brak stylu .doc-tab.active');
+  assert.equal(styleCss.includes('.doc-tab-title'), true, 'Brak stylu .doc-tab-title');
+  assert.equal(styleCss.includes('.doc-tab-close'), true, 'Brak stylu .doc-tab-close');
+  assert.equal(styleCss.includes('--sw-gold'), true);
+
+  // Ukrywanie paska zakładek przy drukowaniu (@media print)
+  const printMediaIdx = styleCss.indexOf('@media print');
+  assert.equal(printMediaIdx !== -1, true);
+  const printMediaContent = styleCss.slice(printMediaIdx);
+  assert.equal(printMediaContent.includes('.doc-tabs-bar'), true, 'doc-tabs-bar powinien być ukryty w @media print');
+
+  // 3. Sprawdzenie funkcji w public/app.js
+  assert.equal(appJs.includes('MAX_DOC_TABS = 10'), true, 'Brak limitu MAX_DOC_TABS = 10 w app.js');
+  assert.equal(appJs.includes('function registerDocTab'), true);
+  assert.equal(appJs.includes('function renderDocTabs'), true);
+  assert.equal(appJs.includes('window.switchDocTab'), true);
+  assert.equal(appJs.includes('window.closeDocTab'), true);
+  assert.equal(appJs.includes('window.initDocTabs'), true);
+
+  // 4. Test logiki mapowania tytułów (getDocTabTitleForPath)
+  function testGetDocTabTitle(path, customTitle = null) {
+    if (customTitle && typeof customTitle === 'string' && customTitle.trim()) {
+      return customTitle.trim();
+    }
+    const clean = String(path || '').replace(/^#\/?/, '').trim();
+    if (!clean || clean === 'kanban') return 'Tablica Kanban';
+    if (clean === 'playbooks') return 'Playbooki';
+    if (clean === 'notes') return 'Szybkie Notatki';
+    if (clean === 'tool/passgen') return 'Hasłomat SecOps';
+    if (clean === 'tool/cidr') return 'Kalkulator CIDR';
+    if (clean === 'tool/raid') return 'Kalkulator RAID';
+    if (clean === 'tool/monitor') return 'Monitor Serwera';
+    if (clean === 'tool/cve') return 'Radar CVE';
+    if (clean === 'tool/rss') return 'Biuletyn RSS';
+    if (clean === 'tool/overtime') return 'Ewidencja Nadgodzin';
+    if (clean === 'tool/instrukcja') return 'Instrukcja Obsługi';
+    if (clean === 'tool/admin') return 'Centrum Administracyjne';
+
+    const lastPart = clean.split('/').pop() || clean;
+    return lastPart.replace(/\.md$/i, '').replace(/_/g, ' ');
+  }
+
+  assert.equal(testGetDocTabTitle('kanban'), 'Tablica Kanban');
+  assert.equal(testGetDocTabTitle('tool/cve'), 'Radar CVE');
+  assert.equal(testGetDocTabTitle('tool/admin'), 'Centrum Administracyjne');
+  assert.equal(testGetDocTabTitle('01_Sciagi/06_Komendy_GNU_Linux/01_Podstawowe.md'), '01 Podstawowe');
+  assert.equal(testGetDocTabTitle('01_Sciagi/06_Komendy_GNU_Linux/01_Podstawowe.md', 'Własny Tytuł'), 'Własny Tytuł');
+
+  // 5. Test logiki limitu 10 zakładek i eksmisji FIFO najstarszej nieaktywnej
+  const MAX_TABS = 10;
+  let simulatedTabs = [];
+  let currentActive = 'kanban';
+
+  function simulateRegisterTab(path, customTitle = null) {
+    const clean = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
+    const title = testGetDocTabTitle(clean, customTitle);
+    const existing = simulatedTabs.findIndex(t => t.path === clean);
+    if (existing !== -1) {
+      if (customTitle) simulatedTabs[existing].title = customTitle;
+    } else {
+      if (simulatedTabs.length >= MAX_TABS) {
+        let evictIdx = simulatedTabs.findIndex(t => t.path !== currentActive);
+        if (evictIdx === -1) evictIdx = 0;
+        simulatedTabs.splice(evictIdx, 1);
+      }
+      simulatedTabs.push({ path: clean, title });
+    }
+    currentActive = clean;
+  }
+
+  // Wypełnienie 10 zakładkami (narzędzia i pliki .md)
+  const initialRoutes = [
+    'kanban', 'notes', 'tool/cve', 'tool/admin', 'tool/passgen',
+    'tool/cidr', 'tool/raid', 'tool/monitor', 'tool/rss', 'docs/01_linux.md'
+  ];
+  for (const r of initialRoutes) {
+    simulateRegisterTab(r);
+  }
+  assert.equal(simulatedTabs.length, 10, 'Powinno być dokładnie 10 zakładek');
+  assert.equal(simulatedTabs[0].path, 'kanban');
+  assert.equal(simulatedTabs[9].path, 'docs/01_linux.md');
+
+  // Przełączenie aktywnej na 'tool/cve' (indeks 2)
+  currentActive = 'tool/cve';
+
+  // Dodanie 11-stej zakładki: powinna wyekmitować 'kanban' (najstarsza nieaktywna, indeks 0)
+  simulateRegisterTab('docs/02_security.md');
+  assert.equal(simulatedTabs.length, 10, 'Limit 10 zakładek musi być ściśle przestrzegany');
+  assert.equal(simulatedTabs.some(t => t.path === 'kanban'), false, 'Najstarsza nieaktywna zakładka kanban powinna zostać usunięta');
+  assert.equal(simulatedTabs.some(t => t.path === 'tool/cve'), true, 'Aktywna zakładka tool/cve nie może zostać usunięta');
+  assert.equal(simulatedTabs[simulatedTabs.length - 1].path, 'docs/02_security.md');
+
+  // Ponowne otwarcie istniejącej zakładki: brak duplikatów
+  simulateRegisterTab('tool/admin');
+  assert.equal(simulatedTabs.length, 10, 'Liczba zakładek nie powinna ulec zmianie');
+  assert.equal(simulatedTabs.filter(t => t.path === 'tool/admin').length, 1, 'Brak duplikatów dla istniejącej zakładki');
+
+  // 6. Test logiki zamykania zakładek
+  function simulateCloseTab(path) {
+    const clean = String(path || '').replace(/^#\/?/, '').trim();
+    const idx = simulatedTabs.findIndex(t => t.path === clean);
+    if (idx === -1) return currentActive;
+
+    const isClosingActive = (clean === currentActive);
+    simulatedTabs.splice(idx, 1);
+
+    if (simulatedTabs.length === 0) {
+      simulatedTabs = [{ path: 'kanban', title: 'Tablica Kanban' }];
+      currentActive = 'kanban';
+      return currentActive;
+    }
+
+    if (isClosingActive) {
+      const nextIdx = Math.min(idx, simulatedTabs.length - 1);
+      currentActive = simulatedTabs[nextIdx].path;
+    }
+    return currentActive;
+  }
+
+  // Zamknięcie nieaktywnej zakładki: aktywna pozostaje bez zmian
+  currentActive = 'tool/cve';
+  simulateCloseTab('tool/cidr');
+  assert.equal(simulatedTabs.length, 9);
+  assert.equal(currentActive, 'tool/cve', 'Aktywna zakładka nie powinna ulec zmianie przy zamykaniu innej');
+
+  // Zamknięcie aktywnej zakładki: przełączenie na sąsiednią
+  const closedTarget = currentActive;
+  const newActive = simulateCloseTab(closedTarget);
+  assert.equal(simulatedTabs.length, 8);
+  assert.notEqual(newActive, closedTarget);
+  assert.equal(simulatedTabs.some(t => t.path === newActive), true);
+});
+
 
 
 

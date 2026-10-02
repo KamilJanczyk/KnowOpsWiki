@@ -192,6 +192,9 @@ async function initializeWikiContent() {
   if (isWikiContentInitialized) return;
   isWikiContentInitialized = true;
   ensureEditorToolbarTagsButton();
+  if (typeof window.initDocTabs === 'function') {
+    window.initDocTabs();
+  }
   await loadNavigation();
   await handleHashNavigation();
   await loadRightSidebarKanban();
@@ -992,6 +995,9 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
     if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
 
     expandedDirs[targetDirRelPath] = true;
+    if (typeof window.renameDocTab === 'function') {
+      window.renameDocTab(sourceRelPath, data.relPath);
+    }
     await loadNavigation();
     window.location.hash = `#/${data.relPath}`;
     alert(`Dokument "${filename}" został pomyślnie przeniesiony do "${targetDirRelPath}".`);
@@ -999,6 +1005,199 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
     alert(`Błąd podczas przenoszenia pliku: ${err.message}`);
   }
 };
+
+// ================= WIELOZAKŁADKOWOŚĆ DOKUMENTÓW I NARZĘDZI (DOC TABS) ================= //
+
+const MAX_DOC_TABS = 10;
+const DOC_TABS_STORAGE_KEY = 'knowops_doc_tabs';
+let openDocTabs = [];
+
+function getDocTabTitleForPath(path, customTitle = null) {
+  if (customTitle && typeof customTitle === 'string' && customTitle.trim()) {
+    return customTitle.trim();
+  }
+  const clean = String(path || '').replace(/^#\/?/, '').trim();
+  if (!clean || clean === 'kanban') return 'Tablica Kanban';
+  if (clean === 'playbooks') return 'Playbooki';
+  if (clean === 'notes') return 'Szybkie Notatki';
+  if (clean === 'tool/passgen') return 'Hasłomat SecOps';
+  if (clean === 'tool/cidr') return 'Kalkulator CIDR';
+  if (clean === 'tool/raid') return 'Kalkulator RAID';
+  if (clean === 'tool/monitor') return 'Monitor Serwera';
+  if (clean === 'tool/cve') return 'Radar CVE';
+  if (clean === 'tool/rss') return 'Biuletyn RSS';
+  if (clean === 'tool/overtime') return 'Ewidencja Nadgodzin';
+  if (clean === 'tool/instrukcja') return 'Instrukcja Obsługi';
+  if (clean === 'tool/admin') return 'Centrum Administracyjne';
+
+  const lastPart = clean.split('/').pop() || clean;
+  return lastPart.replace(/\.md$/i, '').replace(/_/g, ' ');
+}
+
+function loadDocTabsFromStorage() {
+  try {
+    const raw = localStorage.getItem(DOC_TABS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.slice(0, MAX_DOC_TABS).map(t => ({
+          path: String(t.path || '').replace(/^#\/?/, '').trim(),
+          title: String(t.title || '').trim() || getDocTabTitleForPath(t.path)
+        })).filter(t => Boolean(t.path));
+      }
+    }
+  } catch (e) {
+    console.warn('[DocTabs] Błąd odczytu zakładek z localStorage:', e);
+  }
+  return [];
+}
+
+function saveDocTabsToStorage() {
+  try {
+    localStorage.setItem(DOC_TABS_STORAGE_KEY, JSON.stringify(openDocTabs));
+  } catch (e) {
+    console.warn('[DocTabs] Błąd zapisu zakładek do localStorage:', e);
+  }
+}
+
+function registerDocTab(path, customTitle = null) {
+  const cleanPath = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
+  const resolvedTitle = getDocTabTitleForPath(cleanPath, customTitle);
+
+  const existingIdx = openDocTabs.findIndex(t => t.path === cleanPath);
+  if (existingIdx !== -1) {
+    if (customTitle && openDocTabs[existingIdx].title !== customTitle) {
+      openDocTabs[existingIdx].title = customTitle;
+    }
+  } else {
+    if (openDocTabs.length >= MAX_DOC_TABS) {
+      const currentActivePath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+      let evictIdx = openDocTabs.findIndex(t => t.path !== currentActivePath);
+      if (evictIdx === -1) {
+        evictIdx = 0;
+      }
+      openDocTabs.splice(evictIdx, 1);
+    }
+    openDocTabs.push({
+      path: cleanPath,
+      title: resolvedTitle
+    });
+  }
+
+  saveDocTabsToStorage();
+  renderDocTabs();
+}
+
+function renderDocTabs() {
+  const container = document.getElementById('docTabsBar');
+  if (!container) return;
+
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+
+  if (openDocTabs.length === 0) {
+    openDocTabs.push({
+      path: currentPath,
+      title: getDocTabTitleForPath(currentPath)
+    });
+    saveDocTabsToStorage();
+  }
+
+  let html = '';
+  for (const tab of openDocTabs) {
+    const isActive = (tab.path === currentPath);
+    html += `<div class="doc-tab ${isActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)}" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
+      `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
+      `<button type="button" class="doc-tab-close" title="Zamknij zakładkę" onclick="window.closeDocTab('${escapeHtml(tab.path)}', event)">×</button>` +
+    `</div>`;
+  }
+
+  container.innerHTML = html;
+
+  const activeTabEl = container.querySelector('.doc-tab.active');
+  if (activeTabEl && typeof activeTabEl.scrollIntoView === 'function') {
+    activeTabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }
+}
+
+window.switchDocTab = function(path) {
+  const clean = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
+  const current = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  if (current === clean) {
+    renderDocTabs();
+    return;
+  }
+  window.location.hash = '#/' + clean;
+};
+
+window.closeDocTab = function(path, event) {
+  if (event) {
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+  }
+  const cleanPath = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
+  const idx = openDocTabs.findIndex(t => t.path === cleanPath);
+  if (idx === -1) return;
+
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  const isClosingActive = (cleanPath === currentPath);
+
+  openDocTabs.splice(idx, 1);
+
+  if (openDocTabs.length === 0) {
+    openDocTabs = [{ path: 'kanban', title: 'Tablica Kanban' }];
+    saveDocTabsToStorage();
+    renderDocTabs();
+    if (currentPath !== 'kanban') {
+      window.location.hash = '#/kanban';
+    }
+    return;
+  }
+
+  saveDocTabsToStorage();
+
+  if (isClosingActive) {
+    const nextIdx = Math.min(idx, openDocTabs.length - 1);
+    const nextTab = openDocTabs[nextIdx];
+    window.location.hash = '#/' + nextTab.path;
+  } else {
+    renderDocTabs();
+  }
+};
+
+window.renameDocTab = function(oldPath, newPath, newTitle = null) {
+  const cleanOld = String(oldPath || '').replace(/^#\/?/, '').trim();
+  const cleanNew = String(newPath || '').replace(/^#\/?/, '').trim();
+  const tab = openDocTabs.find(t => t.path === cleanOld);
+  if (tab) {
+    tab.path = cleanNew;
+    if (newTitle) tab.title = newTitle;
+    else tab.title = getDocTabTitleForPath(cleanNew);
+    saveDocTabsToStorage();
+    renderDocTabs();
+  }
+};
+
+window.initDocTabs = function() {
+  openDocTabs = loadDocTabsFromStorage();
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  if (!openDocTabs.some(t => t.path === currentPath)) {
+    if (openDocTabs.length >= MAX_DOC_TABS) {
+      openDocTabs.splice(0, 1);
+    }
+    openDocTabs.push({
+      path: currentPath,
+      title: getDocTabTitleForPath(currentPath)
+    });
+    saveDocTabsToStorage();
+  }
+  renderDocTabs();
+};
+
+window.MAX_DOC_TABS = MAX_DOC_TABS;
+window.registerDocTab = registerDocTab;
+window.renderDocTabs = renderDocTabs;
+window.getOpenDocTabs = () => openDocTabs;
+window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
 
 async function handleHashNavigation() {
   if (monitorIntervalId) {
@@ -1009,11 +1208,13 @@ async function handleHashNavigation() {
 
   if (!hash || hash === 'kanban') {
     selectCategory('kanban_board', '');
+    registerDocTab('kanban', 'Tablica Kanban');
     await loadKanbanBoard();
     return;
   }
   if (hash === 'playbooks') {
     selectCategory('kanban_board', '');
+    registerDocTab('playbooks', 'Playbooki');
     await loadKanbanBoard();
     const section = document.getElementById('kanbanPlaybooksSection');
     if (section) {
@@ -1023,51 +1224,61 @@ async function handleHashNavigation() {
   }
   if (hash === 'notes') {
     selectCategory('kanban_board', '');
+    registerDocTab('notes', 'Szybkie Notatki');
     await loadQuickNotes();
     return;
   }
   if (hash === 'tool/passgen') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/passgen', 'Hasłomat SecOps');
     renderPassphraseGenerator();
     return;
   }
   if (hash === 'tool/cidr') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/cidr', 'Kalkulator CIDR');
     renderCidrCalculator();
     return;
   }
   if (hash === 'tool/raid') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/raid', 'Kalkulator RAID');
     renderRaidCalculator();
     return;
   }
   if (hash === 'tool/monitor') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/monitor', 'Monitor Serwera');
     renderServerMonitor();
     return;
   }
   if (hash === 'tool/cve') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/cve', 'Radar CVE');
     renderCveRadar();
     return;
   }
   if (hash === 'tool/rss') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/rss', 'Biuletyn RSS');
     renderRssReader();
     return;
   }
   if (hash === 'tool/overtime') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/overtime', 'Ewidencja Nadgodzin');
     renderOvertimeModule();
     return;
   }
   if (hash === 'tool/instrukcja') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/instrukcja', 'Instrukcja Obsługi');
     renderWikiInstruction();
     return;
   }
   if (hash === 'tool/admin') {
     selectCategory('kanban_board', '');
+    registerDocTab('tool/admin', 'Centrum Administracyjne');
     renderAdminCenter();
     return;
   }
@@ -1406,7 +1617,24 @@ async function loadArticle(articlePath) {
     renderMermaidDiagrams();
     addCopyButtons();
 
+    let resolvedDocTitle = (navFile && navFile.title) ? navFile.title : null;
+    if (!resolvedDocTitle && markdownText) {
+      const h1Match = markdownText.match(/^#\s+(.+)$/m);
+      if (h1Match) {
+        resolvedDocTitle = h1Match[1].replace(/[*_`]/g, '').trim();
+      }
+    }
+    if (!resolvedDocTitle) {
+      resolvedDocTitle = getDocTabTitleForPath(articlePath);
+    }
+    if (typeof registerDocTab === 'function') {
+      registerDocTab(articlePath, resolvedDocTitle);
+    }
+
   } catch (err) {
+    if (typeof registerDocTab === 'function') {
+      registerDocTab(articlePath, getDocTabTitleForPath(articlePath));
+    }
     contentArea.innerHTML = `<div class="markdown-body">
       <h2>Błąd ładowania artykułu</h2>
       <p style="color:#ef4444;">Nie udało się załadować pliku: ${articlePath} (${err.message})</p>
@@ -3786,6 +4014,9 @@ window.submitMovePage = async function() {
     alert('Dokument został pomyślnie przeniesiony.');
     
     expandedDirs[targetCategoryRel] = true;
+    if (typeof window.renameDocTab === 'function') {
+      window.renameDocTab(sourceRelPath, data.relPath);
+    }
     await loadNavigation();
     window.location.hash = `#/${data.relPath}`;
   } catch (err) {
@@ -5122,6 +5353,9 @@ window.deleteCurrentArticleFromModal = async function() {
     const data = await res.json();
     if (data.success) {
       closeEditorModal();
+      if (typeof window.closeDocTab === 'function') {
+        window.closeDocTab(currentEditingPath);
+      }
       if (typeof triggerRescan === 'function') await triggerRescan();
       const parts = currentEditingPath.split('/');
       if (typeof selectCategory === 'function') selectCategory(parts[0], parts[1] || '');

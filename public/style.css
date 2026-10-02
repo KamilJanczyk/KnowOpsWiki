@@ -280,6 +280,87 @@
 
     .main-content { flex: 1; padding: 0 28px 20px 28px; min-width: 0; background: var(--sw-dark-bg); display: flex; justify-content: center; max-height: calc(100vh - 44px); overflow-y: auto; }
     .content-inner-container { max-width: 1250px; width: 100%; display: flex; flex-direction: column; padding-top: 14px; }
+    /* Pasek wielozakladkowosci dokumentow i narzedzi w srodkowej kolumnie */
+    .doc-tabs-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      margin-bottom: 8px;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+      scrollbar-color: #3f3f46 #141416;
+      border-bottom: 1px solid #27272a;
+    }
+    .doc-tabs-bar::-webkit-scrollbar {
+      height: 4px;
+    }
+    .doc-tabs-bar::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+      border-radius: 2px;
+    }
+    .doc-tabs-bar::-webkit-scrollbar-track {
+      background: #141416;
+    }
+    .doc-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #141416;
+      border: 1px solid #27272a;
+      border-bottom: 2px solid transparent;
+      border-radius: 4px 4px 0 0;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      color: #a1a1aa;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      max-width: 200px;
+      flex-shrink: 0;
+    }
+    .doc-tab:hover {
+      background: #1c1c1f;
+      color: #ffffff;
+      border-color: #3f3f46;
+    }
+    .doc-tab.active {
+      background: #1f2937;
+      border-color: #3f3f46;
+      border-bottom-color: var(--sw-gold);
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .doc-tab-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .doc-tab-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      background: none;
+      border: none;
+      color: #71717a;
+      font-size: 0.82rem;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 2px;
+      padding: 0;
+      margin-left: 2px;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    .doc-tab-close:hover {
+      color: #ffffff;
+      background: rgba(239, 68, 68, 0.4);
+    }
+
     .breadcrumb-nav { font-size: 0.72rem; color: #888888; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #222; }
 
     /* Style przeciagania dokumentow w lewym menu (Drag & Drop) */
@@ -840,6 +921,7 @@
       .left-topics-box,
       .right-kanban-sidebar,
       .left-sidebar-tools,
+      .doc-tabs-bar,
       .breadcrumb-nav,
       .copy-code-btn,
       .custom-modal-overlay,
