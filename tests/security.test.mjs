@@ -2055,16 +2055,18 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
 
   // 1. Sprawdzenie umiejscowienia paska zakładek w index.html nad ścieżką breadcrumb
   assert.equal(indexHtml.includes('id="docTabsBar"'), true, 'Brak kontenera docTabsBar w index.html');
+  assert.equal(indexHtml.includes('id="articleActionBar"'), true, 'Brak kontenera articleActionBar w index.html');
   const tabsBarPos = indexHtml.indexOf('id="docTabsBar"');
   const breadcrumbPos = indexHtml.indexOf('id="breadcrumbArea"');
   assert.equal(tabsBarPos < breadcrumbPos, true, 'docTabsBar musi znajdować się bezpośrednio nad breadcrumbArea');
-  assert.equal(indexHtml.includes('id="docTabsBar" style="position:sticky; top:0; z-index:150;"'), true, 'Wymagany styl inline sticky dla docTabsBar w index.html');
+  assert.equal(indexHtml.includes('id="unifiedDocHeader" style="position:sticky; top:0; z-index:150;"'), true, 'Wymagany styl inline sticky dla unifiedDocHeader w index.html');
 
   // 2. Sprawdzenie stylów CSS dla paska i zakładek
+  assert.equal(styleCss.includes('.unified-doc-header'), true, 'Brak stylu .unified-doc-header');
   assert.equal(styleCss.includes('.doc-tabs-bar'), true, 'Brak stylu .doc-tabs-bar');
-  assert.equal(styleCss.includes('position: sticky;'), true, 'Wymagane pozycjonowanie sticky dla paska zakładek');
-  assert.equal(styleCss.includes('top: 44px;'), true, 'Wymagane dokowanie belki akcji na top: 44px pod paskiem zakładek');
-  assert.equal(appJs.includes('top:44px;'), true, 'Inline style actionHeaderHtml musi dokować na top:44px');
+  assert.equal(styleCss.includes('.article-action-header'), true, 'Brak stylu .article-action-header');
+  assert.equal(styleCss.includes('position: sticky;'), true, 'Wymagane pozycjonowanie sticky dla nagłówka');
+  assert.equal(appJs.includes('hideArticleActionBar'), true, 'Wymagana funkcja hideArticleActionBar w app.js');
   assert.equal(styleCss.includes('.doc-tab'), true, 'Brak stylu .doc-tab');
   assert.equal(styleCss.includes('.doc-tab.active'), true, 'Brak stylu .doc-tab.active');
   assert.equal(styleCss.includes('.doc-tab-title'), true, 'Brak stylu .doc-tab-title');
@@ -2073,10 +2075,11 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   assert.equal(styleCss.includes('.btn-add-current-tab'), true, 'Brak stylu .btn-add-current-tab');
   assert.equal(styleCss.includes('--sw-gold'), true);
 
-  // Ukrywanie paska zakładek przy drukowaniu (@media print)
+  // Ukrywanie paska zakładek i nagłówka przy drukowaniu (@media print)
   const printMediaIdx = styleCss.indexOf('@media print');
   assert.equal(printMediaIdx !== -1, true);
   const printMediaContent = styleCss.slice(printMediaIdx);
+  assert.equal(printMediaContent.includes('.unified-doc-header'), true, 'unified-doc-header powinien być ukryty w @media print');
   assert.equal(printMediaContent.includes('.doc-tabs-bar'), true, 'doc-tabs-bar powinien być ukryty w @media print');
 
   // 3. Sprawdzenie funkcji w public/app.js

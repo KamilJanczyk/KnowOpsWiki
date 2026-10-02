@@ -280,26 +280,37 @@
 
     .main-content { flex: 1; padding: 0 28px 20px 28px; min-width: 0; background: var(--sw-dark-bg); display: flex; justify-content: center; max-height: calc(100vh - 44px); overflow-y: auto; }
     .content-inner-container { max-width: 1250px; width: 100%; display: flex; flex-direction: column; padding-top: 14px; }
-    /* Pasek wielozakladkowosci dokumentow i narzedzi w srodkowej kolumnie */
+    /* Scalony dwupoziomowy naglowek (Unified Two-Tier Header) */
+    .unified-doc-header {
+      position: sticky;
+      top: 0;
+      z-index: 150;
+      margin-bottom: 12px;
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
     .doc-tabs-bar {
       display: flex;
       align-items: center;
       gap: 6px;
       overflow-x: auto;
       overflow-y: hidden;
-      margin-bottom: 12px;
       padding: 6px 10px;
-      min-height: 44px;
-      height: 44px;
+      min-height: 42px;
+      height: 42px;
       background: #18181b;
-      border: 1px solid #3f3f46;
-      border-radius: 6px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
-      position: sticky;
-      top: 0;
-      z-index: 150;
+      border: none;
+      border-bottom: 1px solid #27272a;
       scrollbar-width: thin;
       scrollbar-color: #52525b #18181b;
+    }
+    .doc-tabs-bar.no-action-bar {
+      border-bottom: none;
     }
     .doc-tabs-bar::-webkit-scrollbar {
       height: 4px;
@@ -521,20 +532,15 @@
       border-color: var(--sw-gold) !important;
     }
 
-    /* Belka akcji dokumentu (naglowek ze sciezka, data i przyciskami - pozycjonowanie stale/lepkie) */
+    /* Belka akcji dokumentu (naglowek ze sciezka, data i przyciskami wewnatrz scalonego naglowka) */
     .article-action-header {
-      position: sticky;
-      top: 44px;
-      z-index: 140;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #18181b;
-      border: 1px solid #3f3f46;
-      padding: 8px 12px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+      background: #141416;
+      border: none;
+      padding: 6px 12px;
+      min-height: 38px;
     }
 
     /* Right Kanban Sidebar Styles */
@@ -956,6 +962,7 @@
       .left-topics-box,
       .right-kanban-sidebar,
       .left-sidebar-tools,
+      .unified-doc-header,
       .doc-tabs-bar,
       .breadcrumb-nav,
       .copy-code-btn,

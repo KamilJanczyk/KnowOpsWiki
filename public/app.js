@@ -458,6 +458,7 @@ window.triggerRescan = triggerRescan;
 
 async function triggerGlobalSearch(query) {
   if (!query) return;
+  hideArticleActionBar();
   const contentArea = document.getElementById('articleContentArea');
   const breadcrumbArea = document.getElementById('breadcrumbArea');
   if (breadcrumbArea) breadcrumbArea.innerText = `Wyszukiwanie > Fraz: "${query}"`;
@@ -1224,12 +1225,36 @@ function registerDocTab(path, customTitle = null) {
   renderDocTabs();
 }
 
+function hideArticleActionBar() {
+  const bar = document.getElementById('articleActionBar');
+  if (bar) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+  }
+  const tabsBar = document.getElementById('docTabsBar');
+  if (tabsBar) {
+    tabsBar.classList.add('no-action-bar');
+  }
+}
+window.hideArticleActionBar = hideArticleActionBar;
+
 function renderDocTabs() {
   const container = document.getElementById('docTabsBar');
   if (!container) return;
-  container.style.position = 'sticky';
-  container.style.top = '0px';
-  container.style.zIndex = '150';
+
+  const headerWrapper = document.getElementById('unifiedDocHeader');
+  if (headerWrapper) {
+    headerWrapper.style.position = 'sticky';
+    headerWrapper.style.top = '0px';
+    headerWrapper.style.zIndex = '150';
+  }
+
+  const actionBar = document.getElementById('articleActionBar');
+  if (actionBar && actionBar.style.display !== 'none' && actionBar.innerHTML.trim() !== '') {
+    container.classList.remove('no-action-bar');
+  } else {
+    container.classList.add('no-action-bar');
+  }
 
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
   const splitBtnText = window.isSplitViewActive ? 'Zamknij Split' : 'Podziel Ekran';
@@ -1538,6 +1563,7 @@ async function handleHashNavigation() {
     monitorIntervalId = null;
   }
   const hash = decodeURIComponent(window.location.hash.replace('#/', ''));
+  hideArticleActionBar();
 
   if (!hash || hash === 'kanban') {
     selectCategory('kanban_board', '');
@@ -1899,19 +1925,22 @@ async function loadArticle(articlePath) {
       breadcrumbArea.innerHTML = bCrumbText;
     }
 
-    const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:44px; z-index:140; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
-      <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-        <button class="btn-action" style="background:#27272a; border:1px solid #52525b; color:var(--sw-gold); font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.addCurrentPageToTabs()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ ZAKŁADKA</button>
-        <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">PODZIEL EKRAN</button>
-        <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
-        <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
-        <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ / PDF</button>
-        <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ / DZIAŁ</button>
-        <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
-        <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
-      </div>
-    </div>`;
+    const actionBar = document.getElementById('articleActionBar');
+    if (actionBar) {
+      actionBar.style.display = 'flex';
+      actionBar.innerHTML = `
+        <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
+          <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
+          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ / PDF</button>
+          <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ / DZIAŁ</button>
+          <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
+          <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
+        </div>`;
+      const tabsBar = document.getElementById('docTabsBar');
+      if (tabsBar) tabsBar.classList.remove('no-action-bar');
+    }
 
     function findNavFile(rel) {
       if (!navigationData || !navigationData.categories) return null;
@@ -1948,7 +1977,7 @@ async function loadArticle(articlePath) {
         `</div>`;
     }
 
-    contentArea.innerHTML = actionHeaderHtml + tagsHtml + `<div class="markdown-body">${parseMarkdown(markdownText)}</div>`;
+    contentArea.innerHTML = tagsHtml + `<div class="markdown-body">${parseMarkdown(markdownText)}</div>`;
     renderMermaidDiagrams();
     addCopyButtons();
 
@@ -1972,6 +2001,7 @@ async function loadArticle(articlePath) {
     }
 
   } catch (err) {
+    hideArticleActionBar();
     if (typeof renderDocTabs === 'function') {
       renderDocTabs();
     }
