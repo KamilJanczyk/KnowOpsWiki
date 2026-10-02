@@ -1227,6 +1227,9 @@ function registerDocTab(path, customTitle = null) {
 function renderDocTabs() {
   const container = document.getElementById('docTabsBar');
   if (!container) return;
+  container.style.position = 'sticky';
+  container.style.top = '0px';
+  container.style.zIndex = '150';
 
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
   const splitBtnText = window.isSplitViewActive ? 'Zamknij Split' : 'Podziel Ekran';

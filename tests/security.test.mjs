@@ -2058,6 +2058,7 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   const tabsBarPos = indexHtml.indexOf('id="docTabsBar"');
   const breadcrumbPos = indexHtml.indexOf('id="breadcrumbArea"');
   assert.equal(tabsBarPos < breadcrumbPos, true, 'docTabsBar musi znajdować się bezpośrednio nad breadcrumbArea');
+  assert.equal(indexHtml.includes('id="docTabsBar" style="position:sticky; top:0; z-index:150;"'), true, 'Wymagany styl inline sticky dla docTabsBar w index.html');
 
   // 2. Sprawdzenie stylów CSS dla paska i zakładek
   assert.equal(styleCss.includes('.doc-tabs-bar'), true, 'Brak stylu .doc-tabs-bar');
