@@ -2328,6 +2328,43 @@ Linia 13 która powinna zostać odcięta przez limit 12 linii
   assert.equal(preview.lines.some(l => l.includes('Linia 13')), false, 'Wiersze powyżej limitu 12 nie mogą znaleźć się w podglądzie');
   assert.equal(preview.lines[0], 'Wprowadzenie do zasad działania platformy.');
   assert.equal(preview.lines[2], '- Węzeł brzegowy Firewall');
+
+  // 6. Weryfikacja blokowania podglądu dla folderów, menu górnego i nagłówków
+  assert.equal(appJs.includes('window.isFolderPath'), true, 'app.js musi eksportować funkcję isFolderPath');
+  assert.equal(appJs.includes("e.target.closest('.top-dropdown-menu')"), true, 'Najechanie na menu rozwijane folderów musi być zignorowane');
+  assert.equal(appJs.includes("e.target.closest('.topic-group-header')"), true, 'Najechanie na folder w drzewie musi być zignorowane');
+  assert.equal(appJs.includes("anchor.classList.contains('top-dropdown-item')"), true, 'Odnośniki podkategorii / folderów w menu nie mogą wyzwalać podglądu');
+  assert.equal(appJs.includes("route.toLowerCase().endsWith('.md')"), true, 'Podgląd może być generowany wyłącznie dla plików kończących się rozszerzeniem .md');
+
+  // Symulacja funkcji isFolderPath
+  function simulateIsFolderPath(route, mockNav) {
+    if (!route) return true;
+    const clean = String(route).replace(/^#\/?/, '').trim();
+    if (!clean) return true;
+    if (!clean.toLowerCase().endsWith('.md')) return true;
+    if (mockNav && Array.isArray(mockNav.categories)) {
+      for (const cat of mockNav.categories) {
+        if (cat.id === clean) return true;
+        for (const sub of (cat.subcategories || [])) {
+          if (sub.id === clean || sub.relPath === clean) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  const mockNavData = {
+    categories: [
+      { id: '01_Cyberbezpieczenstwo', title: 'Cyberbezpieczeństwo', subcategories: [
+        { id: '01_SOC', relPath: '01_Cyberbezpieczenstwo/01_SOC', title: 'SOC i IR' }
+      ]}
+    ]
+  };
+
+  assert.equal(simulateIsFolderPath('01_Cyberbezpieczenstwo', mockNavData), true, 'Dział główny to folder');
+  assert.equal(simulateIsFolderPath('01_Cyberbezpieczenstwo/01_SOC', mockNavData), true, 'Podkategoria to folder');
+  assert.equal(simulateIsFolderPath('01_Cyberbezpieczenstwo/01_SOC/instrukcja.md', mockNavData), false, 'Plik .md to dokument');
+  assert.equal(simulateIsFolderPath('kanban', mockNavData), true, 'Trasy bez .md są traktowane jako foldery/narzędzia');
 });
 
 

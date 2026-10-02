@@ -337,8 +337,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (e.altKey && e.button === 0) {
       if (e.target.closest('.doc-tab') || e.target.closest('.doc-tabs-bar')) return;
+      if (e.target.closest('.header') || e.target.closest('.top-dropdown-menu') || e.target.closest('.topic-group-header') || e.target.closest('#currentDeptToolbar')) return;
       const route = extractTargetRoute(e.target);
-      if (route && (typeof window.isSystemRoute !== 'function' || !window.isSystemRoute(route))) {
+      if (route && 
+          (typeof window.isSystemRoute !== 'function' || !window.isSystemRoute(route)) &&
+          (typeof window.isFolderPath !== 'function' || !window.isFolderPath(route)) &&
+          route.toLowerCase().endsWith('.md')) {
         e.preventDefault();
         e.stopPropagation();
         if (typeof window.openSplitView === 'function') {
@@ -387,12 +391,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   document.addEventListener('mouseover', (e) => {
+    // Całkowite wykluczenie folderów, nagłówków grup, nawigacji górnej i bocznej
+    if (e.target.closest('.topic-group-header') ||
+        e.target.closest('.top-dropdown-menu') ||
+        e.target.closest('.top-cat-list') ||
+        e.target.closest('.header') ||
+        e.target.closest('.sidebar-dept-header-box') ||
+        e.target.closest('#currentDeptToolbar') ||
+        e.target.closest('#hoverPreviewPopover') ||
+        e.target.closest('.doc-tab-close')) {
+      return;
+    }
+
     const anchor = e.target.closest('a[href^="#/"], a[href^="#"], .topic-item a, .doc-tab');
     if (!anchor) return;
-    if (e.target.closest('#hoverPreviewPopover') || e.target.closest('.doc-tab-close')) return;
+
+    // Wykluczenie odnośników w nagłówku, menu rozwijanym folderów oraz kafelków folderów
+    if (anchor.closest('.header') ||
+        anchor.closest('.top-dropdown-menu') ||
+        anchor.closest('.top-cat-list') ||
+        anchor.classList.contains('top-dropdown-item') ||
+        anchor.classList.contains('top-cat-link') ||
+        anchor.classList.contains('topic-group-header')) {
+      return;
+    }
 
     const route = extractTargetRoute(anchor);
-    if (!route || (typeof window.isSystemRoute === 'function' && window.isSystemRoute(route))) return;
+    if (!route) return;
+
+    // Podgląd Quick Peek może być uruchamiany wyłącznie dla plików dokumentów Markdown (.md), nigdy dla folderów ani widoków systemowych
+    if (typeof window.isSystemRoute === 'function' && window.isSystemRoute(route)) return;
+    if (typeof window.isFolderPath === 'function' && window.isFolderPath(route)) return;
+    if (!route.toLowerCase().endsWith('.md')) return;
 
     if (typeof window.scheduleHoverPreview === 'function') {
       window.scheduleHoverPreview(anchor, route, e.shiftKey);
@@ -966,7 +996,7 @@ async function renderSidebar() {
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
             <button type="button" class="btn-rename-folder-tree" title="Zmień nazwę tego folderu" onclick="event.stopPropagation(); window.openRenameFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">R</button>
             <button type="button" class="btn-move-folder-tree" title="Przenieś ten folder" onclick="event.stopPropagation(); window.openMoveFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">P</button>
-            <button type="button" class="btn-delete-folder-tree" title="Usuń ten folder i jego zawartość" onclick="event.stopPropagation(); window.openDeleteFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">×</button>
+            <button type="button" class="btn-delete-folder-tree" title="Usuń ten folder i jego zawartość" onclick="event.stopPropagation(); window.openDeleteFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">X</button>
             <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 2px;">${isExpanded ? 'v' : '>'}</span>
           </div>
         </li>`;
@@ -1521,6 +1551,38 @@ function isSystemRoute(route) {
   return false;
 }
 
+function isFolderPath(route) {
+  if (!route) return true;
+  const clean = String(route).replace(/^#\/?/, '').trim();
+  if (!clean) return true;
+
+  // Wszystkie pliki dokumentow w KnowOps Wiki posiadaja rozszerzenie .md
+  // Brak rozszerzenia .md oznacza folder, dzial, podkategorie lub widok aplikacji
+  if (!clean.toLowerCase().endsWith('.md')) {
+    return true;
+  }
+
+  // Weryfikacja ze struktura navigationData
+  if (navigationData && Array.isArray(navigationData.categories)) {
+    for (const cat of navigationData.categories) {
+      if (cat.id === clean) return true;
+      for (const sub of (cat.subcategories || [])) {
+        if (sub.id === clean || sub.relPath === clean) return true;
+        function checkItems(items) {
+          for (const it of (items || [])) {
+            if (it.relPath === clean && it.type === 'directory') return true;
+            if (it.items && checkItems(it.items)) return true;
+          }
+          return false;
+        }
+        if (checkItems(sub.items)) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 function extractDocPreviewLines(rawMarkdown, maxLines = 12) {
   if (!rawMarkdown) return { title: 'Brak treści', lines: [] };
 
@@ -1572,7 +1634,9 @@ function extractDocPreviewLines(rawMarkdown, maxLines = 12) {
 
 async function getDocContentForPreview(docPath) {
   const cleanPath = String(docPath || '').replace(/^#\/?/, '').trim();
-  if (!cleanPath || isSystemRoute(cleanPath)) return null;
+  if (!cleanPath || isSystemRoute(cleanPath) || isFolderPath(cleanPath) || !cleanPath.toLowerCase().endsWith('.md')) {
+    return null;
+  }
 
   if (hoverPreviewCache.has(cleanPath)) {
     return hoverPreviewCache.get(cleanPath);
@@ -1615,6 +1679,21 @@ async function getDocContentForPreview(docPath) {
 async function showHoverPreview(targetEl, route) {
   const popover = document.getElementById('hoverPreviewPopover');
   if (!popover || !targetEl || !route) return;
+
+  if (isSystemRoute(route) || isFolderPath(route) || !route.toLowerCase().endsWith('.md')) {
+    return;
+  }
+
+  if (targetEl.closest('.header') ||
+      targetEl.closest('.top-dropdown-menu') ||
+      targetEl.closest('.top-cat-list') ||
+      targetEl.closest('.topic-group-header') ||
+      targetEl.closest('.sidebar-dept-header-box') ||
+      targetEl.closest('#currentDeptToolbar') ||
+      targetEl.classList.contains('top-dropdown-item') ||
+      targetEl.classList.contains('top-cat-link')) {
+    return;
+  }
 
   const data = await getDocContentForPreview(route);
   if (!data) return;
@@ -1721,6 +1800,7 @@ window.cancelHoverPreviewHideTimer = cancelHoverPreviewHideTimer;
 window.hoverPreviewCache = hoverPreviewCache;
 window.extractDocPreviewLines = extractDocPreviewLines;
 window.isSystemRoute = isSystemRoute;
+window.isFolderPath = isFolderPath;
 
 async function handleHashNavigation() {
   if (monitorIntervalId) {
