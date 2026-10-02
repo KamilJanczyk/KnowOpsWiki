@@ -337,6 +337,11 @@ if (!fs.existsSync(SCRATCHPAD_FILE)) {
   fs.writeFileSync(SCRATCHPAD_FILE, JSON.stringify({ content: '', checklist: [] }, null, 2));
 }
 
+const TABS_FILE = path.join(DATA_DIR, 'tabs_data.json');
+if (!fs.existsSync(TABS_FILE)) {
+  fs.writeFileSync(TABS_FILE, JSON.stringify({ tabs: [], updatedAt: Date.now() }, null, 2));
+}
+
 // RSS Security Bulletins [dodane]
 const RSS_FEEDS_FILE = path.join(DATA_DIR, 'rss_feeds.json');
 const defaultRssFeeds = [
@@ -615,7 +620,7 @@ try {
     if (isApiSaving) return;
     if (!filename || filename.includes('node_modules') || filename.includes('.git') || filename.includes('dist')) return;
     if (!filename.endsWith('.md') && !filename.includes('public')) return;
-    if (filename.includes('kanban_data.json') || filename.includes('quick_notes.json') || filename.includes('scratchpad_data.json')) return;
+    if (filename.includes('kanban_data.json') || filename.includes('quick_notes.json') || filename.includes('scratchpad_data.json') || filename.includes('tabs_data.json')) return;
 
     if (watchDebounceTimer) clearTimeout(watchDebounceTimer);
     watchDebounceTimer = setTimeout(() => {
@@ -802,6 +807,21 @@ const server = http.createServer(async (req, res) => {
         }
       }
       return sendJson(200, { content: '', checklist: [], updatedAt: null });
+    }
+
+    if (normPath === '/api/tabs' && req.method === 'GET') {
+      if (fs.existsSync(TABS_FILE)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(TABS_FILE, 'utf8'));
+          return sendJson(200, {
+            tabs: Array.isArray(data.tabs) ? data.tabs : [],
+            updatedAt: data.updatedAt || null
+          });
+        } catch (e) {
+          console.error('[Wiki API] Błąd odczytu tabs_data.json:', e);
+        }
+      }
+      return sendJson(200, { tabs: [], updatedAt: null });
     }
 
     if (normPath === '/api/playbooks' && req.method === 'GET') {
@@ -1389,6 +1409,26 @@ const server = http.createServer(async (req, res) => {
       };
       atomicWriteFile(SCRATCHPAD_FILE, JSON.stringify(record, null, 2), 'utf8');
       return sendJson(200, { success: true, message: 'Brudnopis został zsynchronizowany.', record });
+    }
+
+    if (normPath === '/api/tabs' && req.method === 'POST') {
+      const body = await getBody();
+      if (!body.tabs || !Array.isArray(body.tabs)) {
+        return sendJson(400, { error: 'Wymagana tablica tabs' });
+      }
+      const sanitizedTabs = body.tabs.slice(0, 10).map(t => {
+        let cleanPath = String(t.path || '').replace(/^#\/?/, '').trim();
+        cleanPath = cleanPath.replace(/[\0\r\n]/g, '').slice(0, 300);
+        let title = String(t.title || '').replace(/[<>]/g, '').trim().slice(0, 120);
+        return { path: cleanPath, title };
+      }).filter(t => Boolean(t.path));
+
+      const record = {
+        tabs: sanitizedTabs,
+        updatedAt: Date.now()
+      };
+      atomicWriteFile(TABS_FILE, JSON.stringify(record, null, 2), 'utf8');
+      return sendJson(200, { success: true, message: 'Zakładki zostały zsynchronizowane.', record });
     }
 
     if (normPath === '/api/playbooks' && req.method === 'POST') {

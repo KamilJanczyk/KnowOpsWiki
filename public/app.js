@@ -1124,11 +1124,75 @@ function loadDocTabsFromStorage() {
   return [];
 }
 
+let docTabsSyncTimer = null;
+let lastDocTabsServerUpdatedAt = 0;
+let isSyncingDocTabs = false;
+
+async function saveDocTabsToServer() {
+  try {
+    const res = await fetch('/api/tabs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ tabs: openDocTabs })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.record && data.record.updatedAt) {
+        lastDocTabsServerUpdatedAt = data.record.updatedAt;
+      }
+    }
+  } catch (err) {
+    console.warn('[DocTabs] Błąd synchronizacji zakładek z serwerem:', err);
+  }
+}
+
+function scheduleSaveDocTabsToServer() {
+  if (docTabsSyncTimer) clearTimeout(docTabsSyncTimer);
+  docTabsSyncTimer = setTimeout(() => {
+    saveDocTabsToServer();
+  }, 400);
+}
+
 function saveDocTabsToStorage() {
   try {
     localStorage.setItem(DOC_TABS_STORAGE_KEY, JSON.stringify(openDocTabs));
   } catch (e) {
     console.warn('[DocTabs] Błąd zapisu zakładek do localStorage:', e);
+  }
+  scheduleSaveDocTabsToServer();
+}
+
+async function syncDocTabsFromServer() {
+  if (isSyncingDocTabs) return;
+  isSyncingDocTabs = true;
+  try {
+    const res = await fetch('/api/tabs?t=' + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.tabs)) {
+        const serverTabs = data.tabs.slice(0, MAX_DOC_TABS);
+        const currentJson = JSON.stringify(openDocTabs);
+        const serverJson = JSON.stringify(serverTabs);
+        if (serverTabs.length > 0 && currentJson !== serverJson) {
+          openDocTabs = serverTabs;
+          try {
+            localStorage.setItem(DOC_TABS_STORAGE_KEY, JSON.stringify(openDocTabs));
+          } catch (e) {}
+          renderDocTabs();
+        } else if (serverTabs.length === 0 && openDocTabs.length > 0) {
+          saveDocTabsToServer();
+        }
+        if (data.updatedAt) {
+          lastDocTabsServerUpdatedAt = data.updatedAt;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[DocTabs] Błąd pobierania zakładek z serwera:', err);
+  } finally {
+    isSyncingDocTabs = false;
   }
 }
 
@@ -1279,7 +1343,17 @@ window.renameDocTab = function(oldPath, newPath, newTitle = null) {
 window.initDocTabs = function() {
   openDocTabs = loadDocTabsFromStorage();
   renderDocTabs();
+  syncDocTabsFromServer();
 };
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    syncDocTabsFromServer();
+  }
+});
+window.addEventListener('focus', () => {
+  syncDocTabsFromServer();
+});
 
 window.MAX_DOC_TABS = MAX_DOC_TABS;
 window.registerDocTab = registerDocTab;
@@ -1288,6 +1362,8 @@ window.openDocTabAndSwitch = window.openDocTabAndSwitch;
 window.addCurrentPageToTabs = window.addCurrentPageToTabs;
 window.getOpenDocTabs = () => openDocTabs;
 window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
+window.syncDocTabsFromServer = syncDocTabsFromServer;
+window.saveDocTabsToServer = saveDocTabsToServer;
 
 /* ===== SILNIK WIDOKU DZIELONEGO (SPLIT VIEW / DUAL COLUMN) ===== */
 window.isSplitViewActive = false;

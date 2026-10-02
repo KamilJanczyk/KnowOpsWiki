@@ -2200,6 +2200,46 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   assert.equal(simulatedTabs.length, 8);
   assert.notEqual(newActive, closedTarget);
   assert.equal(simulatedTabs.some(t => t.path === newActive), true);
+
+  // 7. Weryfikacja synchronizacji serwerowej zakładek (GET /api/tabs i POST /api/tabs w server.mjs)
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  assert.equal(serverMjs.includes("normPath === '/api/tabs' && req.method === 'GET'"), true, 'Brak GET /api/tabs w server.mjs');
+  assert.equal(serverMjs.includes("normPath === '/api/tabs' && req.method === 'POST'"), true, 'Brak POST /api/tabs w server.mjs');
+  assert.equal(serverMjs.includes("tabs_data.json"), true, 'Brak obsługi tabs_data.json w server.mjs');
+  assert.equal(appJs.includes('window.syncDocTabsFromServer'), true, 'Brak eksportu window.syncDocTabsFromServer');
+  assert.equal(appJs.includes('window.saveDocTabsToServer'), true, 'Brak eksportu window.saveDocTabsToServer');
+  assert.equal(appJs.includes('visibilitychange'), true, 'Brak obsługi visibilitychange w app.js');
+
+  // Symulacja walidacji danych wejściowych POST /api/tabs
+  function simulateValidateTabsPayload(body) {
+    if (!body || !body.tabs || !Array.isArray(body.tabs)) {
+      return { error: 'Wymagana tablica tabs' };
+    }
+    const sanitizedTabs = body.tabs.slice(0, 10).map(t => {
+      let cleanPath = String(t.path || '').replace(/^#\/?/, '').trim();
+      cleanPath = cleanPath.replace(/[\0\r\n]/g, '').slice(0, 300);
+      let title = String(t.title || '').replace(/[<>]/g, '').trim().slice(0, 120);
+      return { path: cleanPath, title };
+    }).filter(t => Boolean(t.path));
+    return { success: true, count: sanitizedTabs.length, tabs: sanitizedTabs };
+  }
+
+  assert.equal(simulateValidateTabsPayload(null).error, 'Wymagana tablica tabs');
+  assert.equal(simulateValidateTabsPayload({ tabs: 'invalid' }).error, 'Wymagana tablica tabs');
+
+  const samplePayload = {
+    tabs: [
+      { path: '#/kanban', title: '<b>Tablica</b>' },
+      { path: '01_Linux/plik.md\0evil', title: 'Plik Linux' },
+      { path: '', title: 'Pusty' }
+    ]
+  };
+  const valResult = simulateValidateTabsPayload(samplePayload);
+  assert.equal(valResult.success, true);
+  assert.equal(valResult.count, 2, 'Puste ścieżki muszą zostać odfiltrowane');
+  assert.equal(valResult.tabs[0].title, 'bTablica/b', 'Tagi HTML w tytule muszą zostać zneutralizowane');
+  assert.equal(valResult.tabs[0].title.includes('<'), false);
+  assert.equal(valResult.tabs[1].path.includes('\0'), false, 'Null-byte musi zostać usunięty');
 });
 
 test('44. Ergonomia UI: Split View (2 Kolumny) oraz Uproszczenie Tablicy Kanban (całkowite wycofanie podglądu hover preview)', async () => {
