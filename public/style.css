@@ -290,10 +290,14 @@
       margin-bottom: 12px;
       padding: 6px 10px;
       min-height: 44px;
+      height: 44px;
       background: #18181b;
       border: 1px solid #3f3f46;
       border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+      position: sticky;
+      top: 0;
+      z-index: 150;
       scrollbar-width: thin;
       scrollbar-color: #52525b #18181b;
     }
@@ -520,8 +524,8 @@
     /* Belka akcji dokumentu (naglowek ze sciezka, data i przyciskami - pozycjonowanie stale/lepkie) */
     .article-action-header {
       position: sticky;
-      top: 0;
-      z-index: 100;
+      top: 44px;
+      z-index: 140;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -1875,11 +1879,15 @@
       min-width: 0;
     }
     .split-pane-header {
+      position: sticky;
+      top: 44px;
+      z-index: 140;
+      background: var(--sw-dark-bg);
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 8px;
-      padding-bottom: 6px;
+      padding: 6px 0;
       border-bottom: 1px solid #27272a;
     }
     .btn-close-split {

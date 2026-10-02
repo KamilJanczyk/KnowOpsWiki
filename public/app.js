@@ -1820,7 +1820,7 @@ async function loadArticle(articlePath) {
       breadcrumbArea.innerHTML = bCrumbText;
     }
 
-    const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:0; z-index:100; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
+    const actionHeaderHtml = `<div class="article-action-header" style="position:sticky; top:44px; z-index:140; display:flex; justify-content:space-between; align-items:center; background:#18181b; border:1px solid #3f3f46; padding:8px 12px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 14px rgba(0,0,0,0.6);">
       <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
       <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
         <button class="btn-action" style="background:#27272a; border:1px solid #52525b; color:var(--sw-gold); font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.addCurrentPageToTabs()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ ZAKŁADKA</button>

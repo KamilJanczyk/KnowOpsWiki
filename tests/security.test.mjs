@@ -2061,6 +2061,9 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
 
   // 2. Sprawdzenie stylów CSS dla paska i zakładek
   assert.equal(styleCss.includes('.doc-tabs-bar'), true, 'Brak stylu .doc-tabs-bar');
+  assert.equal(styleCss.includes('position: sticky;'), true, 'Wymagane pozycjonowanie sticky dla paska zakładek');
+  assert.equal(styleCss.includes('top: 44px;'), true, 'Wymagane dokowanie belki akcji na top: 44px pod paskiem zakładek');
+  assert.equal(appJs.includes('top:44px;'), true, 'Inline style actionHeaderHtml musi dokować na top:44px');
   assert.equal(styleCss.includes('.doc-tab'), true, 'Brak stylu .doc-tab');
   assert.equal(styleCss.includes('.doc-tab.active'), true, 'Brak stylu .doc-tab.active');
   assert.equal(styleCss.includes('.doc-tab-title'), true, 'Brak stylu .doc-tab-title');
