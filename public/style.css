@@ -376,9 +376,9 @@
       background: #27272a;
     }
     .sidebar-active-dock-container {
-      margin-top: 14px;
-      padding-top: 4px;
-      border-top: 1px dashed #27272a;
+      margin-top: 10px;
+      padding-top: 0;
+      border-top: none;
       display: flex;
       flex-direction: column;
     }
