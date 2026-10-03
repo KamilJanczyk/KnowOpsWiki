@@ -556,10 +556,6 @@ function renderTopCategories(categories) {
 }
 
 let expandedDirs = {};
-try {
-  const saved = localStorage.getItem('knowops_expanded_dirs');
-  if (saved) expandedDirs = JSON.parse(saved);
-} catch (e) {}
 
 function saveExpandedDirs() {
   try {
@@ -567,7 +563,7 @@ function saveExpandedDirs() {
   } catch (e) {}
 }
 
-window.accordionMode = localStorage.getItem('knowops_accordion_mode') !== 'false';
+window.accordionMode = true;
 
 window.toggleAccordionMode = function() {
   window.accordionMode = !window.accordionMode;
@@ -581,7 +577,7 @@ window.toggleAccordionMode = function() {
   }
 };
 
-window.bottomDockMode = localStorage.getItem('knowops_bottom_dock_mode') !== 'false';
+window.bottomDockMode = false;
 window.activeDockedRelPath = '';
 
 window.closeActiveDock = function() {
@@ -1052,13 +1048,15 @@ async function renderSidebar() {
     return;
   }
 
+  expandedDirs = {};
   const currentHash = decodeURIComponent(window.location.hash.replace('#/', ''));
-
-  const hashParts = currentHash.split('/');
-  let pathAcc = '';
-  for (let i = 0; i < hashParts.length - 1; i++) {
-    pathAcc = pathAcc ? `${pathAcc}/${hashParts[i]}` : hashParts[i];
-    expandedDirs[pathAcc] = true;
+  if (currentHash && !currentHash.startsWith('kanban') && !currentHash.startsWith('login') && !currentHash.startsWith('tool/')) {
+    const hashParts = currentHash.split('/');
+    let pathAcc = '';
+    for (let i = 0; i < hashParts.length - 1; i++) {
+      pathAcc = pathAcc ? `${pathAcc}/${hashParts[i]}` : hashParts[i];
+      expandedDirs[pathAcc] = true;
+    }
   }
 
   function sortItemsFilesFirst(list) {
@@ -1130,45 +1128,17 @@ async function renderSidebar() {
   }
   sidebarNav.innerHTML = html;
 
-  // Jesli aktywny jest tryb dokowania na dole i jakis dzial glowny powinien byc zadokowany
-  if (window.bottomDockMode) {
-    let targetRelToDock = '';
-    if (window.activeDockedRelPath) {
-      const exists = sidebarNav.querySelector(`li.topic-group-header.depth-0[data-rel="${CSS.escape(window.activeDockedRelPath)}"]`);
-      if (exists) targetRelToDock = window.activeDockedRelPath;
-    }
-    if (!targetRelToDock && currentHash) {
-      const topHeaders = Array.from(sidebarNav.querySelectorAll('li.topic-group-header.depth-0'));
-      for (const th of topHeaders) {
-        const thRel = th.getAttribute('data-rel');
-        if (thRel && (currentHash === thRel || currentHash.startsWith(thRel + '/'))) {
-          targetRelToDock = thRel;
-          break;
-        }
-      }
-    }
-    if (!targetRelToDock) {
-      const openTopDir = sidebarNav.querySelector(':scope > div[id^="dir-"][style*="display: block"]');
-      if (openTopDir) {
-        targetRelToDock = openTopDir.getAttribute('data-rel') || '';
-      }
-    }
+  const dockContainer = document.getElementById('sidebarActiveDockContainer');
+  if (dockContainer) {
+    dockContainer.innerHTML = '';
+    dockContainer.style.display = 'none';
+  }
 
-    if (targetRelToDock) {
-      window.openActiveDock(targetRelToDock);
-    } else {
-      const dockContainer = document.getElementById('sidebarActiveDockContainer');
-      if (dockContainer) {
-        dockContainer.innerHTML = '';
-        dockContainer.style.display = 'none';
-      }
-    }
-  } else {
-    const dockContainer = document.getElementById('sidebarActiveDockContainer');
-    if (dockContainer) {
-      dockContainer.innerHTML = '';
-      dockContainer.style.display = 'none';
-    }
+  const activeItem = sidebarNav.querySelector('.topic-item.active');
+  if (activeItem) {
+    setTimeout(() => {
+      activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
   }
 
   const filterInput = document.getElementById('sidebarTreeFilterInput');

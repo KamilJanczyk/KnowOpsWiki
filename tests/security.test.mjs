@@ -1993,9 +1993,10 @@ test('42. Sidebar Accordion Mode & Tree Live Filter: weryfikacja trybu akordeonu
   // 1. Sprawdzenie elementow interfejsu w index.html
   assert.equal(indexHtml.includes('id="sidebarTreeFilterBox"'), true);
   assert.equal(indexHtml.includes('id="sidebarTreeFilterInput"'), true);
-  assert.equal(indexHtml.includes('id="btnToggleAccordion"'), true);
-  assert.equal(indexHtml.includes('collapseAllSidebarDirs()'), true);
-  assert.equal(indexHtml.includes('expandAllSidebarDirs()'), true);
+  assert.equal(indexHtml.includes('id="btnToggleAccordion"'), false, 'btnToggleAccordion usunięty z index.html na rzecz czystego interfejsu');
+  assert.equal(indexHtml.includes('collapseAllSidebarDirs()'), false, 'collapseAllSidebarDirs usunięte z paska index.html');
+  assert.equal(indexHtml.includes('expandAllSidebarDirs()'), false, 'expandAllSidebarDirs usunięte z paska index.html');
+  assert.equal(indexHtml.includes('btnToggleBottomDock'), false, 'btnToggleBottomDock usunięty z index.html');
 
   // 2. Sprawdzenie stylow CSS (filtry, liczniki, 2-wierszowy clamp)
   assert.equal(styleCss.includes('.sidebar-tree-filter-box'), true);
@@ -2016,7 +2017,6 @@ test('42. Sidebar Accordion Mode & Tree Live Filter: weryfikacja trybu akordeonu
   assert.equal(appJs.includes('window.clearSidebarTreeFilter'), true);
   assert.equal(appJs.includes('countFilesRecursive'), true);
   assert.equal(appJs.includes('dir-count-badge'), true);
-  assert.equal(indexHtml.includes('btnToggleBottomDock'), true);
 
   // 4. Test logiki rekurencyjnego zliczania plikow w folderze
   function countFilesRecursive(it) {
@@ -2315,11 +2315,8 @@ test('45. Sidebar Duplicated Active Dock: weryfikacja niezmienności kolejności
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
 
-  // 1. Sprawdzenie kontenera doku w index.html pod spisem sidebarNav
-  assert.equal(indexHtml.includes('id="sidebarActiveDockContainer"'), true, 'Brak kontenera sidebarActiveDockContainer w index.html');
-  const navPos = indexHtml.indexOf('id="sidebarNav"');
-  const dockPos = indexHtml.indexOf('id="sidebarActiveDockContainer"');
-  assert.equal(navPos < dockPos, true, 'sidebarActiveDockContainer musi znajdować się bezpośrednio pod sidebarNav');
+  // 1. Sprawdzenie usunięcia zbędnego kontenera doku z index.html na rzecz jednolitego, czystego drzewa
+  assert.equal(indexHtml.includes('id="sidebarActiveDockContainer"'), false, 'sidebarActiveDockContainer powinien być usunięty z index.html');
 
   // 2. Sprawdzenie stylów CSS dokowania i akcentu wyboru
   assert.equal(styleCss.includes('.topic-group-header.depth-0.active-docked'), true, 'Brak stylu .topic-group-header.depth-0.active-docked');
@@ -2446,6 +2443,56 @@ test('49. Article Action Bar Cleanup & In-Modal Document Rename: weryfikacja usu
   // 3. Sprawdzenie obsługi zmiany nazwy w saveCurrentArticleFromModal w app.js
   assert.equal(appJs.includes("document.getElementById('editorModalFilenameInput')"), true);
   assert.equal(appJs.includes("fetch('/api/rename-file'"), true, 'saveCurrentArticleFromModal musi wywoływać /api/rename-file przy zmianie nazwy');
+});
+
+test('50. Clean Sidebar Tree & Smart Active Context: weryfikacja automatycznego zwijania drzewa, rozwijania aktywnego działu i eliminacji przycisków kontrolnych', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Sprawdzenie braku kontrolek drzewa i kontenera doku w index.html
+  assert.equal(indexHtml.includes('class="sidebar-tree-controls"'), false, 'sidebar-tree-controls musi być usunięty z index.html');
+  assert.equal(indexHtml.includes('btnToggleAccordion'), false, 'btnToggleAccordion musi być usunięty z index.html');
+  assert.equal(indexHtml.includes('btnToggleBottomDock'), false, 'btnToggleBottomDock musi być usunięty z index.html');
+  assert.equal(indexHtml.includes('sidebarActiveDockContainer'), false, 'sidebarActiveDockContainer musi być usunięty z index.html');
+
+  // 2. Sprawdzenie domyślnych flag w app.js
+  assert.equal(appJs.includes('window.accordionMode = true;'), true, 'accordionMode musi być domyślnie włączony (true)');
+  assert.equal(appJs.includes('window.bottomDockMode = false;'), true, 'bottomDockMode musi być domyślnie wyłączony (false)');
+
+  // 3. Sprawdzenie resetu expandedDirs i rozwijania ścieżki aktywnego pliku
+  assert.equal(appJs.includes('expandedDirs = {};'), true, 'expandedDirs musi być resetowane przy renderowaniu drzewa');
+  assert.equal(appJs.includes('expandedDirs[pathAcc] = true;'), true, 'expandedDirs musi automatycznie rozwijać rodziców aktywnego artykułu');
+
+  // 4. Test symulacji rozwijania ścieżki aktywnego artykułu
+  function computeExpandedDirsForHash(hash) {
+    const expanded = {};
+    if (hash && !hash.startsWith('kanban') && !hash.startsWith('login') && !hash.startsWith('tool/')) {
+      const parts = hash.split('/');
+      let acc = '';
+      for (let i = 0; i < parts.length - 1; i++) {
+        acc = acc ? `${acc}/${parts[i]}` : parts[i];
+        expanded[acc] = true;
+      }
+    }
+    return expanded;
+  }
+
+  // Przypadek 1: Pulpit / Kanban -> wszystkie foldery zwinięte
+  const kanbanExpanded = computeExpandedDirsForHash('kanban');
+  assert.deepEqual(kanbanExpanded, {});
+
+  // Przypadek 2: Aktywny dokument w podfolderze -> tylko ścieżka do dokumentu rozwinięta
+  const activeDocExpanded = computeExpandedDirsForHash('01_Cyberbezpieczenstwo/01_SOC_i_Incident_Response/01_Procedura_Obslugi_Incydentow_Security.md');
+  assert.equal(activeDocExpanded['01_Cyberbezpieczenstwo'], true);
+  assert.equal(activeDocExpanded['01_Cyberbezpieczenstwo/01_SOC_i_Incident_Response'], true);
+  assert.equal(activeDocExpanded['01_Cyberbezpieczenstwo/02_Hardening_Systemowy'], undefined);
+
+  // Przypadek 3: Głęboko zagnieżdżony podfolder
+  const nestedExpanded = computeExpandedDirsForHash('A/B/C/doc.md');
+  assert.equal(nestedExpanded['A'], true);
+  assert.equal(nestedExpanded['A/B'], true);
+  assert.equal(nestedExpanded['A/B/C'], true);
+  assert.equal(nestedExpanded['A/D'], undefined);
 });
 
 

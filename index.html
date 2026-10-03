@@ -38,18 +38,11 @@
             <input type="text" id="sidebarTreeFilterInput" placeholder="Filtruj tematy w tym dziale..." class="sidebar-tree-filter-input" oninput="window.filterSidebarTree(this.value)">
             <button type="button" id="sidebarTreeFilterClear" class="sidebar-tree-filter-clear" style="display:none;" onclick="window.clearSidebarTreeFilter()" title="Wyczyść filtr">X</button>
           </div>
-          <div class="sidebar-tree-controls">
-            <button type="button" class="btn-tree-ctrl" onclick="window.collapseAllSidebarDirs()" title="Zwiń wszystkie foldery">Zwiń</button>
-            <button type="button" class="btn-tree-ctrl" onclick="window.expandAllSidebarDirs()" title="Rozwiń wszystkie foldery">Rozwiń</button>
-            <button type="button" id="btnToggleAccordion" class="btn-tree-ctrl" onclick="window.toggleAccordionMode()" title="Przełącz tryb pojedynczego akordeonu">Akordeon: WŁ</button>
-            <button type="button" id="btnToggleBottomDock" class="btn-tree-ctrl" onclick="window.toggleBottomDockMode()" title="Przesuwaj aktywny dział na dół i rozwijaj jego zawartość">Dok: WŁ</button>
-          </div>
         </div>
       </div>
       <ul class="left-topics-list" id="sidebarNav">
         <!-- Dynamically rendered via app.js -->
       </ul>
-      <div id="sidebarActiveDockContainer" class="sidebar-active-dock-container" style="display:none;"></div>
     </aside>
 
     <!-- Main View Column -->
