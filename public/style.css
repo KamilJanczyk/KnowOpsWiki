@@ -488,6 +488,129 @@
     .topic-item a:hover { background: #1f2937; color: #ffffff; }
     .topic-item.active a { background: #182232; color: #ffffff; border-left-color: var(--sw-gold); font-weight: 600; }
 
+    /* Wskaźniki statusu przetestowania procedur */
+    .status-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+      flex-shrink: 0;
+      vertical-align: 1px;
+    }
+    .status-dot.status-tested {
+      background-color: #22c55e;
+      box-shadow: 0 0 5px rgba(34, 197, 94, 0.6);
+    }
+    .status-dot.status-partial {
+      background-color: #f59e0b;
+      box-shadow: 0 0 5px rgba(245, 158, 11, 0.6);
+    }
+    .status-dot.status-untested {
+      background-color: #52525b;
+    }
+
+    .article-status-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      line-height: 1.3;
+      outline: none;
+      user-select: none;
+    }
+    .btn-status-badge.status-tested {
+      background: rgba(34, 197, 94, 0.14);
+      border-color: #22c55e;
+      color: #4ade80;
+    }
+    .btn-status-badge.status-tested:hover {
+      background: rgba(34, 197, 94, 0.25);
+    }
+    .btn-status-badge.status-partial {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: #f59e0b;
+      color: #fbbf24;
+    }
+    .btn-status-badge.status-partial:hover {
+      background: rgba(245, 158, 11, 0.25);
+    }
+    .btn-status-badge.status-untested {
+      background: rgba(113, 113, 122, 0.15);
+      border-color: #52525b;
+      color: #a1a1aa;
+    }
+    .btn-status-badge.status-untested:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+    .btn-status-badge .status-indicator-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .btn-status-badge.status-tested .status-indicator-dot {
+      background: #22c55e;
+      box-shadow: 0 0 5px #22c55e;
+    }
+    .btn-status-badge.status-partial .status-indicator-dot {
+      background: #f59e0b;
+      box-shadow: 0 0 5px #f59e0b;
+    }
+    .btn-status-badge.status-untested .status-indicator-dot {
+      background: #71717a;
+    }
+
+    .article-status-dropdown {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      z-index: 500;
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+      min-width: 250px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .status-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      font-size: 0.70rem;
+      color: #e4e4e7;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.12s ease;
+      white-space: nowrap;
+    }
+    .status-dropdown-item:hover {
+      background: #27272a;
+      color: #ffffff;
+    }
+    .status-dropdown-item.selected {
+      background: #1f2937;
+      font-weight: 600;
+      color: var(--sw-gold);
+    }
+
     /* Kafelkowy pasek boczny dla Dodatków */
     .sidebar-tile-btn {
       display: flex;

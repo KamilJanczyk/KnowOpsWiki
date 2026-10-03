@@ -65,6 +65,29 @@ export function extractMarkdownTags(filePath) {
   }
 }
 
+export function extractMarkdownStatus(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return 'untested';
+    const content = fs.readFileSync(filePath, 'utf8');
+    if (content.startsWith('---')) {
+      const secondDash = content.indexOf('---', 3);
+      if (secondDash !== -1) {
+        const frontmatter = content.substring(3, secondDash);
+        const match = frontmatter.match(/status:\s*['"]?([a-zA-Z_-]+)['"]?/i);
+        if (match && match[1]) {
+          const val = match[1].trim().toLowerCase();
+          if (val === 'tested' || val === 'przetestowane') return 'tested';
+          if (val === 'partial' || val === 'czesciowo' || val === 'częściowo') return 'partial';
+          if (val === 'untested' || val === 'nieprzetestowane') return 'untested';
+        }
+      }
+    }
+    return 'untested';
+  } catch (e) {
+    return 'untested';
+  }
+}
+
 function scanSubcategoryFiles(subPath, baseRel) {
   const files = [];
   function recurse(currentPath, currentRel) {
@@ -86,7 +109,8 @@ function scanSubcategoryFiles(subPath, baseRel) {
         files.push({
           title: cleanTitle(entry.name),
           relPath: rel,
-          tags: extractMarkdownTags(full)
+          tags: extractMarkdownTags(full),
+          status: extractMarkdownStatus(full)
         });
       }
     }
@@ -123,7 +147,8 @@ function scanDirectoryRecursive(dirPath, baseRel) {
         type: 'file',
         title: cleanTitle(entry.name),
         relPath: rel,
-        tags: extractMarkdownTags(full)
+        tags: extractMarkdownTags(full),
+        status: extractMarkdownStatus(full)
       });
     }
   }
@@ -170,7 +195,8 @@ export function generateNavigation() {
           return {
             title: cleanTitle(f.name),
             relPath: path.posix.join(catDir.name, f.name),
-            tags: extractMarkdownTags(fullPath)
+            tags: extractMarkdownTags(fullPath),
+            status: extractMarkdownStatus(fullPath)
           };
         });
 
@@ -180,7 +206,7 @@ export function generateNavigation() {
           title: 'Ogólne',
           relPath: catDir.name,
           files: directFiles,
-          items: directFiles.map(f => ({ type: 'file', title: f.title, relPath: f.relPath, tags: f.tags }))
+          items: directFiles.map(f => ({ type: 'file', title: f.title, relPath: f.relPath, tags: f.tags, status: f.status }))
         });
       }
 

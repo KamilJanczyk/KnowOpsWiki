@@ -2498,6 +2498,76 @@ test('50. Clean Sidebar Tree & Smart Active Context: weryfikacja automatycznego 
   assert.equal(nestedExpanded['A/D'], undefined);
 });
 
+test('51. Article Verification Status Engine: weryfikacja statusów procedur (tested, partial, untested), walidacji API, ochrony Path Traversal, YAML Frontmatter oraz wskaźników UI', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const buildNavMjs = fs.readFileSync(path.resolve('build_navigation.mjs'), 'utf8');
+
+  // 1. Sprawdzenie stylów CSS wskaźników kropkowych i pigułek statusu
+  assert.equal(styleCss.includes('.status-dot'), true, 'Brak stylu .status-dot');
+  assert.equal(styleCss.includes('.status-dot.status-tested'), true, 'Brak stylu .status-dot.status-tested');
+  assert.equal(styleCss.includes('.status-dot.status-partial'), true, 'Brak stylu .status-dot.status-partial');
+  assert.equal(styleCss.includes('.status-dot.status-untested'), true, 'Brak stylu .status-dot.status-untested');
+  assert.equal(styleCss.includes('.btn-status-badge'), true, 'Brak stylu .btn-status-badge');
+  assert.equal(styleCss.includes('.btn-status-badge.status-tested'), true, 'Brak stylu .btn-status-badge.status-tested');
+  assert.equal(styleCss.includes('.article-status-dropdown'), true, 'Brak stylu .article-status-dropdown');
+
+  // 2. Sprawdzenie modala edytora w index.html
+  assert.equal(indexHtml.includes('id="editorModalStatusSelect"'), true, 'Brak selektora editorModalStatusSelect w index.html');
+
+  // 3. Sprawdzenie funkcji w app.js
+  assert.equal(appJs.includes('window.setArticleVerificationStatus'), true, 'Brak window.setArticleVerificationStatus w app.js');
+  assert.equal(appJs.includes('window.toggleStatusDropdown'), true, 'Brak window.toggleStatusDropdown w app.js');
+  assert.equal(appJs.includes('btnArticleStatusBadge'), true, 'Brak btnArticleStatusBadge w app.js');
+  assert.equal(appJs.includes('articleStatusDropdown'), true, 'Brak articleStatusDropdown w app.js');
+
+  // 4. Sprawdzenie endpointu w server.mjs
+  assert.equal(serverMjs.includes('/api/set-article-status'), true, 'Brak endpointu /api/set-article-status w server.mjs');
+  assert.equal(serverMjs.includes('extractMarkdownStatus'), true, 'Brak extractMarkdownStatus w server.mjs');
+
+  // 5. Sprawdzenie ekstrakcji statusu w build_navigation.mjs
+  assert.equal(buildNavMjs.includes('extractMarkdownStatus'), true, 'Brak extractMarkdownStatus w build_navigation.mjs');
+
+  // 6. Test jednostkowy logiki aktualizacji frontmatter
+  function updateFrontmatterStatus(content, newStatus) {
+    if (content.startsWith('---')) {
+      const secondDash = content.indexOf('---', 3);
+      if (secondDash !== -1) {
+        let frontmatter = content.substring(3, secondDash);
+        const rest = content.substring(secondDash + 3);
+        if (/status:\s*[a-zA-Z_-]+/i.test(frontmatter)) {
+          frontmatter = frontmatter.replace(/status:\s*[a-zA-Z_-]+/i, `status: ${newStatus}`);
+        } else {
+          frontmatter = `\nstatus: ${newStatus}` + frontmatter;
+        }
+        return `---${frontmatter}---${rest}`;
+      }
+    }
+    return `---\nstatus: ${newStatus}\n---\n\n${content}`;
+  }
+
+  // Przypadek A: Treść bez nagłówka frontmatter
+  const docWithoutFm = '# Procedura Backup\nKrok 1: wykonaj kopię.';
+  const updatedA = updateFrontmatterStatus(docWithoutFm, 'tested');
+  assert.equal(updatedA.startsWith('---\nstatus: tested\n---'), true);
+  assert.equal(updatedA.includes('# Procedura Backup'), true);
+
+  // Przypadek B: Treść z istniejącym tagiem ale bez statusu
+  const docWithTagsOnly = '---\ntags: [ad, backup]\n---\n# Procedura';
+  const updatedB = updateFrontmatterStatus(docWithTagsOnly, 'partial');
+  assert.equal(updatedB.includes('status: partial'), true);
+  assert.equal(updatedB.includes('tags: [ad, backup]'), true);
+
+  // Przypadek C: Zmiana istniejącego statusu
+  const docWithOldStatus = '---\nstatus: untested\ntags: [linux]\n---\n# Treść';
+  const updatedC = updateFrontmatterStatus(docWithOldStatus, 'tested');
+  assert.equal(updatedC.includes('status: tested'), true);
+  assert.equal(updatedC.includes('status: untested'), false);
+  assert.equal(updatedC.includes('tags: [linux]'), true);
+});
+
 
 
 

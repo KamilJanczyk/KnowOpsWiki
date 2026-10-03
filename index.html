@@ -120,6 +120,14 @@
             <label for="editorModalFilenameInput" style="font-size:0.70rem; color:#a1a1aa; font-weight:700; white-space:nowrap;">Nazwa pliku:</label>
             <input type="text" id="editorModalFilenameInput" class="modal-input" style="flex:1; min-width:180px; background:#000000; border:1px solid #3f3f46; color:#ffffff; padding:4px 8px; font-size:0.75rem; border-radius:4px; font-family:monospace; outline:none;" placeholder="nazwa_pliku.md" title="Edytuj nazwę pliku (zmiana zostanie zapisana przy kliknięciu Zapisz Zmiany)">
           </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label for="editorModalStatusSelect" style="font-size:0.70rem; color:#a1a1aa; font-weight:700; white-space:nowrap;">Status:</label>
+            <select id="editorModalStatusSelect" class="modal-input" style="background:#000000; border:1px solid #3f3f46; color:#ffffff; padding:4px 8px; font-size:0.72rem; border-radius:4px; outline:none; cursor:pointer;" title="Stopień przetestowania procedury">
+              <option value="untested">Nieprzetestowane</option>
+              <option value="partial">Częściowo</option>
+              <option value="tested">Przetestowane</option>
+            </select>
+          </div>
           <div style="font-size:0.68rem; color:#71717a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="editorModalFolderDisplay" title="Folder bieżącego dokumentu"></div>
           <span id="editorModalPath" style="display:none;"></span>
         </div>

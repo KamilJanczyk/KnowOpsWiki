@@ -1110,8 +1110,10 @@ async function renderSidebar() {
         subHtml += `</div>`;
       } else {
         const isFileActive = (currentHash === item.relPath);
-        subHtml += `<li class="topic-item ${isFileActive ? 'active' : ''}" data-depth="${depth}"${orderAttr} style="padding-left: ${indent + 8}px;" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'file')">
-          <a href="#/${item.relPath}" title="${escapeHtml(item.title)}">${item.title}</a>
+        const itemStatus = item.status || 'untested';
+        const statusTitle = itemStatus === 'tested' ? 'Przetestowane' : (itemStatus === 'partial' ? 'Testowane częściowo' : 'Nieprzetestowane');
+        subHtml += `<li class="topic-item ${isFileActive ? 'active' : ''}" data-rel="${escapeHtml(item.relPath)}" data-depth="${depth}"${orderAttr} style="padding-left: ${indent + 8}px;" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'file')">
+          <a href="#/${item.relPath}" title="${escapeHtml(item.title)}"><span class="status-dot status-${itemStatus}" title="Status: ${statusTitle}"></span>${escapeHtml(item.title)}</a>
         </li>`;
       }
     }
@@ -2141,6 +2143,9 @@ async function loadArticle(articlePath) {
         if (apiData.mtime) {
           window.currentMtime = new Date(apiData.mtime).toLocaleString('pl-PL');
         }
+        if (apiData.status) {
+          window.currentArticleStatus = apiData.status;
+        }
       }
     } catch (e) {
       console.warn('[loadArticle] Nie udało się pobrać metadanych z API:', e);
@@ -2168,11 +2173,59 @@ async function loadArticle(articlePath) {
       breadcrumbArea.innerHTML = bCrumbText;
     }
 
+    function extractStatusFromMarkdown(md, fallback = 'untested') {
+      if (!md || !md.startsWith('---')) return fallback;
+      const secondDash = md.indexOf('---', 3);
+      if (secondDash === -1) return fallback;
+      const fm = md.substring(3, secondDash);
+      const m = fm.match(/status:\s*['"]?([a-zA-Z_-]+)['"]?/i);
+      if (m && m[1]) {
+        const val = m[1].trim().toLowerCase();
+        if (val === 'tested' || val === 'przetestowane') return 'tested';
+        if (val === 'partial' || val === 'czesciowo' || val === 'częściowo') return 'partial';
+        if (val === 'untested' || val === 'nieprzetestowane') return 'untested';
+      }
+      return fallback;
+    }
+
+    const docStatus = window.currentArticleStatus || extractStatusFromMarkdown(markdownText, 'untested');
+    window.currentArticleStatus = docStatus;
+
+    const statusBadgeLabels = {
+      'tested': 'STATUS: PRZETESTOWANE',
+      'partial': 'STATUS: CZĘŚCIOWO',
+      'untested': 'STATUS: NIEPRZETESTOWANE'
+    };
+    const currentStatusText = statusBadgeLabels[docStatus] || 'STATUS: NIEPRZETESTOWANE';
+
     const actionBar = document.getElementById('articleActionBar');
     if (actionBar) {
       actionBar.style.display = 'flex';
       actionBar.innerHTML = `
-        <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span>
+          <div class="article-status-container">
+            <button type="button" id="btnArticleStatusBadge" class="btn-status-badge status-${docStatus}" onclick="window.toggleStatusDropdown(event)" title="Kliknij, aby zmienić stopień przetestowania procedury">
+              <span class="status-indicator-dot"></span>
+              <span id="articleStatusLabel">${currentStatusText}</span>
+              <span style="font-size:0.55rem; margin-left:3px; opacity:0.7;">▼</span>
+            </button>
+            <div id="articleStatusDropdown" class="article-status-dropdown" style="display:none;">
+              <div class="status-dropdown-item ${docStatus === 'tested' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('tested')">
+                <span class="status-dot status-tested"></span>
+                <span>Przetestowane (100% zweryfikowana)</span>
+              </div>
+              <div class="status-dropdown-item ${docStatus === 'partial' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('partial')">
+                <span class="status-dot status-partial"></span>
+                <span>Testowane częściowo (wymaga uwagi)</span>
+              </div>
+              <div class="status-dropdown-item ${docStatus === 'untested' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('untested')">
+                <span class="status-dot status-untested"></span>
+                <span>Nieprzetestowane (teoria / AI)</span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
           <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
           <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ</button>
@@ -2285,6 +2338,102 @@ window.copyCurrentArticleMarkdown = async function(btn) {
         btn.textContent = 'KOPIUJ';
       }, 1500);
     }
+  }
+};
+
+window.toggleStatusDropdown = function(event) {
+  if (event) event.stopPropagation();
+  const dd = document.getElementById('articleStatusDropdown');
+  if (dd) {
+    dd.style.display = (dd.style.display === 'none' || !dd.style.display) ? 'flex' : 'none';
+  }
+};
+
+document.addEventListener('click', (e) => {
+  const dd = document.getElementById('articleStatusDropdown');
+  if (dd && dd.style.display !== 'none') {
+    if (!e.target.closest('.article-status-container')) {
+      dd.style.display = 'none';
+    }
+  }
+});
+
+window.setArticleVerificationStatus = async function(newStatus) {
+  if (!currentArticlePath) return;
+  const dropdown = document.getElementById('articleStatusDropdown');
+  if (dropdown) dropdown.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/set-article-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ relPath: currentArticlePath, status: newStatus })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert('Błąd podczas zapisywania statusu: ' + (err.error || res.statusText));
+      return;
+    }
+
+    window.currentArticleStatus = newStatus;
+
+    // Aktualizacja badge w nagłówku artykułu
+    const badge = document.getElementById('btnArticleStatusBadge');
+    const label = document.getElementById('articleStatusLabel');
+    if (badge && label) {
+      badge.className = `btn-status-badge status-${newStatus}`;
+      const statusTexts = {
+        'tested': 'STATUS: PRZETESTOWANE',
+        'partial': 'STATUS: CZĘŚCIOWO',
+        'untested': 'STATUS: NIEPRZETESTOWANE'
+      };
+      label.innerText = statusTexts[newStatus] || 'STATUS: NIEPRZETESTOWANE';
+    }
+
+    // Zaktualizuj zaznaczenie w menu dropdown
+    const dropItems = document.querySelectorAll('#articleStatusDropdown .status-dropdown-item');
+    dropItems.forEach(di => di.classList.remove('selected'));
+    const matchingDi = document.querySelector(`#articleStatusDropdown .status-dropdown-item[onclick*="${newStatus}"]`);
+    if (matchingDi) matchingDi.classList.add('selected');
+
+    // Aktualizacja kropki w drzewie bocznym oraz w doku
+    const dots = document.querySelectorAll(`li.topic-item[data-rel="${CSS.escape(currentArticlePath)}"] .status-dot, li.topic-item a[href="#/${CSS.escape(currentArticlePath)}"] .status-dot`);
+    dots.forEach(dot => {
+      dot.className = `status-dot status-${newStatus}`;
+      const statusTitle = newStatus === 'tested' ? 'Przetestowane' : (newStatus === 'partial' ? 'Testowane częściowo' : 'Nieprzetestowane');
+      dot.setAttribute('title', 'Status: ' + statusTitle);
+    });
+
+    // Zaktualizuj stan w navigationData w pamięci klienta
+    if (navigationData && navigationData.categories) {
+      function updateStatus(items) {
+        for (const it of items) {
+          if (it.type === 'file' && it.relPath === currentArticlePath) {
+            it.status = newStatus;
+          }
+          if (it.type === 'directory' && it.items) {
+            updateStatus(it.items);
+          }
+        }
+      }
+      for (const cat of navigationData.categories) {
+        for (const sub of (cat.subcategories || [])) {
+          if (sub.items) updateStatus(sub.items);
+          if (sub.files) {
+            for (const f of sub.files) {
+              if (f.relPath === currentArticlePath) f.status = newStatus;
+            }
+          }
+        }
+      }
+    }
+
+  } catch (err) {
+    alert('Błąd sieci podczas aktualizacji statusu: ' + err.message);
   }
 };
 
@@ -5466,6 +5615,21 @@ async function openEditorModal(targetPath) {
     if (filenameInputEl) filenameInputEl.value = filename;
     if (folderDisplayEl) folderDisplayEl.innerText = folderPath ? `Katalog: ${folderPath}/` : 'Katalog: docs/';
 
+    const statusSelectEl = document.getElementById('editorModalStatusSelect');
+    if (statusSelectEl) {
+      let st = window.currentArticleStatus || 'untested';
+      if (rawText && rawText.startsWith('---')) {
+        const secondDash = rawText.indexOf('---', 3);
+        if (secondDash !== -1) {
+          const fm = rawText.substring(3, secondDash);
+          const m = fm.match(/status:\s*['"]?([a-zA-Z_-]+)['"]?/i);
+          if (m && m[1]) st = m[1].toLowerCase();
+        }
+      }
+      if (!['tested', 'partial', 'untested'].includes(st)) st = 'untested';
+      statusSelectEl.value = st;
+    }
+
     if (modalTextareaEl) {
       // Sprawdź czy istnieje nowszy szkic w localStorage
       const draftKey = `knowops_draft_${relPath}`;
@@ -5572,6 +5736,29 @@ async function saveCurrentArticleFromModal(silent = false) {
 
   let newContent = document.getElementById('editorTextarea').value;
   newContent = newContent.replace(/[´’‘]/g, '`');
+
+  const statusSelectEl = document.getElementById('editorModalStatusSelect');
+  if (statusSelectEl) {
+    const selStatus = statusSelectEl.value || 'untested';
+    if (newContent.startsWith('---')) {
+      const secondDash = newContent.indexOf('---', 3);
+      if (secondDash !== -1) {
+        let frontmatter = newContent.substring(3, secondDash);
+        const rest = newContent.substring(secondDash + 3);
+        if (/status:\s*[a-zA-Z_-]+/i.test(frontmatter)) {
+          frontmatter = frontmatter.replace(/status:\s*[a-zA-Z_-]+/i, `status: ${selStatus}`);
+        } else {
+          frontmatter = `\nstatus: ${selStatus}` + frontmatter;
+        }
+        newContent = `---${frontmatter}---${rest}`;
+      } else {
+        newContent = `---\nstatus: ${selStatus}\n---\n\n${newContent}`;
+      }
+    } else {
+      newContent = `---\nstatus: ${selStatus}\n---\n\n${newContent}`;
+    }
+    window.currentArticleStatus = selStatus;
+  }
 
   try {
     const res = await fetch('/api/save-page', {

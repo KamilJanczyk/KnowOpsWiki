@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR, initBackupScheduler, executeBackupJob, getBackupSchedulerStatus, checkBackupsDirWritable } from './backup_wiki.mjs';
-import { generateNavigation, extractMarkdownTags } from './build_navigation.mjs';
+import { generateNavigation, extractMarkdownTags, extractMarkdownStatus } from './build_navigation.mjs';
 import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
 import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, translateLiveText, batchTranslateLive, getTranslationsCache } from './cve_engine.mjs';
 
@@ -961,7 +961,8 @@ const server = http.createServer(async (req, res) => {
 
       const stat = fs.statSync(targetPath);
       const content = fs.readFileSync(targetPath, 'utf8');
-      return sendJson(200, { relPath, content, mtime: stat.mtime.toISOString() });
+      const status = extractMarkdownStatus(targetPath);
+      return sendJson(200, { relPath, content, mtime: stat.mtime.toISOString(), status });
     }
 
     if (normPath === '/api/navigation' && req.method === 'GET') {
@@ -1720,6 +1721,73 @@ const server = http.createServer(async (req, res) => {
         oldPath: sanitizedOld,
         newPath: newRelPath
       });
+    }
+
+    if (normPath === '/api/set-article-status' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { relPath, status } = body;
+
+      if (!relPath || !status) {
+        return sendJson(400, { error: 'Wymagane parametry: relPath i status' });
+      }
+
+      const validStatuses = ['tested', 'partial', 'untested'];
+      const normStatus = String(status).trim().toLowerCase();
+      if (!validStatuses.includes(normStatus)) {
+        return sendJson(400, { error: 'Nieprawidłowy status. Dopuszczalne: tested, partial, untested' });
+      }
+
+      let decodedPath = decodeURIComponent(relPath).replace(/^[\/\\]+/, '').replace(/\\/g, '/');
+      let sanitizedRelPath = decodedPath.replace(/[<>:"|?*\x00]/g, '_');
+      sanitizedRelPath = sanitizedRelPath.split('/').map(part => part === '..' ? '__' : part).join('/');
+      if (!sanitizedRelPath.endsWith('.md')) sanitizedRelPath += '.md';
+
+      const targetPath = path.resolve(DOCS_DIR, sanitizedRelPath);
+      if (!isPathInsideDocs(targetPath) || !fs.existsSync(targetPath)) {
+        return sendJson(404, { error: 'Plik nie istnieje' });
+      }
+
+      try {
+        const content = fs.readFileSync(targetPath, 'utf8');
+        let newContent = '';
+
+        if (content.startsWith('---')) {
+          const secondDash = content.indexOf('---', 3);
+          if (secondDash !== -1) {
+            let frontmatter = content.substring(3, secondDash);
+            const rest = content.substring(secondDash + 3);
+            if (/status:\s*[a-zA-Z_-]+/i.test(frontmatter)) {
+              frontmatter = frontmatter.replace(/status:\s*[a-zA-Z_-]+/i, `status: ${normStatus}`);
+            } else {
+              frontmatter = `\nstatus: ${normStatus}` + frontmatter;
+            }
+            newContent = `---${frontmatter}---${rest}`;
+          } else {
+            newContent = `---\nstatus: ${normStatus}\n---\n\n${content}`;
+          }
+        } else {
+          newContent = `---\nstatus: ${normStatus}\n---\n\n${content}`;
+        }
+
+        fs.writeFileSync(targetPath, newContent, 'utf8');
+
+        // Odświeżenie nawigacji
+        try {
+          generateNavigation();
+        } catch (e) {
+          console.warn('[Wiki API] Błąd regeneracji nawigacji:', e);
+        }
+
+        return sendJson(200, {
+          success: true,
+          message: 'Status artykułu został pomyślnie zaktualizowany.',
+          relPath: sanitizedRelPath,
+          status: normStatus
+        });
+      } catch (err) {
+        return sendJson(500, { error: 'Błąd podczas zapisu pliku: ' + err.message });
+      }
     }
 
     if (normPath === '/api/save-page' && req.method === 'POST') {
