@@ -2174,7 +2174,6 @@ async function loadArticle(articlePath) {
           <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ</button>
           <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ</button>
           <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ / DZIAŁ</button>
-          <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
           <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
         </div>`;
       const tabsBar = document.getElementById('docTabsBar');
@@ -5450,9 +5449,19 @@ async function openEditorModal(targetPath) {
       }
     }
 
+    const lastSlash = relPath.lastIndexOf('/');
+    const filename = lastSlash !== -1 ? relPath.substring(lastSlash + 1) : relPath;
+    const folderPath = lastSlash !== -1 ? relPath.substring(0, lastSlash) : '';
+
     const modalPathEl = document.getElementById('editorModalPath');
+    const filenameInputEl = document.getElementById('editorModalFilenameInput');
+    const folderDisplayEl = document.getElementById('editorModalFolderDisplay');
     const modalTextareaEl = document.getElementById('editorTextarea');
+
     if (modalPathEl) modalPathEl.innerText = relPath;
+    if (filenameInputEl) filenameInputEl.value = filename;
+    if (folderDisplayEl) folderDisplayEl.innerText = folderPath ? `Katalog: ${folderPath}/` : 'Katalog: docs/';
+
     if (modalTextareaEl) {
       // Sprawdź czy istnieje nowszy szkic w localStorage
       const draftKey = `knowops_draft_${relPath}`;
@@ -5515,6 +5524,48 @@ async function closeEditorModal() {
 async function saveCurrentArticleFromModal(silent = false) {
   if (!currentEditingPath) return;
 
+  const filenameInputEl = document.getElementById('editorModalFilenameInput');
+  let currentRelPath = currentEditingPath;
+
+  // Sprawdź czy nazwa pliku uległa zmianie w edytorze
+  if (filenameInputEl) {
+    const rawNewName = filenameInputEl.value.trim();
+    const lastSlash = currentRelPath.lastIndexOf('/');
+    const oldFilename = lastSlash !== -1 ? currentRelPath.substring(lastSlash + 1) : currentRelPath;
+    const dirPath = lastSlash !== -1 ? currentRelPath.substring(0, lastSlash) : '';
+
+    let cleanNewName = rawNewName.replace(/[<>:"/\\|?*\x00]/g, '_').trim();
+    if (!cleanNewName) cleanNewName = oldFilename;
+    if (!cleanNewName.endsWith('.md')) cleanNewName += '.md';
+
+    if (cleanNewName !== oldFilename) {
+      try {
+        const renameRes = await fetch('/api/rename-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPath: currentRelPath, newName: cleanNewName })
+        });
+        const renameData = await renameRes.json();
+        if (!renameRes.ok) {
+          throw new Error(renameData.error || 'Błąd zmiany nazwy pliku');
+        }
+
+        const oldRelPath = currentRelPath;
+        currentRelPath = renameData.newPath || (dirPath ? `${dirPath}/${cleanNewName}` : cleanNewName);
+        currentEditingPath = currentRelPath;
+        filenameInputEl.value = cleanNewName;
+
+        try { localStorage.removeItem(`knowops_draft_${oldRelPath}`); } catch (e) {}
+        if (typeof window.renameDocTab === 'function') {
+          window.renameDocTab(oldRelPath, currentRelPath);
+        }
+      } catch (renameErr) {
+        if (!silent) alert('Błąd zmiany nazwy dokumentu: ' + renameErr.message);
+        return;
+      }
+    }
+  }
+
   let newContent = document.getElementById('editorTextarea').value;
   newContent = newContent.replace(/[´’‘]/g, '`');
 
@@ -5542,6 +5593,7 @@ async function saveCurrentArticleFromModal(silent = false) {
         if (typeof renderSidebar === 'function') {
           await renderSidebar();
         }
+        window.location.hash = `#/${currentEditingPath}`;
         if (typeof loadArticle === 'function') {
           await loadArticle(currentEditingPath);
         }

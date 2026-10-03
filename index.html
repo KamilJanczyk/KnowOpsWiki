@@ -119,12 +119,17 @@
   <!-- Modal Editor Overlay -->
   <div id="articleEditorModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:3000; justify-content:center; align-items:center; padding:8px;">
     <div style="background:#111; border:1px solid #333; border-radius:8px; width:98%; max-width:1800px; height:96vh; display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
-      <div style="padding:10px 18px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <h3 id="editorModalTitle" style="color:var(--sw-gold); font-size:0.95rem; margin:0;">EDYCJA DOKUMENTU</h3>
-          <span id="editorModalPath" style="font-size:0.68rem; color:#888;"></span>
+      <div style="padding:8px 18px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; gap:16px;">
+        <div style="display:flex; align-items:center; gap:16px; flex:1; min-width:0;">
+          <h3 id="editorModalTitle" style="color:var(--sw-gold); font-size:0.92rem; margin:0; white-space:nowrap;">EDYCJA DOKUMENTU</h3>
+          <div style="display:flex; align-items:center; gap:6px; flex:1; max-width:620px; min-width:0;">
+            <label for="editorModalFilenameInput" style="font-size:0.70rem; color:#a1a1aa; font-weight:700; white-space:nowrap;">Nazwa pliku:</label>
+            <input type="text" id="editorModalFilenameInput" class="modal-input" style="flex:1; min-width:180px; background:#000000; border:1px solid #3f3f46; color:#ffffff; padding:4px 8px; font-size:0.75rem; border-radius:4px; font-family:monospace; outline:none;" placeholder="nazwa_pliku.md" title="Edytuj nazwę pliku (zmiana zostanie zapisana przy kliknięciu Zapisz Zmiany)">
+          </div>
+          <div style="font-size:0.68rem; color:#71717a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="editorModalFolderDisplay" title="Folder bieżącego dokumentu"></div>
+          <span id="editorModalPath" style="display:none;"></span>
         </div>
-        <button style="background:none; border:none; color:#aaa; font-size:1.2rem; cursor:pointer;" onclick="closeEditorModal()">X</button>
+        <button style="background:none; border:none; color:#aaa; font-size:1.2rem; cursor:pointer; padding:0 4px;" onclick="closeEditorModal()" title="Zamknij (Esc)">X</button>
       </div>
 
       <div class="editor-toolbar" style="background:#18181b; padding:6px 12px; border-bottom:1px solid #27272a; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">

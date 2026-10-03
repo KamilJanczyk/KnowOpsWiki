@@ -2432,6 +2432,22 @@ test('48. Compact Pinned Tabs, Short Action Labels & Move Page Path Auto-Populat
   assert.equal(indexHtml.includes('resetMovePageToCurrentFolder()'), true, 'Przycisk resetu bieżącego folderu w index.html');
 });
 
+test('49. Article Action Bar Cleanup & In-Modal Document Rename: weryfikacja usunięcia przycisku PRZENIEŚ DOKUMENT i integracji zmiany nazwy w edytorze', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Sprawdzenie, że przycisk PRZENIEŚ DOKUMENT został usunięty z paska akcji artykułu
+  assert.equal(appJs.includes('>PRZENIEŚ DOKUMENT</button>'), false, 'Przycisk PRZENIEŚ DOKUMENT nie powinien znajdować się w pasku akcji');
+
+  // 2. Sprawdzenie obecności pola edycji nazwy pliku w nagłówku modala edytora w index.html
+  assert.equal(indexHtml.includes('id="editorModalFilenameInput"'), true, 'Brak pola editorModalFilenameInput w index.html');
+  assert.equal(indexHtml.includes('id="editorModalFolderDisplay"'), true, 'Brak elementu editorModalFolderDisplay w index.html');
+
+  // 3. Sprawdzenie obsługi zmiany nazwy w saveCurrentArticleFromModal w app.js
+  assert.equal(appJs.includes("document.getElementById('editorModalFilenameInput')"), true);
+  assert.equal(appJs.includes("fetch('/api/rename-file'"), true, 'saveCurrentArticleFromModal musi wywoływać /api/rename-file przy zmianie nazwy');
+});
+
 
 
 
