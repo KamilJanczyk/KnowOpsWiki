@@ -582,6 +582,113 @@ window.toggleAccordionMode = function() {
 };
 
 window.bottomDockMode = localStorage.getItem('knowops_bottom_dock_mode') !== 'false';
+window.activeDockedRelPath = '';
+
+window.closeActiveDock = function() {
+  const dockContainer = document.getElementById('sidebarActiveDockContainer');
+  const nav = document.getElementById('sidebarNav');
+  const relPath = window.activeDockedRelPath;
+
+  if (dockContainer) {
+    const dockedDir = dockContainer.querySelector(':scope > .sidebar-dock-body > div[id^="dir-"], :scope > div[id^="dir-"]');
+    if (dockedDir) {
+      const dRel = dockedDir.getAttribute('data-rel') || relPath;
+      if (dRel && nav) {
+        const header = nav.querySelector(`li.topic-group-header.depth-0[data-rel="${CSS.escape(dRel)}"]`);
+        if (header) {
+          header.insertAdjacentElement('afterend', dockedDir);
+          dockedDir.style.display = 'none';
+        }
+      }
+    }
+    dockContainer.innerHTML = '';
+    dockContainer.style.display = 'none';
+  }
+
+  if (nav) {
+    nav.querySelectorAll('.topic-group-header.depth-0.active-docked').forEach(h => {
+      h.classList.remove('active-docked');
+      const arrow = h.querySelector('.dir-arrow');
+      if (arrow) arrow.innerText = '>';
+    });
+  }
+
+  if (relPath) {
+    expandedDirs[relPath] = false;
+    saveExpandedDirs();
+  }
+  window.activeDockedRelPath = '';
+};
+
+window.openActiveDock = function(relPath) {
+  const nav = document.getElementById('sidebarNav');
+  const dockContainer = document.getElementById('sidebarActiveDockContainer');
+  if (!nav || !dockContainer) return;
+
+  if (window.activeDockedRelPath && window.activeDockedRelPath !== relPath) {
+    window.closeActiveDock();
+  }
+
+  const dirId = 'dir-' + relPath.replace(/[^a-zA-Z0-9]/g, '-');
+  const el = document.getElementById(dirId);
+  const header = nav.querySelector(`li.topic-group-header.depth-0[data-rel="${CSS.escape(relPath)}"]`);
+  if (!header || !el) return;
+
+  // Podswietlenie kafelka na liscie glownej (kolejnosc A-Z pozostaje stabilna)
+  header.classList.add('active-docked');
+  const topArrow = header.querySelector('.dir-arrow');
+  if (topArrow) topArrow.innerText = 'v';
+
+  const titleSpan = header.querySelector('span[title]');
+  const rawTitle = titleSpan ? (titleSpan.getAttribute('title') || titleSpan.textContent || relPath) : relPath;
+  const countBadge = header.querySelector('.dir-count-badge');
+  const countText = countBadge ? countBadge.textContent : '';
+
+  // Rozwin podfoldery wewnatrz otwieranego dzialu
+  const childDirs = el.querySelectorAll('div[id^="dir-"]');
+  childDirs.forEach(cd => {
+    cd.style.display = 'block';
+    const ch = cd.previousElementSibling;
+    if (ch) {
+      const arr = ch.querySelector('.dir-arrow');
+      if (arr) arr.innerText = 'v';
+    }
+    const cRel = cd.getAttribute('data-rel');
+    if (cRel) expandedDirs[cRel] = true;
+  });
+
+  dockContainer.innerHTML = `
+    <div class="sidebar-dock-separator">
+      <div class="sidebar-dock-separator-line"></div>
+      <span class="sidebar-dock-separator-text">AKTYWNY DZIAŁ</span>
+      <div class="sidebar-dock-separator-line"></div>
+    </div>
+    <div class="sidebar-dock-header">
+      <div class="sidebar-dock-header-title">
+        <span class="sidebar-dock-badge">OTWARTY</span>
+        <span class="sidebar-dock-title-text" title="${escapeHtml(rawTitle)}">${escapeHtml(rawTitle)}</span>
+        <span class="dir-count-badge" style="color:var(--sw-gold); font-size:0.65rem;">${escapeHtml(countText)}</span>
+      </div>
+      <div class="sidebar-dock-header-actions">
+        <button type="button" class="btn-dock-close" onclick="window.closeActiveDock()" title="Zamknij aktywny dział">X</button>
+      </div>
+    </div>
+    <div id="sidebarDockBody" class="sidebar-dock-body"></div>
+  `;
+
+  const dockBody = document.getElementById('sidebarDockBody');
+  el.style.display = 'block';
+  dockBody.appendChild(el);
+
+  dockContainer.style.display = 'block';
+  window.activeDockedRelPath = relPath;
+  expandedDirs[relPath] = true;
+  saveExpandedDirs();
+
+  setTimeout(() => {
+    dockContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 60);
+};
 
 window.toggleBottomDockMode = function() {
   window.bottomDockMode = !window.bottomDockMode;
@@ -594,10 +701,21 @@ window.toggleBottomDockMode = function() {
     btn.style.color = window.bottomDockMode ? 'var(--sw-gold)' : '#71717a';
   }
   if (!window.bottomDockMode) {
+    window.closeActiveDock();
     window.restoreSidebarNavOrder();
     const nav = document.getElementById('sidebarNav');
     if (nav) {
       nav.querySelectorAll('.topic-group-header.docked-bottom').forEach(h => h.classList.remove('docked-bottom'));
+      nav.querySelectorAll('.topic-group-header.active-docked').forEach(h => h.classList.remove('active-docked'));
+    }
+  } else {
+    const nav = document.getElementById('sidebarNav');
+    if (nav) {
+      const openTopDir = nav.querySelector(':scope > div[id^="dir-"][style*="display: block"]');
+      if (openTopDir) {
+        const rel = openTopDir.getAttribute('data-rel');
+        if (rel) window.openActiveDock(rel);
+      }
     }
   }
 };
@@ -620,7 +738,7 @@ window.restoreSidebarNavOrder = function() {
 };
 
 window.collapseAllSidebarDirs = function() {
-  const dirs = document.querySelectorAll('#sidebarNav div[id^="dir-"]');
+  const dirs = document.querySelectorAll('#sidebarNav div[id^="dir-"], #sidebarActiveDockContainer div[id^="dir-"]');
   dirs.forEach(d => {
     d.style.display = 'none';
     const h = d.previousElementSibling;
@@ -628,18 +746,19 @@ window.collapseAllSidebarDirs = function() {
       const arr = h.querySelector('.dir-arrow');
       if (arr) arr.innerText = '>';
       h.classList.remove('docked-bottom');
+      h.classList.remove('active-docked');
     }
     const rel = d.getAttribute('data-rel');
     if (rel) expandedDirs[rel] = false;
   });
   if (window.bottomDockMode) {
-    window.restoreSidebarNavOrder();
+    window.closeActiveDock();
   }
   saveExpandedDirs();
 };
 
 window.expandAllSidebarDirs = function() {
-  const dirs = document.querySelectorAll('#sidebarNav div[id^="dir-"]');
+  const dirs = document.querySelectorAll('#sidebarNav div[id^="dir-"], #sidebarActiveDockContainer div[id^="dir-"]');
   dirs.forEach(d => {
     d.style.display = 'block';
     const h = d.previousElementSibling;
@@ -663,9 +782,9 @@ window.filterSidebarTree = function(query) {
   const nav = document.getElementById('sidebarNav');
   if (!nav) return;
 
-  const fileItems = nav.querySelectorAll('.topic-item');
-  const groupHeaders = nav.querySelectorAll('.topic-group-header');
-  const dirContainers = nav.querySelectorAll('div[id^="dir-"]');
+  const fileItems = document.querySelectorAll('#sidebarNav .topic-item, #sidebarActiveDockContainer .topic-item');
+  const groupHeaders = document.querySelectorAll('#sidebarNav .topic-group-header, #sidebarActiveDockContainer .topic-group-header');
+  const dirContainers = document.querySelectorAll('#sidebarNav div[id^="dir-"], #sidebarActiveDockContainer div[id^="dir-"]');
 
   if (!q) {
     fileItems.forEach(el => el.style.display = '');
@@ -729,18 +848,24 @@ window.clearSidebarTreeFilter = function() {
 window.toggleSidebarDir = function(relPath) {
   const dirId = 'dir-' + relPath.replace(/[^a-zA-Z0-9]/g, '-');
   const el = document.getElementById(dirId);
+  const nav = document.getElementById('sidebarNav');
+  const header = (el && el.previousElementSibling && el.previousElementSibling.classList.contains('topic-group-header')) 
+    ? el.previousElementSibling 
+    : (nav ? nav.querySelector(`li.topic-group-header[data-rel="${CSS.escape(relPath)}"]`) : null);
+  const isTopLevel = header && header.classList.contains('depth-0');
+
+  // Tryb dokowania na dole dla dzialow glownych (depth-0): zachowuje kolejnosc spisu A-Z i dubluje dzial na dole
+  if (isTopLevel && window.bottomDockMode) {
+    if (window.activeDockedRelPath === relPath) {
+      window.closeActiveDock();
+    } else {
+      window.openActiveDock(relPath);
+    }
+    return;
+  }
+
   if (el) {
     const isOpening = (el.style.display === 'none');
-    const header = el.previousElementSibling;
-    const isTopLevel = header && header.classList.contains('depth-0');
-
-    if (isTopLevel && window.bottomDockMode) {
-      window.restoreSidebarNavOrder();
-      const nav = document.getElementById('sidebarNav');
-      if (nav) {
-        nav.querySelectorAll('.topic-group-header.docked-bottom').forEach(h => h.classList.remove('docked-bottom'));
-      }
-    }
 
     if (isOpening && window.accordionMode) {
       const parentContainer = el.parentElement;
@@ -754,6 +879,7 @@ window.toggleSidebarDir = function(relPath) {
               const arr = sibHeader.querySelector('.dir-arrow');
               if (arr) arr.innerText = '>';
               sibHeader.classList.remove('docked-bottom');
+              sibHeader.classList.remove('active-docked');
             }
             const sibRel = sib.getAttribute('data-rel');
             if (sibRel) expandedDirs[sibRel] = false;
@@ -768,44 +894,14 @@ window.toggleSidebarDir = function(relPath) {
       arrow.innerText = isOpening ? 'v' : '>';
     }
     expandedDirs[relPath] = isOpening;
-
-    // Automatyczny przeskok działu głównego na sam dół i pełne rozwinięcie jego zawartości
-    if (isTopLevel && window.bottomDockMode) {
-      if (isOpening) {
-        header.classList.add('docked-bottom');
-        // Rozwiń automatycznie wszystkie podfoldery tego działu
-        const childDirs = el.querySelectorAll('div[id^="dir-"]');
-        childDirs.forEach(cd => {
-          cd.style.display = 'block';
-          const ch = cd.previousElementSibling;
-          if (ch) {
-            const arr = ch.querySelector('.dir-arrow');
-            if (arr) arr.innerText = 'v';
-          }
-          const cRel = cd.getAttribute('data-rel');
-          if (cRel) expandedDirs[cRel] = true;
-        });
-
-        // Przenieś nagłówek i kontener na koniec listy
-        const nav = document.getElementById('sidebarNav');
-        if (nav) {
-          nav.appendChild(header);
-          nav.appendChild(el);
-          setTimeout(() => {
-            header.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }, 80);
-        }
-      } else {
-        header.classList.remove('docked-bottom');
-        window.restoreSidebarNavOrder();
-      }
-    }
-
     saveExpandedDirs();
   }
 };
 
 function selectCategory(catId, subId) {
+  if (window.activeDockedRelPath) {
+    window.closeActiveDock();
+  }
   currentCategory = catId;
   currentSubcategory = subId || '';
   if (navigationData && navigationData.categories) {
@@ -1034,16 +1130,44 @@ async function renderSidebar() {
   }
   sidebarNav.innerHTML = html;
 
-  // Jesli aktywny jest tryb dokowania na dole i jakis dzial glowny jest otwarty, zadokuj go na dole
+  // Jesli aktywny jest tryb dokowania na dole i jakis dzial glowny powinien byc zadokowany
   if (window.bottomDockMode) {
-    const openTopDir = sidebarNav.querySelector(':scope > div[id^="dir-"][style*="display: block"]');
-    if (openTopDir) {
-      const openHeader = openTopDir.previousElementSibling;
-      if (openHeader && openHeader.classList.contains('depth-0')) {
-        openHeader.classList.add('docked-bottom');
-        sidebarNav.appendChild(openHeader);
-        sidebarNav.appendChild(openTopDir);
+    let targetRelToDock = '';
+    if (window.activeDockedRelPath) {
+      const exists = sidebarNav.querySelector(`li.topic-group-header.depth-0[data-rel="${CSS.escape(window.activeDockedRelPath)}"]`);
+      if (exists) targetRelToDock = window.activeDockedRelPath;
+    }
+    if (!targetRelToDock && currentHash) {
+      const topHeaders = Array.from(sidebarNav.querySelectorAll('li.topic-group-header.depth-0'));
+      for (const th of topHeaders) {
+        const thRel = th.getAttribute('data-rel');
+        if (thRel && (currentHash === thRel || currentHash.startsWith(thRel + '/'))) {
+          targetRelToDock = thRel;
+          break;
+        }
       }
+    }
+    if (!targetRelToDock) {
+      const openTopDir = sidebarNav.querySelector(':scope > div[id^="dir-"][style*="display: block"]');
+      if (openTopDir) {
+        targetRelToDock = openTopDir.getAttribute('data-rel') || '';
+      }
+    }
+
+    if (targetRelToDock) {
+      window.openActiveDock(targetRelToDock);
+    } else {
+      const dockContainer = document.getElementById('sidebarActiveDockContainer');
+      if (dockContainer) {
+        dockContainer.innerHTML = '';
+        dockContainer.style.display = 'none';
+      }
+    }
+  } else {
+    const dockContainer = document.getElementById('sidebarActiveDockContainer');
+    if (dockContainer) {
+      dockContainer.innerHTML = '';
+      dockContainer.style.display = 'none';
     }
   }
 

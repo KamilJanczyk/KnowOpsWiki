@@ -2313,6 +2313,34 @@ test('44. Ergonomia UI: Split View (2 Kolumny) oraz Uproszczenie Tablicy Kanban 
   assert.equal(appJs.includes('hoverPreviewPopover'), false, 'app.js nie może odwoływać się do elementu hoverPreviewPopover');
 });
 
+test('45. Sidebar Duplicated Active Dock: weryfikacja niezmienności kolejności A-Z w spisie głównym oraz dedykowanego kontenera dokowania ze zdublowanym nagłówkiem', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Sprawdzenie kontenera doku w index.html pod spisem sidebarNav
+  assert.equal(indexHtml.includes('id="sidebarActiveDockContainer"'), true, 'Brak kontenera sidebarActiveDockContainer w index.html');
+  const navPos = indexHtml.indexOf('id="sidebarNav"');
+  const dockPos = indexHtml.indexOf('id="sidebarActiveDockContainer"');
+  assert.equal(navPos < dockPos, true, 'sidebarActiveDockContainer musi znajdować się bezpośrednio pod sidebarNav');
+
+  // 2. Sprawdzenie stylów CSS dokowania i akcentu wyboru
+  assert.equal(styleCss.includes('.topic-group-header.depth-0.active-docked'), true, 'Brak stylu .topic-group-header.depth-0.active-docked');
+  assert.equal(styleCss.includes('.sidebar-active-dock-container'), true, 'Brak stylu .sidebar-active-dock-container');
+  assert.equal(styleCss.includes('.sidebar-dock-separator'), true, 'Brak stylu .sidebar-dock-separator');
+  assert.equal(styleCss.includes('.sidebar-dock-header'), true, 'Brak stylu .sidebar-dock-header');
+  assert.equal(styleCss.includes('.btn-dock-close'), true, 'Brak stylu .btn-dock-close');
+  assert.equal(styleCss.includes('.sidebar-dock-body'), true, 'Brak stylu .sidebar-dock-body');
+
+  // 3. Sprawdzenie logiki w app.js
+  assert.equal(appJs.includes('window.activeDockedRelPath'), true, 'app.js musi przechowywać stan aktywnego doku window.activeDockedRelPath');
+  assert.equal(appJs.includes('window.openActiveDock'), true, 'app.js musi eksportować window.openActiveDock');
+  assert.equal(appJs.includes('window.closeActiveDock'), true, 'app.js musi eksportować window.closeActiveDock');
+  assert.equal(appJs.includes('window.bottomDockMode'), true, 'app.js musi eksportować window.bottomDockMode');
+  assert.equal(appJs.includes('window.toggleBottomDockMode'), true, 'app.js musi eksportować window.toggleBottomDockMode');
+});
+
+
 
 
 
