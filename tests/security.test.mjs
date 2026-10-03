@@ -2337,6 +2337,38 @@ test('45. Sidebar Duplicated Active Dock: weryfikacja niezmienności kolejności
   assert.equal(appJs.includes('window.toggleBottomDockMode'), true, 'app.js musi eksportować window.toggleBottomDockMode');
 });
 
+test('46. Full-Height Sidebar & Compact Layout: weryfikacja lewego paska na 100vh do samej góry oraz przyległego nagłówka', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Sprawdzenie struktury app-shell i app-main-column w index.html
+  assert.equal(indexHtml.includes('class="app-shell"'), true, 'Brak kontenera .app-shell w index.html');
+  assert.equal(indexHtml.includes('class="app-main-column"'), true, 'Brak kontenera .app-main-column w index.html');
+
+  // Weryfikacja, ze lewy pasek jest bezposrednim dzieckiem app-shell, przed app-main-column
+  const shellPos = indexHtml.indexOf('class="app-shell"');
+  const leftBoxPos = indexHtml.indexOf('class="left-topics-box"');
+  const mainColPos = indexHtml.indexOf('class="app-main-column"');
+  const headerPos = indexHtml.indexOf('<header class="header">');
+
+  assert.equal(shellPos < leftBoxPos, true);
+  assert.equal(leftBoxPos < mainColPos, true);
+  assert.equal(mainColPos < headerPos, true, 'Header musi znajdować się wewnątrz kolumny app-main-column przyległej do lewego paska');
+
+  // 2. Sprawdzenie definicji stylów CSS dla układu 100vh
+  assert.equal(styleCss.includes('.app-shell'), true, 'Brak stylu .app-shell w style.css');
+  assert.equal(styleCss.includes('.app-main-column'), true, 'Brak stylu .app-main-column w style.css');
+
+  // Weryfikacja 100vh dla lewego paska
+  const leftMatch = styleCss.match(/\.left-topics-box\s*\{[^}]*?height:\s*100vh;/);
+  assert.ok(leftMatch, 'Lewy pasek .left-topics-box musi posiadać height: 100vh');
+
+  // 3. Weryfikacja kompaktowych kafelków depth-0
+  const depth0Match = styleCss.match(/\.topic-group-header\.depth-0\s*\{[^}]*?margin-top:\s*3px/);
+  assert.ok(depth0Match, 'Kafelki .topic-group-header.depth-0 muszą posiadać kompaktowy margines 3px');
+});
+
+
 
 
 
