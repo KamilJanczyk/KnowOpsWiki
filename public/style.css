@@ -85,10 +85,32 @@
     .search-box input {
       background: #111111; border: 1px solid #333333; color: #fff; padding: 4px 10px; font-size: 0.74rem; border-radius: 4px; width: 160px;
     }
-    .btn-action {
-      background: var(--sw-gold); color: #000; border: none; padding: 5px 12px; font-size: 0.74rem; font-weight: 700; border-radius: 4px; cursor: pointer; transition: background 0.12s ease;
-    }
     .btn-action:hover { background: #eab308; }
+    .btn-header-rescan {
+      background: var(--sw-gold) !important;
+      color: #000000 !important;
+      font-weight: 700 !important;
+      font-size: 0.68rem !important;
+      padding: 3px 8px !important;
+      border-radius: 4px !important;
+      border: none !important;
+      cursor: pointer !important;
+      white-space: nowrap !important;
+      transition: background 0.12s ease, box-shadow 0.12s ease;
+    }
+    .btn-header-rescan:hover {
+      background: #facc15 !important;
+      box-shadow: 0 0 8px rgba(234, 179, 8, 0.4);
+    }
+    .right-sidebar-search-box {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #222;
+    }
+    .right-sidebar-search-box input:focus {
+      border-color: var(--sw-gold) !important;
+      outline: none;
+    }
 
     /* Layout Main Grid */
     .layout-container {

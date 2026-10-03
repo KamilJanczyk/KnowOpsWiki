@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.18.0">
+  <link rel="stylesheet" href="/public/style.css?v=2.19.0">
 </head>
 <body>
 
@@ -27,6 +27,7 @@
   <header class="header">
     <div class="header-brand">
       <a href="#/kanban" class="logo"><span>KnowOps</span> <span style="color:#ffffff; font-size:0.75rem;">Wiki</span></a>
+      <button type="button" id="btnHeaderRescan" class="btn-action btn-header-rescan" onclick="triggerRescan()" title="Przeskanuj całą strukturę plików bazy wiedzy" style="background: var(--sw-gold); color: #000000; font-weight: 700; font-size: 0.68rem; padding: 4px 9px; border-radius: 4px; border: none; cursor: pointer; white-space: nowrap; margin-left: 10px;">Przeskanuj</button>
     </div>
 
     <div class="cat-nav-bar">
@@ -43,17 +44,7 @@
   <!-- Main Layout Grid -->
   <div class="layout-container">
     <!-- Left Sidebar Topics Box -->
-        <!-- Left Sidebar Topics Box -->
-        <aside class="left-topics-box" id="leftSidebarContainer">
-      <!-- Tools moved under KnowOps Wiki logo -->
-      <div class="left-sidebar-tools" style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #222; display: flex; flex-direction: column; gap: 6px;">
-        <input type="text" id="globalSearchInput" placeholder="Szukaj w wiki (lub #tag)..." style="width: 100%; background: #111111; border: 1px solid #333333; color: #ffffff; padding: 6px 10px; font-size: 0.73rem; border-radius: 4px;">
-        <div id="sidebarTagCloud" class="sidebar-tag-cloud" style="display:none;"></div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-          <button class="btn-action" style="background: var(--sw-gold); color: #000000; font-weight: 700; font-size: 0.68rem; padding: 5px 6px; white-space: nowrap;" onclick="triggerRescan()">Przeskanuj</button>
-          <button class="btn-action" style="background: #27272a; border: 1px solid #3f3f46; color: #ffffff; font-weight: 700; font-size: 0.68rem; padding: 5px 6px; white-space: nowrap; cursor: pointer;" onclick="openImportFileModal()">Importuj Plik</button>
-        </div>
-      </div>
+    <aside class="left-topics-box" id="leftSidebarContainer">
       <div class="sidebar-dept-header-box">
         <div class="left-topics-header" id="sidebarTitle">NAWIGACJA</div>
         <div id="currentDeptToolbar" class="dept-actions-toolbar" style="display: none;">
@@ -107,8 +98,12 @@
       </div>
     </main>
 
-    <!-- Right Sidebar for Active Kanban Tasks -->
+    <!-- Right Sidebar for Active Kanban Tasks & Global Search -->
     <aside class="right-kanban-sidebar" id="rightKanbanSidebar">
+      <div class="right-sidebar-search-box" style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #222;">
+        <input type="text" id="globalSearchInput" placeholder="Szukaj w wiki (lub #tag)..." style="width: 100%; background: #111111; border: 1px solid #333333; color: #ffffff; padding: 6px 10px; font-size: 0.73rem; border-radius: 4px;">
+        <div id="sidebarTagCloud" class="sidebar-tag-cloud" style="display:none; margin-top: 6px;"></div>
+      </div>
       <div class="right-sidebar-title">AKTYWNE ZADANIA KANBAN</div>
       <div class="right-kanban-list" id="rightKanbanList">
         <div style="font-size:0.68rem; color:#555; text-align:center; padding:10px;">Ładowanie zadań...</div>
@@ -237,7 +232,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.18.0"></script>
+  <script src="/public/app.js?v=2.19.0"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">

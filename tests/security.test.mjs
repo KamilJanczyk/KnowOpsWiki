@@ -1903,23 +1903,20 @@ test('40. Sidebar Cleanup & Centrum Administracyjne: weryfikacja optymalizacji l
   const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
 
-  // 1. Weryfikacja czystosci lewego paska narzedziowego w index.html
-  const toolsSectionMatch = indexHtml.match(/<div class="left-sidebar-tools"[^>]*>([\s\S]*?)<\/div>\s*<div class="sidebar-dept-header-box">/);
-  assert.ok(toolsSectionMatch, 'Sekcja .left-sidebar-tools powinna istniec w index.html');
-  const toolsHtml = toolsSectionMatch[1];
+  // 1. Weryfikacja czystosci lewego paska i nowego rozmieszczenia narzedzi
+  assert.equal(indexHtml.includes('btn-header-rescan'), true, 'Przycisk Przeskanuj powinien znajdowac sie w gornym naglowku');
+  assert.equal(indexHtml.includes('triggerRescan()'), true);
+  assert.equal(indexHtml.includes('id="btnHeaderRescan"'), true);
+  assert.equal(indexHtml.includes('right-sidebar-search-box'), true, 'Wyszukiwarka powinna znajdowac sie w prawym pasku');
+  assert.equal(indexHtml.includes('id="globalSearchInput"'), true);
 
-  // Tylko Przeskanuj oraz Importuj Plik w lewym pasku
-  assert.equal(toolsHtml.includes('triggerRescan()'), true);
-  assert.equal(toolsHtml.includes('openImportFileModal()'), true);
-  assert.equal(toolsHtml.includes('window.print()'), false);
+  // W lewym pasku nie powinno byc zbednych kontenerow przed tytulem dzialu
+  const leftBoxMatch = indexHtml.match(/<aside class="left-topics-box"[^>]*>([\s\S]*?)<div class="sidebar-dept-header-box">/);
+  assert.ok(leftBoxMatch, 'Lewy panel powinien bezposrednio rozpoczynac sie od sidebar-dept-header-box');
 
-  // Usuniecie zbednych i zduplikowanych przyciskow z lewego paska
-  assert.equal(toolsHtml.includes('openCreateItemModal()'), false);
-  assert.equal(toolsHtml.includes('downloadWikiZip()'), false);
-  assert.equal(toolsHtml.includes('openOrphanedImagesModal()'), false);
-  assert.equal(toolsHtml.includes('openTrashDocumentsModal()'), false);
-  assert.equal(toolsHtml.includes('openBackupsModal()'), false);
-  assert.equal(toolsHtml.includes('openSyncFilenamesModal()'), false);
+  // Weryfikacja umiejscowienia Importuj Plik w Centrum Administracyjnym
+  assert.equal(appJs.includes('openImportFileModal()'), true);
+  assert.equal(appJs.includes('Import i Zasilanie Treścią'), true);
 
   // 2. Weryfikacja przyciskow w gornym pasku artykulu (KOPIUJ, DRUKUJ / PDF, zmiana nazwy dodawania)
   assert.equal(appJs.includes('copyCurrentArticleMarkdown(this)'), true);

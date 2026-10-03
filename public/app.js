@@ -4414,6 +4414,16 @@ function renderAdminCenter() {
             <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #059669; color:#6ee7b7; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openSyncFilenamesModal()" title="Porównaj i zsynchronizuj nazwy plików Markdown z nagłówkami H1">Uporządkuj Nazwy Plików z H1</button>
           </div>
         </div>
+
+        <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h3 style="color:var(--sw-gold); font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Import i Zasilanie Treścią</h3>
+            <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Importowanie plików Markdown oraz HTML z dysku lokalnego lub pobieranie artykułów z zewnętrznych adresów URL z automatyczną konwersją i sanityzacją anty-SSRF.</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn-action" style="width:100%; background:var(--sw-gold); border:1px solid #ca8a04; color:#000000; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openImportFileModal()" title="Importuj pliki MD/HTML lub pobierz ze strony URL">Importuj Plik / Pobierz z URL</button>
+          </div>
+        </div>
       </div>
     </div>
   `;
