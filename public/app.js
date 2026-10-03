@@ -581,6 +581,44 @@ window.toggleAccordionMode = function() {
   }
 };
 
+window.bottomDockMode = localStorage.getItem('knowops_bottom_dock_mode') !== 'false';
+
+window.toggleBottomDockMode = function() {
+  window.bottomDockMode = !window.bottomDockMode;
+  try {
+    localStorage.setItem('knowops_bottom_dock_mode', window.bottomDockMode ? 'true' : 'false');
+  } catch (e) {}
+  const btn = document.getElementById('btnToggleBottomDock');
+  if (btn) {
+    btn.innerText = window.bottomDockMode ? 'Dok: WŁ' : 'Dok: WYŁ';
+    btn.style.color = window.bottomDockMode ? 'var(--sw-gold)' : '#71717a';
+  }
+  if (!window.bottomDockMode) {
+    window.restoreSidebarNavOrder();
+    const nav = document.getElementById('sidebarNav');
+    if (nav) {
+      nav.querySelectorAll('.topic-group-header.docked-bottom').forEach(h => h.classList.remove('docked-bottom'));
+    }
+  }
+};
+
+window.restoreSidebarNavOrder = function() {
+  const nav = document.getElementById('sidebarNav');
+  if (!nav) return;
+  const elements = Array.from(nav.children);
+  const topLevel = elements.filter(el => el.hasAttribute('data-order'));
+  if (topLevel.length <= 1) return;
+  topLevel.sort((a, b) => {
+    const ordA = parseInt(a.getAttribute('data-order') || '0', 10);
+    const ordB = parseInt(b.getAttribute('data-order') || '0', 10);
+    if (ordA !== ordB) return ordA - ordB;
+    if (a.tagName === 'LI' && b.tagName === 'DIV') return -1;
+    if (a.tagName === 'DIV' && b.tagName === 'LI') return 1;
+    return 0;
+  });
+  topLevel.forEach(el => nav.appendChild(el));
+};
+
 window.collapseAllSidebarDirs = function() {
   const dirs = document.querySelectorAll('#sidebarNav div[id^="dir-"]');
   dirs.forEach(d => {
@@ -589,10 +627,14 @@ window.collapseAllSidebarDirs = function() {
     if (h) {
       const arr = h.querySelector('.dir-arrow');
       if (arr) arr.innerText = '>';
+      h.classList.remove('docked-bottom');
     }
     const rel = d.getAttribute('data-rel');
     if (rel) expandedDirs[rel] = false;
   });
+  if (window.bottomDockMode) {
+    window.restoreSidebarNavOrder();
+  }
   saveExpandedDirs();
 };
 
@@ -689,6 +731,16 @@ window.toggleSidebarDir = function(relPath) {
   const el = document.getElementById(dirId);
   if (el) {
     const isOpening = (el.style.display === 'none');
+    const header = el.previousElementSibling;
+    const isTopLevel = header && header.classList.contains('depth-0');
+
+    if (isTopLevel && window.bottomDockMode) {
+      window.restoreSidebarNavOrder();
+      const nav = document.getElementById('sidebarNav');
+      if (nav) {
+        nav.querySelectorAll('.topic-group-header.docked-bottom').forEach(h => h.classList.remove('docked-bottom'));
+      }
+    }
 
     if (isOpening && window.accordionMode) {
       const parentContainer = el.parentElement;
@@ -701,6 +753,7 @@ window.toggleSidebarDir = function(relPath) {
             if (sibHeader) {
               const arr = sibHeader.querySelector('.dir-arrow');
               if (arr) arr.innerText = '>';
+              sibHeader.classList.remove('docked-bottom');
             }
             const sibRel = sib.getAttribute('data-rel');
             if (sibRel) expandedDirs[sibRel] = false;
@@ -710,12 +763,44 @@ window.toggleSidebarDir = function(relPath) {
     }
 
     el.style.display = isOpening ? 'block' : 'none';
-    const header = el.previousElementSibling;
     const arrow = header ? header.querySelector('.dir-arrow') : null;
     if (arrow) {
       arrow.innerText = isOpening ? 'v' : '>';
     }
     expandedDirs[relPath] = isOpening;
+
+    // Automatyczny przeskok działu głównego na sam dół i pełne rozwinięcie jego zawartości
+    if (isTopLevel && window.bottomDockMode) {
+      if (isOpening) {
+        header.classList.add('docked-bottom');
+        // Rozwiń automatycznie wszystkie podfoldery tego działu
+        const childDirs = el.querySelectorAll('div[id^="dir-"]');
+        childDirs.forEach(cd => {
+          cd.style.display = 'block';
+          const ch = cd.previousElementSibling;
+          if (ch) {
+            const arr = ch.querySelector('.dir-arrow');
+            if (arr) arr.innerText = 'v';
+          }
+          const cRel = cd.getAttribute('data-rel');
+          if (cRel) expandedDirs[cRel] = true;
+        });
+
+        // Przenieś nagłówek i kontener na koniec listy
+        const nav = document.getElementById('sidebarNav');
+        if (nav) {
+          nav.appendChild(header);
+          nav.appendChild(el);
+          setTimeout(() => {
+            header.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 80);
+        }
+      } else {
+        header.classList.remove('docked-bottom');
+        window.restoreSidebarNavOrder();
+      }
+    }
+
     saveExpandedDirs();
   }
 };
@@ -838,6 +923,11 @@ async function renderSidebar() {
       accBtn.innerText = window.accordionMode ? 'Akordeon: WŁ' : 'Akordeon: WYŁ';
       accBtn.style.color = window.accordionMode ? 'var(--sw-gold)' : '#71717a';
     }
+    const dockBtn = document.getElementById('btnToggleBottomDock');
+    if (dockBtn) {
+      dockBtn.innerText = window.bottomDockMode ? 'Dok: WŁ' : 'Dok: WYŁ';
+      dockBtn.style.color = window.bottomDockMode ? 'var(--sw-gold)' : '#71717a';
+    }
   }
   if (btnRenameDept) {
     btnRenameDept.style.display = canManageDept ? 'block' : 'none';
@@ -900,8 +990,10 @@ async function renderSidebar() {
   function renderTree(items, depth = 0) {
     let subHtml = '';
     const sortedItems = sortItemsFilesFirst(items);
-    for (const item of sortedItems) {
+    for (let i = 0; i < sortedItems.length; i++) {
+      const item = sortedItems[i];
       const indent = depth * 12;
+      const orderAttr = (depth === 0) ? ` data-order="${i}" data-rel="${escapeHtml(item.relPath)}"` : '';
       if (item.type === 'directory') {
         const isExpanded = expandedDirs[item.relPath] || false;
         const dirId = 'dir-' + item.relPath.replace(/[^a-zA-Z0-9]/g, '-');
@@ -910,7 +1002,7 @@ async function renderSidebar() {
         const depthClass = `depth-${Math.min(depth, 4)}`;
         const fileCount = countFilesRecursive(item);
         const countBadge = `<span class="dir-count-badge">(${fileCount})</span>`;
-        subHtml += `<li class="topic-group-header ${depthClass}" data-depth="${depth}" style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: ${folderColor}; margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'directory')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
+        subHtml += `<li class="topic-group-header ${depthClass}" data-depth="${depth}"${orderAttr} style="padding-left: ${indent + 8}px; font-weight: bold; font-size: 0.72rem; color: ${folderColor}; margin-top: 3px; margin-bottom: 2px; list-style-type: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; white-space: nowrap; overflow: hidden;" onclick="toggleSidebarDir('${item.relPath}')" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'directory')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${item.relPath}')">
           <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}${countBadge}</span>
           <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
             <button type="button" class="btn-rename-folder-tree" title="Zmień nazwę tego folderu" onclick="event.stopPropagation(); window.openRenameFolderModal('${item.relPath}', '${escapeHtml(item.title)}')">R</button>
@@ -919,12 +1011,12 @@ async function renderSidebar() {
             <span class="dir-arrow" style="font-size: 0.6rem; color: #888; font-weight: normal; margin-left: 2px;">${isExpanded ? 'v' : '>'}</span>
           </div>
         </li>`;
-        subHtml += `<div id="${dirId}" data-rel="${escapeHtml(item.relPath)}" style="display: ${isExpanded ? 'block' : 'none'};">`;
+        subHtml += `<div id="${dirId}" data-rel="${escapeHtml(item.relPath)}"${orderAttr} style="display: ${isExpanded ? 'block' : 'none'};">`;
         subHtml += renderTree(item.items, depth + 1);
         subHtml += `</div>`;
       } else {
         const isFileActive = (currentHash === item.relPath);
-        subHtml += `<li class="topic-item ${isFileActive ? 'active' : ''}" style="padding-left: ${indent + 8}px;" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'file')">
+        subHtml += `<li class="topic-item ${isFileActive ? 'active' : ''}" data-depth="${depth}"${orderAttr} style="padding-left: ${indent + 8}px;" draggable="true" ondragstart="window.handleSidebarDragStart(event, '${item.relPath}', 'file')">
           <a href="#/${item.relPath}" title="${escapeHtml(item.title)}">${item.title}</a>
         </li>`;
       }
@@ -941,6 +1033,19 @@ async function renderSidebar() {
     html = renderTree((targetSub.files || []).map(f => ({ type: 'file', title: f.title, relPath: f.relPath })), 0);
   }
   sidebarNav.innerHTML = html;
+
+  // Jesli aktywny jest tryb dokowania na dole i jakis dzial glowny jest otwarty, zadokuj go na dole
+  if (window.bottomDockMode) {
+    const openTopDir = sidebarNav.querySelector(':scope > div[id^="dir-"][style*="display: block"]');
+    if (openTopDir) {
+      const openHeader = openTopDir.previousElementSibling;
+      if (openHeader && openHeader.classList.contains('depth-0')) {
+        openHeader.classList.add('docked-bottom');
+        sidebarNav.appendChild(openHeader);
+        sidebarNav.appendChild(openTopDir);
+      }
+    }
+  }
 
   const filterInput = document.getElementById('sidebarTreeFilterInput');
   if (filterInput && filterInput.value.trim()) {

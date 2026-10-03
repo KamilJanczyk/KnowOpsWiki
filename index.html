@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.16.0">
+  <link rel="stylesheet" href="/public/style.css?v=2.17.0">
 </head>
 <body>
 
@@ -70,6 +70,7 @@
             <button type="button" class="btn-tree-ctrl" onclick="window.collapseAllSidebarDirs()" title="Zwiń wszystkie foldery">Zwiń</button>
             <button type="button" class="btn-tree-ctrl" onclick="window.expandAllSidebarDirs()" title="Rozwiń wszystkie foldery">Rozwiń</button>
             <button type="button" id="btnToggleAccordion" class="btn-tree-ctrl" onclick="window.toggleAccordionMode()" title="Przełącz tryb pojedynczego akordeonu">Akordeon: WŁ</button>
+            <button type="button" id="btnToggleBottomDock" class="btn-tree-ctrl" onclick="window.toggleBottomDockMode()" title="Przesuwaj aktywny dział na dół i rozwijaj jego zawartość">Dok: WŁ</button>
           </div>
         </div>
       </div>
@@ -235,7 +236,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.16.0"></script>
+  <script src="/public/app.js?v=2.17.0"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">

@@ -2010,12 +2010,16 @@ test('42. Sidebar Accordion Mode & Tree Live Filter: weryfikacja trybu akordeonu
   // 3. Sprawdzenie funkcji w app.js
   assert.equal(appJs.includes('window.accordionMode'), true);
   assert.equal(appJs.includes('window.toggleAccordionMode'), true);
+  assert.equal(appJs.includes('window.bottomDockMode'), true);
+  assert.equal(appJs.includes('window.toggleBottomDockMode'), true);
+  assert.equal(appJs.includes('window.restoreSidebarNavOrder'), true);
   assert.equal(appJs.includes('window.collapseAllSidebarDirs'), true);
   assert.equal(appJs.includes('window.expandAllSidebarDirs'), true);
   assert.equal(appJs.includes('window.filterSidebarTree'), true);
   assert.equal(appJs.includes('window.clearSidebarTreeFilter'), true);
   assert.equal(appJs.includes('countFilesRecursive'), true);
   assert.equal(appJs.includes('dir-count-badge'), true);
+  assert.equal(indexHtml.includes('btnToggleBottomDock'), true);
 
   // 4. Test logiki rekurencyjnego zliczania plikow w folderze
   function countFilesRecursive(it) {

@@ -259,6 +259,22 @@
       background: #202024 !important;
       border-color: #4b4b52 !important;
     }
+    .topic-group-header.depth-0.docked-bottom {
+      border-color: rgba(234, 179, 8, 0.7) !important;
+      border-left: 3px solid var(--sw-gold) !important;
+      margin-top: 14px !important;
+      background: #1c1a14 !important;
+      position: relative;
+    }
+    .topic-group-header.depth-0.docked-bottom::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #27272a;
+    }
     .topic-group-header.depth-1 { color: #60a5fa !important; }
     .topic-group-header.depth-2 { color: #34d399 !important; }
     .topic-group-header.depth-3 { color: #a78bfa !important; }
