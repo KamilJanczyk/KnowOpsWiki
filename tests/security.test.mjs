@@ -1258,8 +1258,8 @@ test('Markdown Hyperlinks: Weryfikacja reguł CSS i wysokiego kontrastu dla link
   assert.equal(contrastRatio >= 7.0, true);
 });
 
-// 30. Sidebar Symmetry: Weryfikacja identycznej szerokości lewego i prawego paska bocznego (300px)
-test('Sidebar Layout: Sprawdzenie symetrii szerokości lewego panelu nawigacji i prawego paska zadań Kanban', () => {
+// 30. Sidebar Layout: Weryfikacja szerokości lewego panelu nawigacji (390px) i prawego paska zadań Kanban (300px)
+test('Sidebar Layout: Sprawdzenie szerokości lewego panelu nawigacji (390px) i prawego paska zadań Kanban (300px)', () => {
   const cssContent = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
 
   // Ekstrakcja szerokości lewego paska
@@ -1272,10 +1272,9 @@ test('Sidebar Layout: Sprawdzenie symetrii szerokości lewego panelu nawigacji i
   assert.equal(Boolean(rightMatch), true, 'Brak definicji width dla .right-kanban-sidebar');
   const rightWidth = rightMatch[1].trim();
 
-  // Sprawdzenie wartości 300px i pełnej symetrii
-  assert.equal(leftWidth, '300px');
+  // Sprawdzenie wartości 390px dla lewego paska (+30% szerokości dla czytelności tytułów) oraz 300px dla prawego
+  assert.equal(leftWidth, '390px');
   assert.equal(rightWidth, '300px');
-  assert.equal(leftWidth, rightWidth);
 });
 
 // 31. Single-User Auth & 6h Session Gatekeeper: Weryfikacja bezpieczeństwa autoryzacji, wygasania tokenów i ochrony brute-force
