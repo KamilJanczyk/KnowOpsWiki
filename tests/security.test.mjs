@@ -2315,8 +2315,11 @@ test('45. Sidebar Duplicated Active Dock: weryfikacja niezmienności kolejności
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
 
-  // 1. Sprawdzenie usunięcia zbędnego kontenera doku z index.html na rzecz jednolitego, czystego drzewa
-  assert.equal(indexHtml.includes('id="sidebarActiveDockContainer"'), false, 'sidebarActiveDockContainer powinien być usunięty z index.html');
+  // 1. Sprawdzenie kontenera doku w index.html pod spisem sidebarNav
+  assert.equal(indexHtml.includes('id="sidebarActiveDockContainer"'), true, 'Brak kontenera sidebarActiveDockContainer w index.html');
+  const navPos = indexHtml.indexOf('id="sidebarNav"');
+  const dockPos = indexHtml.indexOf('id="sidebarActiveDockContainer"');
+  assert.equal(navPos < dockPos, true, 'sidebarActiveDockContainer musi znajdować się bezpośrednio pod sidebarNav');
 
   // 2. Sprawdzenie stylów CSS dokowania i akcentu wyboru
   assert.equal(styleCss.includes('.topic-group-header.depth-0.active-docked'), true, 'Brak stylu .topic-group-header.depth-0.active-docked');
@@ -2449,15 +2452,15 @@ test('50. Clean Sidebar Tree & Smart Active Context: weryfikacja automatycznego 
   const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
 
-  // 1. Sprawdzenie braku kontrolek drzewa i kontenera doku w index.html
+  // 1. Sprawdzenie braku kontrolek drzewa w index.html oraz obecności kontenera doku na dole
   assert.equal(indexHtml.includes('class="sidebar-tree-controls"'), false, 'sidebar-tree-controls musi być usunięty z index.html');
   assert.equal(indexHtml.includes('btnToggleAccordion'), false, 'btnToggleAccordion musi być usunięty z index.html');
   assert.equal(indexHtml.includes('btnToggleBottomDock'), false, 'btnToggleBottomDock musi być usunięty z index.html');
-  assert.equal(indexHtml.includes('sidebarActiveDockContainer'), false, 'sidebarActiveDockContainer musi być usunięty z index.html');
+  assert.equal(indexHtml.includes('sidebarActiveDockContainer'), true, 'sidebarActiveDockContainer musi znajdować się w index.html');
 
   // 2. Sprawdzenie domyślnych flag w app.js
   assert.equal(appJs.includes('window.accordionMode = true;'), true, 'accordionMode musi być domyślnie włączony (true)');
-  assert.equal(appJs.includes('window.bottomDockMode = false;'), true, 'bottomDockMode musi być domyślnie wyłączony (false)');
+  assert.equal(appJs.includes('window.bottomDockMode = true;'), true, 'bottomDockMode musi być domyślnie włączony (true)');
 
   // 3. Sprawdzenie resetu expandedDirs i rozwijania ścieżki aktywnego pliku
   assert.equal(appJs.includes('expandedDirs = {};'), true, 'expandedDirs musi być resetowane przy renderowaniu drzewa');

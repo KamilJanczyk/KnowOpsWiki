@@ -577,7 +577,7 @@ window.toggleAccordionMode = function() {
   }
 };
 
-window.bottomDockMode = false;
+window.bottomDockMode = true;
 window.activeDockedRelPath = '';
 
 window.closeActiveDock = function() {
@@ -1128,13 +1128,47 @@ async function renderSidebar() {
   }
   sidebarNav.innerHTML = html;
 
-  const dockContainer = document.getElementById('sidebarActiveDockContainer');
-  if (dockContainer) {
-    dockContainer.innerHTML = '';
-    dockContainer.style.display = 'none';
+  if (window.bottomDockMode) {
+    let targetRelToDock = '';
+    if (window.activeDockedRelPath) {
+      const exists = sidebarNav.querySelector(`li.topic-group-header.depth-0[data-rel="${CSS.escape(window.activeDockedRelPath)}"]`);
+      if (exists) targetRelToDock = window.activeDockedRelPath;
+    }
+    if (!targetRelToDock && currentHash) {
+      const topHeaders = Array.from(sidebarNav.querySelectorAll('li.topic-group-header.depth-0'));
+      for (const th of topHeaders) {
+        const thRel = th.getAttribute('data-rel');
+        if (thRel && (currentHash === thRel || currentHash.startsWith(thRel + '/'))) {
+          targetRelToDock = thRel;
+          break;
+        }
+      }
+    }
+    if (!targetRelToDock) {
+      const openTopDir = sidebarNav.querySelector(':scope > div[id^="dir-"][style*="display: block"]');
+      if (openTopDir) {
+        targetRelToDock = openTopDir.getAttribute('data-rel') || '';
+      }
+    }
+
+    if (targetRelToDock) {
+      window.openActiveDock(targetRelToDock);
+    } else {
+      const dockContainer = document.getElementById('sidebarActiveDockContainer');
+      if (dockContainer) {
+        dockContainer.innerHTML = '';
+        dockContainer.style.display = 'none';
+      }
+    }
+  } else {
+    const dockContainer = document.getElementById('sidebarActiveDockContainer');
+    if (dockContainer) {
+      dockContainer.innerHTML = '';
+      dockContainer.style.display = 'none';
+    }
   }
 
-  const activeItem = sidebarNav.querySelector('.topic-item.active');
+  const activeItem = document.querySelector('#sidebarNav .topic-item.active, #sidebarActiveDockContainer .topic-item.active');
   if (activeItem) {
     setTimeout(() => {
       activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
