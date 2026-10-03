@@ -2390,8 +2390,12 @@ test('47. Responsive Multi-Row Header & Brand Fixed Column: weryfikacja pionoweg
   const brandCssMatch = styleCss.match(/\.header-brand\s*\{[^}]*?flex-direction:\s*column;/);
   assert.ok(brandCssMatch, '.header-brand musi mieć układ pionowy flex-direction: column');
 
-  const brandWidthMatch = styleCss.match(/\.header-brand\s*\{[^}]*?width:\s*124px;/);
-  assert.ok(brandWidthMatch, '.header-brand musi mieć stałą szerokość');
+  const brandWidthMatch = styleCss.match(/\.header-brand\s*\{[^}]*?width:\s*112px;/);
+  assert.ok(brandWidthMatch, '.header-brand musi mieć stałą szerokość 112px');
+
+  // Weryfikacja kompaktowego wyśrodkowania przycisku Przeskanuj
+  const rescanBtnMatch = styleCss.match(/\.btn-header-rescan\s*\{[^}]*?margin:\s*0 auto !important;/);
+  assert.ok(rescanBtnMatch, '.btn-header-rescan musi być zgrabnie wyśrodkowany pod logo (margin: 0 auto)');
 
   // 3. Weryfikacja zawijania kategorii głównych w nagłówku (flex-wrap: wrap)
   const wrapMatch = styleCss.match(/\.top-cat-nav\s*\{[^}]*?flex-wrap:\s*wrap;/);
