@@ -51,30 +51,69 @@
     .header {
       background-color: #000000;
       color: #ffffff;
-      height: 44px;
       min-height: 44px;
-      max-height: 44px;
+      height: auto;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 12px;
+      padding: 4px 12px;
       border-bottom: 1px solid #333333;
       flex-shrink: 0;
       z-index: 2000;
-      gap: 10px;
+      gap: 12px;
     }
-    .header-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-    .header-brand .logo { color: var(--sw-gold); font-size: 1.05rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+    .header-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      width: 124px;
+      min-width: 124px;
+      max-width: 124px;
+      flex-shrink: 0;
+      gap: 3px;
+      padding-right: 10px;
+      border-right: 1px solid #222226;
+      align-self: center;
+    }
+    .header-brand .logo {
+      color: var(--sw-gold);
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
 
-    .cat-nav-bar { display: flex; align-items: center; flex: 1; min-width: 0; overflow: visible !important; position: relative; }
+    .cat-nav-bar {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      overflow: visible !important;
+      position: relative;
+    }
     .cat-nav-bar::-webkit-scrollbar { display: none; }
 
     /* Top Header Category Dropdowns */
-    .top-cat-nav { display: flex; align-items: center; list-style: none; gap: 4px; position: relative; }
+    .top-cat-nav {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      list-style: none;
+      gap: 4px 6px;
+      position: relative;
+      padding: 2px 0;
+      margin: 0;
+      width: 100%;
+    }
     .top-cat-item { position: relative; flex-shrink: 0; }
     .top-cat-item.special-cat .top-cat-link { background: #1e3a8a; border-color: #3b82f6; color: #ffffff; font-weight: 700; cursor: pointer; }
     .top-cat-link {
-      color: #cccccc; text-decoration: none; font-size: 0.74rem; font-weight: 600; padding: 5px 9px;
+      color: #cccccc; text-decoration: none; font-size: 0.74rem; font-weight: 600; padding: 4px 8px;
       display: inline-flex; align-items: center; gap: 4px; border-radius: 3px; background: #111111; border: 1px solid #242424;
       white-space: nowrap; transition: all 0.12s ease; cursor: default; user-select: none;
     }
@@ -101,7 +140,13 @@
     .top-dropdown-item:hover { background-color: #222222; color: var(--sw-gold); }
 
     /* Right Action Bar */
-    .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      align-self: center;
+    }
     .search-box input {
       background: #111111; border: 1px solid #333333; color: #fff; padding: 4px 10px; font-size: 0.74rem; border-radius: 4px; width: 160px;
     }
@@ -110,12 +155,18 @@
       background: var(--sw-gold) !important;
       color: #000000 !important;
       font-weight: 700 !important;
-      font-size: 0.68rem !important;
-      padding: 3px 8px !important;
-      border-radius: 4px !important;
+      font-size: 0.65rem !important;
+      padding: 3px 6px !important;
+      border-radius: 3px !important;
       border: none !important;
       cursor: pointer !important;
       white-space: nowrap !important;
+      width: 100% !important;
+      text-align: center !important;
+      box-sizing: border-box !important;
+      line-height: 1.2 !important;
+      margin: 0 !important;
+      letter-spacing: 0.3px;
       transition: background 0.12s ease, box-shadow 0.12s ease;
     }
     .btn-header-rescan:hover {
@@ -136,8 +187,6 @@
     .layout-container {
       display: flex;
       flex: 1;
-      height: calc(100vh - 44px);
-      max-height: calc(100vh - 44px);
       min-height: 0;
       overflow: hidden;
     }

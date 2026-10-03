@@ -2368,6 +2368,41 @@ test('46. Full-Height Sidebar & Compact Layout: weryfikacja lewego paska na 100v
   assert.ok(depth0Match, 'Kafelki .topic-group-header.depth-0 muszą posiadać kompaktowy margines 3px');
 });
 
+test('47. Responsive Multi-Row Header & Brand Fixed Column: weryfikacja pionowego bloku marki z przyciskiem Przeskanuj pod logo oraz zawijania kategorii (flex-wrap)', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Sprawdzenie stałej kolumny marki .header-brand w index.html
+  const brandStart = indexHtml.indexOf('<div class="header-brand">');
+  const brandEnd = indexHtml.indexOf('</div>', brandStart);
+  assert.ok(brandStart !== -1 && brandEnd !== -1, 'Brak .header-brand w index.html');
+  const brandSnippet = indexHtml.substring(brandStart, brandEnd);
+  assert.equal(brandSnippet.includes('class="logo"'), true, 'Logo KnowOps Wiki musi znajdować się w .header-brand');
+  assert.equal(brandSnippet.includes('id="btnHeaderRescan"'), true, 'Przycisk Przeskanuj musi znajdować się w .header-brand pod logo');
+
+  // Weryfikacja, że logo jest przed przyciskiem Przeskanuj
+  const logoPos = brandSnippet.indexOf('class="logo"');
+  const rescanPos = brandSnippet.indexOf('id="btnHeaderRescan"');
+  assert.equal(logoPos < rescanPos, true, 'Logo musi znajdować się nad przyciskiem Przeskanuj');
+
+  // 2. Weryfikacja reguł CSS dla stałej szerokości i układu kolumnowego bloku marki
+  assert.equal(styleCss.includes('.header-brand'), true);
+  const brandCssMatch = styleCss.match(/\.header-brand\s*\{[^}]*?flex-direction:\s*column;/);
+  assert.ok(brandCssMatch, '.header-brand musi mieć układ pionowy flex-direction: column');
+
+  const brandWidthMatch = styleCss.match(/\.header-brand\s*\{[^}]*?width:\s*124px;/);
+  assert.ok(brandWidthMatch, '.header-brand musi mieć stałą szerokość');
+
+  // 3. Weryfikacja zawijania kategorii głównych w nagłówku (flex-wrap: wrap)
+  const wrapMatch = styleCss.match(/\.top-cat-nav\s*\{[^}]*?flex-wrap:\s*wrap;/);
+  assert.ok(wrapMatch, '.top-cat-nav musi posiadać flex-wrap: wrap dla responsywnego przechodzenia poziom niżej');
+
+  // 4. Weryfikacja elastycznej wysokości nagłówka i layout-container
+  const headerMinHeightMatch = styleCss.match(/\.header\s*\{[^}]*?min-height:\s*44px;/);
+  assert.ok(headerMinHeightMatch, '.header musi posiadać min-height: 44px');
+  assert.equal(styleCss.includes('max-height: 44px;'), false, '.header nie może blokować wysokości sztywnym max-height: 44px');
+});
+
 
 
 
