@@ -2171,8 +2171,8 @@ async function loadArticle(articlePath) {
         <div style="display:flex; align-items:center;"><span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span></div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
           <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
-          <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ OFFLINE</button>
-          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ / PDF</button>
+          <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ</button>
+          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ</button>
           <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ / DZIAŁ</button>
           <button class="btn-action" style="background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openMovePageModal()">PRZENIEŚ DOKUMENT</button>
           <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
@@ -4501,7 +4501,7 @@ window.renderMovePageFolderList = function(folders, selectedRelPath = '') {
 
 window.onMovePageFolderInput = function(query) {
   const q = (query || '').trim().toLowerCase();
-  const folderInput = document.getElementById('movePageTargetFolderInput');
+  const folderInput = document.getElementById('movePageFolderInput') || document.getElementById('movePageTargetFolderInput');
   const currentVal = folderInput ? folderInput.value.trim() : '';
 
   const targetSelect = document.getElementById('movePageTargetSelect');
@@ -4522,7 +4522,7 @@ window.onMovePageFolderInput = function(query) {
 window.filterMovePageFolders = window.onMovePageFolderInput;
 
 window.selectMovePageFolder = function(relPath) {
-  const folderInput = document.getElementById('movePageTargetFolderInput');
+  const folderInput = document.getElementById('movePageFolderInput') || document.getElementById('movePageTargetFolderInput');
   const targetSelect = document.getElementById('movePageTargetSelect');
   if (folderInput) folderInput.value = relPath;
   if (targetSelect) targetSelect.value = relPath;
@@ -4538,9 +4538,26 @@ window.selectMovePageFolder = function(relPath) {
   });
 };
 
+window.resetMovePageToCurrentFolder = function() {
+  const currentPath = decodeURIComponent(window.location.hash.replace('#/', '')).trim();
+  const lastSlash = currentPath.lastIndexOf('/');
+  const initialTarget = lastSlash !== -1 ? currentPath.substring(0, lastSlash) : '';
+  const folderInput = document.getElementById('movePageFolderInput') || document.getElementById('movePageTargetFolderInput');
+  if (folderInput) {
+    folderInput.value = initialTarget;
+  }
+  const targetSelect = document.getElementById('movePageTargetSelect');
+  if (targetSelect) targetSelect.value = initialTarget;
+  window.renderMovePageFolderList(movePageAllFolders, initialTarget);
+  setTimeout(() => {
+    const selectedEl = document.querySelector('#movePageFolderList .move-folder-item.selected');
+    if (selectedEl) selectedEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, 50);
+};
+
 window.openMovePageModal = function() {
   const modal = document.getElementById('movePageModalOverlay');
-  const folderInput = document.getElementById('movePageTargetFolderInput');
+  const folderInput = document.getElementById('movePageFolderInput') || document.getElementById('movePageTargetFolderInput');
   const parentSelect = document.getElementById('movePageTargetSelect');
   const nameInput = document.getElementById('movePageNameInput');
   const currentPathInput = document.getElementById('movePageCurrentPath');
@@ -4603,6 +4620,21 @@ window.openMovePageModal = function() {
   window.renderMovePageFolderList(movePageAllFolders, initialTarget);
 
   modal.style.display = 'flex';
+  setTimeout(() => {
+    const selectedEl = document.querySelector('#movePageFolderList .move-folder-item.selected');
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    if (nameInput) {
+      nameInput.focus();
+      const dotIdx = nameInput.value.lastIndexOf('.');
+      if (dotIdx > 0) {
+        nameInput.setSelectionRange(0, dotIdx);
+      } else {
+        nameInput.select();
+      }
+    }
+  }, 50);
 };
 
 window.closeMovePageModal = function() {
@@ -4612,7 +4644,7 @@ window.closeMovePageModal = function() {
 
 window.submitMovePage = async function() {
   const sourceRelPath = document.getElementById('movePageCurrentPath').value.trim();
-  const folderInput = document.getElementById('movePageTargetFolderInput');
+  const folderInput = document.getElementById('movePageFolderInput') || document.getElementById('movePageTargetFolderInput');
   const parentSelect = document.getElementById('movePageTargetSelect');
   let targetCategoryRel = (folderInput ? folderInput.value : parentSelect?.value || '').trim();
   targetCategoryRel = targetCategoryRel.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');

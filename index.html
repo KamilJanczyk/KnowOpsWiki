@@ -369,7 +369,10 @@
         </div>
         <div style="margin-bottom:12px;">
           <label class="modal-label">Nowa lokalizacja (Folder docelowy) *</label>
-          <div style="font-size:0.7rem; color:#888; margin-bottom:6px;">Wpisz lub edytuj ścieżkę z klawiatury albo kliknij podpowiedź z listy poniżej:</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="font-size:0.7rem; color:#888;">Wpisz lub edytuj ścieżkę z klawiatury albo kliknij podpowiedź z listy poniżej:</div>
+            <button type="button" class="btn-secondary" style="font-size:0.65rem; padding:2px 8px; cursor:pointer;" onclick="window.resetMovePageToCurrentFolder()" title="Przywróć bieżący folder dokumentu">Bieżący folder</button>
+          </div>
           <div style="position:relative; margin-bottom:6px;">
             <input type="text" id="movePageFolderInput" placeholder="np. 04_Proxmox/01_Proxmox_VE/99_Studium_przypadku" class="modal-input" style="width:100%; padding:8px 10px; font-size:0.82rem; background:#000; border:1px solid #444; color:#ffffff; font-family:monospace;" oninput="window.onMovePageFolderInput(this.value)">
           </div>
@@ -384,7 +387,7 @@
         </div>
         <div style="margin-bottom:12px;">
           <label class="modal-label">Nazwa pliku (opcjonalnie zmień) *</label>
-          <input type="text" id="movePageNameInput" class="modal-input" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px; border-radius:4px; font-size:0.8rem; outline:none;">
+          <input type="text" id="movePageNameInput" class="modal-input" style="width:100%; background:#000; border:1px solid #444; color:#fff; padding:8px; border-radius:4px; font-size:0.8rem; outline:none;" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitMovePage();}">
         </div>
       </div>
       <div class="modal-footer">

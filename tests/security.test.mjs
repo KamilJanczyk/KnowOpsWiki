@@ -2407,6 +2407,31 @@ test('47. Responsive Multi-Row Header & Brand Fixed Column: weryfikacja pionoweg
   assert.equal(styleCss.includes('max-height: 44px;'), false, '.header nie może blokować wysokości sztywnym max-height: 44px');
 });
 
+test('48. Compact Pinned Tabs, Short Action Labels & Move Page Path Auto-Populate: weryfikacja zmniejszenia zakładek, skróconych nazw przycisków i automatycznego podlinkowania ścieżki', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja kompaktowej wysokości belki i zakładek
+  const tabsBarMatch = styleCss.match(/\.doc-tabs-bar\s*\{[^}]*?height:\s*32px;/);
+  assert.ok(tabsBarMatch, '.doc-tabs-bar musi mieć kompaktową wysokość 32px');
+
+  const docTabMatch = styleCss.match(/\.doc-tab\s*\{[^}]*?padding:\s*2px 7px;/);
+  assert.ok(docTabMatch, '.doc-tab musi mieć niski profil padding: 2px 7px');
+
+  const docTabMaxWidth = styleCss.match(/\.doc-tab\s*\{[^}]*?max-width:\s*170px;/);
+  assert.ok(docTabMaxWidth, '.doc-tab musi mieć max-width: 170px');
+
+  // 2. Weryfikacja skróconych etykiet przycisków w pasku akcji
+  assert.equal(appJs.includes('>EKSPORTUJ</button>'), true, 'Przycisk musi mieć etykietę EKSPORTUJ');
+  assert.equal(appJs.includes('>DRUKUJ</button>'), true, 'Przycisk musi mieć etykietę DRUKUJ');
+
+  // 3. Weryfikacja automatycznego podlinkowania ścieżki w oknie przenoszenia
+  assert.equal(appJs.includes("document.getElementById('movePageFolderInput')"), true, 'openMovePageModal musi poprawnie mapować pole movePageFolderInput');
+  assert.equal(appJs.includes('window.resetMovePageToCurrentFolder'), true, 'Wymagana funkcja resetMovePageToCurrentFolder w app.js');
+  assert.equal(indexHtml.includes('resetMovePageToCurrentFolder()'), true, 'Przycisk resetu bieżącego folderu w index.html');
+});
+
 
 
 

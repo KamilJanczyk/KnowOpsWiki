@@ -560,12 +560,12 @@
     .doc-tabs-bar {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       overflow-x: auto;
       overflow-y: hidden;
-      padding: 6px 10px;
-      min-height: 42px;
-      height: 42px;
+      padding: 3px 8px;
+      min-height: 32px;
+      height: 32px;
       background: #18181b;
       border: none;
       border-top-left-radius: 6px;
@@ -579,7 +579,7 @@
       border-radius: 6px;
     }
     .doc-tabs-bar::-webkit-scrollbar {
-      height: 4px;
+      height: 3px;
     }
     .doc-tabs-bar::-webkit-scrollbar-thumb {
       background: #52525b;
@@ -591,19 +591,20 @@
     .doc-tab {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       background: #27272a;
       border: 1px solid #3f3f46;
-      border-radius: 4px;
-      padding: 5px 12px;
-      font-size: 0.8rem;
+      border-radius: 3px;
+      padding: 2px 7px;
+      font-size: 0.71rem;
       color: #e4e4e7;
       cursor: pointer;
       user-select: none;
       white-space: nowrap;
       transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-      max-width: 220px;
+      max-width: 170px;
       flex-shrink: 0;
+      line-height: 1.2;
     }
     .doc-tab:hover {
       background: #323238;
@@ -615,28 +616,29 @@
       border: 1px solid var(--sw-gold);
       color: #ffffff;
       font-weight: 700;
-      box-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
+      box-shadow: 0 0 8px rgba(250, 204, 21, 0.25);
     }
     .doc-tab-title {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       flex: 1;
+      font-size: 0.71rem;
     }
     .doc-tab-close {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 16px;
-      height: 16px;
+      width: 13px;
+      height: 13px;
       background: rgba(255, 255, 255, 0.1);
       border: none;
       color: #a1a1aa;
-      font-size: 0.9rem;
+      font-size: 0.7rem;
       font-weight: 700;
       line-height: 1;
       cursor: pointer;
-      border-radius: 3px;
+      border-radius: 2px;
       padding: 0;
       margin-left: 2px;
       transition: color 0.15s ease, background 0.15s ease;
@@ -646,7 +648,7 @@
       background: #ef4444;
     }
     .doc-tabs-empty-hint {
-      font-size: 0.75rem;
+      font-size: 0.70rem;
       color: #a1a1aa;
       padding: 0 4px;
       white-space: nowrap;
@@ -657,14 +659,15 @@
       gap: 4px;
       background: #27272a;
       border: 1px dashed #71717a;
-      border-radius: 4px;
-      padding: 5px 12px;
-      font-size: 0.75rem;
+      border-radius: 3px;
+      padding: 2px 8px;
+      font-size: 0.70rem;
       font-weight: 600;
       color: var(--sw-gold);
       cursor: pointer;
       white-space: nowrap;
       flex-shrink: 0;
+      line-height: 1.2;
       transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     .btn-add-current-tab:hover {
@@ -2198,16 +2201,17 @@
     .btn-split-toggle {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       background: #27272a;
       border: 1px solid #3f3f46;
-      border-radius: 4px;
-      padding: 5px 10px;
-      font-size: 0.78rem;
+      border-radius: 3px;
+      padding: 2px 7px;
+      font-size: 0.70rem;
       color: #e4e4e7;
       cursor: pointer;
       margin-left: auto;
       white-space: nowrap;
+      line-height: 1.2;
       transition: all 0.15s ease;
       user-select: none;
     }
