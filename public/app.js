@@ -2036,21 +2036,25 @@ function addCopyButtons(container = null) {
   });
 }
 
+// Usunięcie nagłówka YAML frontmatter przed parsowaniem i kopiowaniem
+function stripMarkdownFrontmatter(text) {
+  if (!text || typeof text !== 'string') return '';
+  const trimmed = text.replace(/^\uFEFF/, '').trimStart();
+  if (trimmed.startsWith('---')) {
+    const secondDash = trimmed.indexOf('---', 3);
+    if (secondDash !== -1) {
+      return trimmed.substring(secondDash + 3).replace(/^(\r?\n)+/, '');
+    }
+  }
+  return text;
+}
+window.stripMarkdownFrontmatter = stripMarkdownFrontmatter;
+
 // Multi-tiered Safe Markdown Parser
 function parseMarkdown(text) {
   if (!text) return '';
 
-  let normalizedText = text;
-  if (typeof normalizedText === 'string') {
-    // Usunięcie nagłówka YAML frontmatter przed parsowaniem i renderowaniem HTML
-    const trimmed = normalizedText.replace(/^\uFEFF/, '').trimStart();
-    if (trimmed.startsWith('---')) {
-      const secondDash = trimmed.indexOf('---', 3);
-      if (secondDash !== -1) {
-        normalizedText = trimmed.substring(secondDash + 3).replace(/^(\r?\n)+/, '');
-      }
-    }
-  }
+  let normalizedText = stripMarkdownFrontmatter(text);
 
   let html = '';
   try {
@@ -2326,6 +2330,7 @@ window.copyCurrentArticleMarkdown = async function(btn) {
       const contentEl = document.querySelector('#articleContentArea .markdown-body');
       if (contentEl) text = contentEl.innerText || '';
     }
+    text = stripMarkdownFrontmatter(text);
     if (!text) {
       if (btn) btn.textContent = 'Brak treści';
       return;

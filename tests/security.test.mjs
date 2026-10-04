@@ -2567,9 +2567,10 @@ test('51. Article Verification Status Engine: weryfikacja statusów procedur (te
   assert.equal(updatedC.includes('status: untested'), false);
   assert.equal(updatedC.includes('tags: [linux]'), true);
 
-  // 7. Weryfikacja odcinania YAML frontmatter w silniku parseMarkdown (ochrona treści przed wyciekiem statusu)
-  assert.equal(appJs.includes("const trimmed = normalizedText.replace(/^\\uFEFF/, '').trimStart();"), true, 'parseMarkdown musi trimować i sprawdzać frontmatter');
-  assert.equal(appJs.includes("normalizedText = trimmed.substring(secondDash + 3).replace(/^(\\r?\\n)+/, '');"), true, 'parseMarkdown musi odcinać blok YAML frontmatter');
+  // 7. Weryfikacja odcinania YAML frontmatter w silniku parseMarkdown i funkcji kopiowania (ochrona treści przed wyciekiem statusu)
+  assert.equal(appJs.includes('function stripMarkdownFrontmatter(text)'), true, 'Brak dedykowanej funkcji stripMarkdownFrontmatter w app.js');
+  assert.equal(appJs.includes('let normalizedText = stripMarkdownFrontmatter(text);'), true, 'parseMarkdown musi wywoływać stripMarkdownFrontmatter');
+  assert.equal(appJs.includes('text = stripMarkdownFrontmatter(text);'), true, 'copyCurrentArticleMarkdown musi wywoływać stripMarkdownFrontmatter');
 
   function stripFrontmatter(text) {
     if (!text || typeof text !== 'string') return '';
@@ -2587,6 +2588,11 @@ test('51. Article Verification Status Engine: weryfikacja statusów procedur (te
   const stripped = stripFrontmatter(rawDocWithStatus);
   assert.equal(stripped.includes('status: untested'), false, 'Napis status: untested nie może znajdować się w treści dokumentu');
   assert.equal(stripped.startsWith('# Moja Procedura'), true, 'Treść właściwa dokumentu musi zaczynać się bez nagłówka YAML');
+
+  const rawDocWithPartial = '---\nstatus: partial\n---\n\n# Procedura\nTreść';
+  const strippedPartial = stripFrontmatter(rawDocWithPartial);
+  assert.equal(strippedPartial.includes('status: partial'), false, 'Napis status: partial nie może być kopiowany do schowka');
+  assert.equal(strippedPartial.startsWith('# Procedura'), true);
 });
 
 
