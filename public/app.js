@@ -2040,7 +2040,18 @@ function addCopyButtons(container = null) {
 function parseMarkdown(text) {
   if (!text) return '';
 
-  const normalizedText = text;
+  let normalizedText = text;
+  if (typeof normalizedText === 'string') {
+    // Usunięcie nagłówka YAML frontmatter przed parsowaniem i renderowaniem HTML
+    const trimmed = normalizedText.replace(/^\uFEFF/, '').trimStart();
+    if (trimmed.startsWith('---')) {
+      const secondDash = trimmed.indexOf('---', 3);
+      if (secondDash !== -1) {
+        normalizedText = trimmed.substring(secondDash + 3).replace(/^(\r?\n)+/, '');
+      }
+    }
+  }
+
   let html = '';
   try {
     if (typeof window.markdownit !== 'undefined') {
@@ -2069,7 +2080,7 @@ function parseMarkdown(text) {
   }
 
   if (!html) {
-    let cleanText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let cleanText = normalizedText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     cleanText = cleanText.replace(/^### (.*$)/gim, '<h3>$1</h3>');
     cleanText = cleanText.replace(/^## (.*$)/gim, '<h2>$1</h2>');
     cleanText = cleanText.replace(/^# (.*$)/gim, '<h1>$1</h1>');
@@ -2117,6 +2128,7 @@ function parseMarkdown(text) {
 
   return html;
 }
+window.parseMarkdown = parseMarkdown;
 
 // Load Article with robust fallback
 let currentArticlePath = '';

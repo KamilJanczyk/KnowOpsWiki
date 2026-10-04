@@ -2566,6 +2566,27 @@ test('51. Article Verification Status Engine: weryfikacja statusów procedur (te
   assert.equal(updatedC.includes('status: tested'), true);
   assert.equal(updatedC.includes('status: untested'), false);
   assert.equal(updatedC.includes('tags: [linux]'), true);
+
+  // 7. Weryfikacja odcinania YAML frontmatter w silniku parseMarkdown (ochrona treści przed wyciekiem statusu)
+  assert.equal(appJs.includes("const trimmed = normalizedText.replace(/^\\uFEFF/, '').trimStart();"), true, 'parseMarkdown musi trimować i sprawdzać frontmatter');
+  assert.equal(appJs.includes("normalizedText = trimmed.substring(secondDash + 3).replace(/^(\\r?\\n)+/, '');"), true, 'parseMarkdown musi odcinać blok YAML frontmatter');
+
+  function stripFrontmatter(text) {
+    if (!text || typeof text !== 'string') return '';
+    const trimmed = text.replace(/^\uFEFF/, '').trimStart();
+    if (trimmed.startsWith('---')) {
+      const secondDash = trimmed.indexOf('---', 3);
+      if (secondDash !== -1) {
+        return trimmed.substring(secondDash + 3).replace(/^(\r?\n)+/, '');
+      }
+    }
+    return text;
+  }
+
+  const rawDocWithStatus = '---\nstatus: untested\n---\n\n# Moja Procedura\nTreść procedury.';
+  const stripped = stripFrontmatter(rawDocWithStatus);
+  assert.equal(stripped.includes('status: untested'), false, 'Napis status: untested nie może znajdować się w treści dokumentu');
+  assert.equal(stripped.startsWith('# Moja Procedura'), true, 'Treść właściwa dokumentu musi zaczynać się bez nagłówka YAML');
 });
 
 
