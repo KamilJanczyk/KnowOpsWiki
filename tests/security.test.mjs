@@ -2593,6 +2593,15 @@ test('51. Article Verification Status Engine: weryfikacja statusów procedur (te
   const strippedPartial = stripFrontmatter(rawDocWithPartial);
   assert.equal(strippedPartial.includes('status: partial'), false, 'Napis status: partial nie może być kopiowany do schowka');
   assert.equal(strippedPartial.startsWith('# Procedura'), true);
+
+  // 8. Weryfikacja centralnego rejestru metadanych data/article_statuses.json (brak mutacji plików Markdown)
+  assert.equal(serverMjs.includes('STATUSES_FILE = path.join(DATA_DIR, \'article_statuses.json\')'), true, 'server.mjs musi definiować STATUSES_FILE');
+  assert.equal(serverMjs.includes('saveArticleStatuses(statuses)'), true, 'server.mjs musi zapisywać statusy w rejestrze JSON');
+  assert.equal(buildNavMjs.includes('article_statuses.json'), true, 'build_navigation.mjs musi odczytywać rejestr statusów');
+  assert.equal(buildNavMjs.includes('extractArticleStatus'), true, 'build_navigation.mjs musi eksportować extractArticleStatus');
+
+  const testStatusesPath = path.resolve('data/article_statuses.json');
+  assert.equal(fs.existsSync(testStatusesPath), true, 'Rejestr data/article_statuses.json musi istnieć');
 });
 
 

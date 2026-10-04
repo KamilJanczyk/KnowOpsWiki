@@ -88,7 +88,32 @@ export function extractMarkdownStatus(filePath) {
   }
 }
 
-function scanSubcategoryFiles(subPath, baseRel) {
+const dataDir = path.resolve('data');
+const statusesFile = path.join(dataDir, 'article_statuses.json');
+
+export function getArticleStatuses() {
+  try {
+    if (fs.existsSync(statusesFile)) {
+      return JSON.parse(fs.readFileSync(statusesFile, 'utf8'));
+    }
+  } catch (e) {
+    // ignoruj błąd odczytu
+  }
+  return {};
+}
+
+export function extractArticleStatus(filePath, relPath = '', statuses = null) {
+  if (relPath) {
+    const norm = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
+    const map = statuses || getArticleStatuses();
+    if (map && typeof map[norm] === 'string') {
+      return map[norm];
+    }
+  }
+  return extractMarkdownStatus(filePath);
+}
+
+function scanSubcategoryFiles(subPath, baseRel, statuses = null) {
   const files = [];
   function recurse(currentPath, currentRel) {
     if (!fs.existsSync(currentPath)) return;
@@ -110,7 +135,7 @@ function scanSubcategoryFiles(subPath, baseRel) {
           title: cleanTitle(entry.name),
           relPath: rel,
           tags: extractMarkdownTags(full),
-          status: extractMarkdownStatus(full)
+          status: extractArticleStatus(full, rel, statuses)
         });
       }
     }
@@ -119,7 +144,7 @@ function scanSubcategoryFiles(subPath, baseRel) {
   return files;
 }
 
-function scanDirectoryRecursive(dirPath, baseRel) {
+function scanDirectoryRecursive(dirPath, baseRel, statuses = null) {
   if (!fs.existsSync(dirPath)) return [];
   const fileItems = [];
   const dirItems = [];
@@ -135,7 +160,7 @@ function scanDirectoryRecursive(dirPath, baseRel) {
     const rel = path.posix.join(baseRel, entry.name);
 
     if (entry.isDirectory()) {
-      const subItems = scanDirectoryRecursive(full, rel);
+      const subItems = scanDirectoryRecursive(full, rel, statuses);
       dirItems.push({
         type: 'directory',
         title: cleanTitle(entry.name),
@@ -148,7 +173,7 @@ function scanDirectoryRecursive(dirPath, baseRel) {
         title: cleanTitle(entry.name),
         relPath: rel,
         tags: extractMarkdownTags(full),
-        status: extractMarkdownStatus(full)
+        status: extractArticleStatus(full, rel, statuses)
       });
     }
   }
@@ -157,6 +182,7 @@ function scanDirectoryRecursive(dirPath, baseRel) {
 }
 
 export function generateNavigation() {
+  const statuses = getArticleStatuses();
   const availableCategories = [
     { id: 'kanban_board', title: 'Pulpit', subcategories: [] }
   ];
@@ -176,8 +202,8 @@ export function generateNavigation() {
       for (const subDir of subDirs) {
         const subPath = path.join(catPath, subDir.name);
         const subRel = path.posix.join(catDir.name, subDir.name);
-        const files = scanSubcategoryFiles(subPath, subRel);
-        const items = scanDirectoryRecursive(subPath, subRel);
+        const files = scanSubcategoryFiles(subPath, subRel, statuses);
+        const items = scanDirectoryRecursive(subPath, subRel, statuses);
         subcategories.push({
           id: subDir.name,
           title: cleanTitle(subDir.name),
@@ -192,11 +218,12 @@ export function generateNavigation() {
         .filter(f => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('.'))
         .map(f => {
           const fullPath = path.join(catPath, f.name);
+          const fRel = path.posix.join(catDir.name, f.name);
           return {
             title: cleanTitle(f.name),
-            relPath: path.posix.join(catDir.name, f.name),
+            relPath: fRel,
             tags: extractMarkdownTags(fullPath),
-            status: extractMarkdownStatus(fullPath)
+            status: extractArticleStatus(fullPath, fRel, statuses)
           };
         });
 

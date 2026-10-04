@@ -111,6 +111,31 @@ export function getTrashManifest() {
 
 const DATA_DIR = path.resolve('data');
 const OVERTIME_FILE = path.join(DATA_DIR, 'overtime.json');
+const STATUSES_FILE = path.join(DATA_DIR, 'article_statuses.json');
+
+export function getArticleStatuses() {
+  if (fs.existsSync(STATUSES_FILE)) {
+    try {
+      return JSON.parse(fs.readFileSync(STATUSES_FILE, 'utf8'));
+    } catch (e) {
+      console.error('[Wiki API] Błąd odczytu article_statuses.json:', e.message);
+    }
+  }
+  return {};
+}
+
+export function saveArticleStatuses(statuses) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    atomicWriteFile(STATUSES_FILE, JSON.stringify(statuses, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('[Wiki API] Błąd zapisu article_statuses.json:', e.message);
+    return false;
+  }
+}
 
 export function getOvertimeData() {
   if (fs.existsSync(OVERTIME_FILE)) {
@@ -961,7 +986,9 @@ const server = http.createServer(async (req, res) => {
 
       const stat = fs.statSync(targetPath);
       const content = fs.readFileSync(targetPath, 'utf8');
-      const status = extractMarkdownStatus(targetPath);
+      const normRel = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
+      const statuses = getArticleStatuses();
+      const status = statuses[normRel] || extractMarkdownStatus(targetPath);
       return sendJson(200, { relPath, content, mtime: stat.mtime.toISOString(), status });
     }
 
@@ -1064,6 +1091,15 @@ const server = http.createServer(async (req, res) => {
           console.log(`[Wiki API] Usunięto pusty podkatalog: ${parentDir}`);
         }
       }
+
+      try {
+        const normRel = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
+        const statuses = getArticleStatuses();
+        if (statuses[normRel]) {
+          delete statuses[normRel];
+          saveArticleStatuses(statuses);
+        }
+      } catch (e) {}
 
       await rebuildWiki();
       rebuildSearchCache();
@@ -1707,6 +1743,15 @@ const server = http.createServer(async (req, res) => {
       fs.renameSync(sourcePath, targetPath);
       console.log(`[Wiki API] Zmieniono nazwę pliku: ${sanitizedOld} -> ${newRelPath}`);
 
+      try {
+        const statuses = getArticleStatuses();
+        if (statuses[sanitizedOld]) {
+          statuses[newRelPath] = statuses[sanitizedOld];
+          delete statuses[sanitizedOld];
+          saveArticleStatuses(statuses);
+        }
+      } catch (e) {}
+
       rebuildWiki().then(() => {
         rebuildSearchCache();
         isApiSaving = false;
@@ -1749,28 +1794,30 @@ const server = http.createServer(async (req, res) => {
       }
 
       try {
-        const content = fs.readFileSync(targetPath, 'utf8');
-        let newContent = '';
-
-        if (content.startsWith('---')) {
-          const secondDash = content.indexOf('---', 3);
-          if (secondDash !== -1) {
-            let frontmatter = content.substring(3, secondDash);
-            const rest = content.substring(secondDash + 3);
-            if (/status:\s*[a-zA-Z_-]+/i.test(frontmatter)) {
-              frontmatter = frontmatter.replace(/status:\s*[a-zA-Z_-]+/i, `status: ${normStatus}`);
-            } else {
-              frontmatter = `\nstatus: ${normStatus}` + frontmatter;
-            }
-            newContent = `---${frontmatter}---${rest}`;
-          } else {
-            newContent = `---\nstatus: ${normStatus}\n---\n\n${content}`;
-          }
+        const statuses = getArticleStatuses();
+        if (normStatus === 'untested') {
+          delete statuses[sanitizedRelPath];
         } else {
-          newContent = `---\nstatus: ${normStatus}\n---\n\n${content}`;
+          statuses[sanitizedRelPath] = normStatus;
         }
+        saveArticleStatuses(statuses);
 
-        fs.writeFileSync(targetPath, newContent, 'utf8');
+        // Jeśli plik posiada jeszcze stary nagłówek frontmatter ze statusem, oczyść go z pliku
+        try {
+          const content = fs.readFileSync(targetPath, 'utf8');
+          if (content.startsWith('---')) {
+            const secondDash = content.indexOf('---', 3);
+            if (secondDash !== -1) {
+              let fm = content.substring(3, secondDash);
+              const rest = content.substring(secondDash + 3);
+              if (/status:\s*[a-zA-Z_-]+/i.test(fm)) {
+                fm = fm.replace(/status:\s*[a-zA-Z_-]+\r?\n?/gi, '').trim();
+                const cleanContent = fm ? `--- \n${fm}\n---${rest}` : rest.replace(/^(\r?\n)+/, '');
+                fs.writeFileSync(targetPath, cleanContent, 'utf8');
+              }
+            }
+          }
+        } catch (cleanErr) {}
 
         // Odświeżenie nawigacji
         try {
@@ -1781,12 +1828,12 @@ const server = http.createServer(async (req, res) => {
 
         return sendJson(200, {
           success: true,
-          message: 'Status artykułu został pomyślnie zaktualizowany.',
+          message: 'Status artykułu został pomyślnie zaktualizowany w rejestrze metadanych.',
           relPath: sanitizedRelPath,
           status: normStatus
         });
       } catch (err) {
-        return sendJson(500, { error: 'Błąd podczas zapisu pliku: ' + err.message });
+        return sendJson(500, { error: 'Błąd podczas zapisu statusu: ' + err.message });
       }
     }
 

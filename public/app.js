@@ -5647,6 +5647,19 @@ async function openEditorModal(targetPath) {
       statusSelectEl.value = st;
     }
 
+    let editorInitialText = rawText;
+    if (editorInitialText && editorInitialText.startsWith('---')) {
+      const secondDash = editorInitialText.indexOf('---', 3);
+      if (secondDash !== -1) {
+        let fm = editorInitialText.substring(3, secondDash);
+        const rest = editorInitialText.substring(secondDash + 3);
+        if (/status:\s*[a-zA-Z_-]+/i.test(fm)) {
+          fm = fm.replace(/status:\s*[a-zA-Z_-]+\r?\n?/gi, '').trim();
+          editorInitialText = fm ? `---\n${fm}\n---${rest}` : rest.replace(/^(\r?\n)+/, '');
+        }
+      }
+    }
+
     if (modalTextareaEl) {
       // Sprawdź czy istnieje nowszy szkic w localStorage
       const draftKey = `knowops_draft_${relPath}`;
@@ -5659,7 +5672,7 @@ async function openEditorModal(targetPath) {
           statusIndicator.style.color = 'var(--sw-gold)';
         }
       } else {
-        modalTextareaEl.value = rawText;
+        modalTextareaEl.value = editorInitialText;
       }
       setupImageUploadHandlers(modalTextareaEl);
     }
@@ -5754,25 +5767,35 @@ async function saveCurrentArticleFromModal(silent = false) {
   let newContent = document.getElementById('editorTextarea').value;
   newContent = newContent.replace(/[´’‘]/g, '`');
 
+  // Jeśli w treści edytora znajduje się jeszcze stary wpis status: w nagłówku YAML, oczyść go
+  if (newContent.startsWith('---')) {
+    const secondDash = newContent.indexOf('---', 3);
+    if (secondDash !== -1) {
+      let frontmatter = newContent.substring(3, secondDash);
+      const rest = newContent.substring(secondDash + 3);
+      if (/status:\s*[a-zA-Z_-]+/i.test(frontmatter)) {
+        frontmatter = frontmatter.replace(/status:\s*[a-zA-Z_-]+\r?\n?/gi, '').trim();
+        newContent = frontmatter ? `---\n${frontmatter}\n---${rest}` : rest.replace(/^(\r?\n)+/, '');
+      }
+    }
+  }
+
   const statusSelectEl = document.getElementById('editorModalStatusSelect');
   if (statusSelectEl) {
     const selStatus = statusSelectEl.value || 'untested';
-    if (newContent.startsWith('---')) {
-      const secondDash = newContent.indexOf('---', 3);
-      if (secondDash !== -1) {
-        let frontmatter = newContent.substring(3, secondDash);
-        const rest = newContent.substring(secondDash + 3);
-        if (/status:\s*[a-zA-Z_-]+/i.test(frontmatter)) {
-          frontmatter = frontmatter.replace(/status:\s*[a-zA-Z_-]+/i, `status: ${selStatus}`);
-        } else {
-          frontmatter = `\nstatus: ${selStatus}` + frontmatter;
-        }
-        newContent = `---${frontmatter}---${rest}`;
-      } else {
-        newContent = `---\nstatus: ${selStatus}\n---\n\n${newContent}`;
+    if (selStatus !== window.currentArticleStatus) {
+      try {
+        await fetch('/api/set-article-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+          },
+          body: JSON.stringify({ relPath: currentEditingPath, status: selStatus })
+        });
+      } catch (stErr) {
+        console.warn('[Wiki] Błąd zapisu statusu w rejestrze metadanych:', stErr);
       }
-    } else {
-      newContent = `---\nstatus: ${selStatus}\n---\n\n${newContent}`;
     }
     window.currentArticleStatus = selStatus;
   }
