@@ -808,44 +808,47 @@
       border-color: #ef4444;
       color: #ef4444;
     }
-    .doc-tab.doc-tab-unpinned,
-    .doc-tab.doc-tab-dynamic {
-      border-style: dashed;
-      border-color: #52525b;
-      opacity: 0.95;
-      background: #202023;
-    }
-    .doc-tab.doc-tab-unpinned:hover,
-    .doc-tab.doc-tab-dynamic:hover {
-      border-color: #71717a;
-      opacity: 1;
-    }
-    .doc-tab.doc-tab-unpinned.active,
-    .doc-tab.doc-tab-dynamic.active {
-      border-style: dashed;
-      border-color: var(--sw-gold);
-      background: #262419;
-      opacity: 1;
-    }
-    .doc-tab-pin-action {
+    .btn-doc-return {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      background: rgba(250, 204, 21, 0.15);
-      border: 1px solid var(--sw-gold);
-      color: var(--sw-gold);
-      font-size: 0.65rem;
-      font-weight: 700;
-      padding: 1px 5px;
-      border-radius: 2px;
+      gap: 6px;
+      background: #182230;
+      border: 1px solid #38bdf8;
+      border-radius: 3px;
+      padding: 2px 8px;
+      font-size: 0.70rem;
+      font-weight: 600;
+      color: #38bdf8;
       cursor: pointer;
-      margin-left: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
       line-height: 1.2;
-      transition: background 0.15s ease, color 0.15s ease;
+      max-width: 240px;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
-    .doc-tab-pin-action:hover {
-      background: var(--sw-gold);
-      color: #000000;
+    .btn-doc-return:hover {
+      background: #1e293b;
+      border-color: #7dd3fc;
+      color: #ffffff;
+    }
+    .btn-doc-return span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .btn-doc-return-dismiss {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #94a3b8;
+      padding: 0 2px;
+      margin-left: 2px;
+      cursor: pointer;
+      border-radius: 2px;
+      line-height: 1;
+    }
+    .btn-doc-return-dismiss:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.15);
     }
     .doc-tabs-separator {
       display: inline-block;

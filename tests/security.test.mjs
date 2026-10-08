@@ -2604,69 +2604,80 @@ test('51. Article Verification Status Engine: weryfikacja statusów procedur (te
   assert.equal(fs.existsSync(testStatusesPath), true, 'Rejestr data/article_statuses.json musi istnieć');
 });
 
-test('52. Dynamic Current Tab Slot & Saved Tabs Architecture: weryfikacja 1. slotu dynamicznego (bieżący dokument) oraz grupy zakładek zapisanych', () => {
+test('52. Strict Pinned Tabs Architecture & Return To Last Document Engine (Wariant 2): weryfikacja czystego paska zakładek (wyłącznie przypięte karty), przycisków + PRZYPNIJ / ODEPNIJ oraz przycisku powrotu do ostatniego artykułu', () => {
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
 
-  // 1. Weryfikacja obecności funkcji obsługi slotu dynamicznego
-  assert.equal(appJs.includes('window.saveDynamicDocTab'), true, 'Brak eksportu window.saveDynamicDocTab');
-  assert.equal(appJs.includes('window.closeDynamicDocTab'), true, 'Brak eksportu window.closeDynamicDocTab');
-  assert.equal(appJs.includes('window.getDynamicDocTab'), true, 'Brak eksportu window.getDynamicDocTab');
-  assert.equal(appJs.includes('DOC_DYNAMIC_TAB_STORAGE_KEY'), true, 'Brak DOC_DYNAMIC_TAB_STORAGE_KEY w app.js');
+  // 1. Weryfikacja obecności funkcji obsługi czystego paska i powrotu do ostatniego artykułu
+  assert.equal(appJs.includes('window.togglePinCurrentPage'), true, 'Brak eksportu window.togglePinCurrentPage');
+  assert.equal(appJs.includes('window.addCurrentPageToTabs'), true, 'Brak eksportu window.addCurrentPageToTabs');
+  assert.equal(appJs.includes('window.unpinDocTab'), true, 'Brak eksportu window.unpinDocTab');
+  assert.equal(appJs.includes('window.returnToLastUnpinnedDoc'), true, 'Brak eksportu window.returnToLastUnpinnedDoc');
+  assert.equal(appJs.includes('window.clearLastUnpinnedDoc'), true, 'Brak eksportu window.clearLastUnpinnedDoc');
+  assert.equal(appJs.includes('DOC_LAST_UNPINNED_STORAGE_KEY'), true, 'Brak DOC_LAST_UNPINNED_STORAGE_KEY w app.js');
 
-  // 2. Weryfikacja stylów CSS dla dynamicznej zakładki i przycisku zapisu
-  assert.equal(styleCss.includes('.doc-tab.doc-tab-dynamic'), true, 'Brak stylu .doc-tab.doc-tab-dynamic');
-  assert.equal(styleCss.includes('.doc-tab-pin-action'), true, 'Brak stylu .doc-tab-pin-action');
+  // 2. Weryfikacja stylów CSS dla przycisków akcji paska
+  assert.equal(styleCss.includes('.btn-add-current-tab'), true, 'Brak stylu .btn-add-current-tab');
+  assert.equal(styleCss.includes('.btn-add-current-tab.is-pinned'), true, 'Brak stylu .btn-add-current-tab.is-pinned');
+  assert.equal(styleCss.includes('.btn-doc-return'), true, 'Brak stylu .btn-doc-return');
+  assert.equal(styleCss.includes('.btn-doc-return-dismiss'), true, 'Brak stylu .btn-doc-return-dismiss');
   assert.equal(styleCss.includes('.doc-tabs-separator'), true, 'Brak stylu .doc-tabs-separator');
 
-  // 3. Symulacja zachowania: dokładnie 1 dynamiczny slot, który nie znika po przełączeniu na zapisaną
+  // 3. Symulacja zachowania: czysty pasek (brak samoczynnego dodawania kart) + powrót do ostatniego artykułu
   let simulatedSaved = [
     { path: 'tool/overtime', title: 'Ewidencja Nadgodzin' },
     { path: 'kanban', title: 'Tablica Kanban' }
   ];
-  let simulatedDynamic = null;
+  let simulatedLastUnpinned = null;
+  let simulatedCurrentPath = 'kanban';
 
   function simulateNavigate(targetPath, title = null) {
+    simulatedCurrentPath = targetPath;
     const isSaved = simulatedSaved.some(t => t.path === targetPath);
     if (!isSaved) {
-      // Artykuł niezapisany aktualizuje 1 dynamiczny slot (nigdy nie mnoży zakładek!)
-      simulatedDynamic = { path: targetPath, title: title || targetPath };
-    } else {
-      // Jeśli użytkownik przeszedł na zapisaną zakładkę, dynamiczny slot pozostaje z poprzednim artykułem!
-      if (simulatedDynamic && simulatedDynamic.path === targetPath) {
-        simulatedDynamic = null;
-      }
+      // Artykuł niezapisany NIE tworzy żadnej zakładki na pasku, aktualizuje jedynie stan powrotu
+      simulatedLastUnpinned = { path: targetPath, title: title || targetPath };
     }
   }
 
   // Użytkownik otwiera artykuł A
   simulateNavigate('docs/01_linux.md', 'Linux');
-  assert.equal(simulatedDynamic.path, 'docs/01_linux.md');
-  assert.equal(simulatedSaved.length, 2, 'Zapisane zakładki pozostają bez zmian');
+  assert.equal(simulatedSaved.length, 2, 'Otwarcie artykułu nie dodaje żadnej zakładki na pasek');
+  assert.equal(simulatedLastUnpinned.path, 'docs/01_linux.md');
 
-  // Użytkownik otwiera artykuł B: slot dynamiczny zostaje zaktualizowany (brak mnożenia zakładek)
+  // Użytkownik otwiera artykuł B
   simulateNavigate('docs/02_security.md', 'Security');
-  assert.equal(simulatedDynamic.path, 'docs/02_security.md');
-  assert.equal(simulatedSaved.length, 2, 'Liczba zapisanych zakładek nadal 2');
+  assert.equal(simulatedSaved.length, 2, 'Kolejny artykuł nadal nie mnoży zakładek na pasku');
+  assert.equal(simulatedLastUnpinned.path, 'docs/02_security.md');
 
   // Użytkownik przełącza się na zapisaną zakładkę 'tool/overtime'
   simulateNavigate('tool/overtime');
-  // Dynamiczny slot z artykułem 'docs/02_security.md' NIE ZNIKA z paska!
-  assert.ok(simulatedDynamic, 'Dynamiczna zakładka nie może zniknąć po przełączeniu na zapisaną');
-  assert.equal(simulatedDynamic.path, 'docs/02_security.md');
+  assert.equal(simulatedSaved.length, 2, 'Liczba zapisanych zakładek bez zmian');
+  // Obiekt powrotu do ostatniego artykułu 'docs/02_security.md' pozostaje zachowany dla przycisku Wróć do
+  assert.ok(simulatedLastUnpinned, 'Stan powrotu nie może zniknąć po przełączeniu na zapisaną zakładkę');
+  assert.equal(simulatedLastUnpinned.path, 'docs/02_security.md');
 
-  // Użytkownik zapisuje dynamiczną zakładkę
-  function simulateSaveDynamic() {
-    if (simulatedDynamic) {
-      simulatedSaved.push({ path: simulatedDynamic.path, title: simulatedDynamic.title });
-      simulatedDynamic = null;
+  // Symulacja kliknięcia przycisku powrotu (Wróć do: Security)
+  function simulateReturn() {
+    if (simulatedLastUnpinned) {
+      simulateNavigate(simulatedLastUnpinned.path, simulatedLastUnpinned.title);
+    }
+  }
+  simulateReturn();
+  assert.equal(simulatedCurrentPath, 'docs/02_security.md', 'Użytkownik powraca do czytanego artykułu');
+
+  // Użytkownik świadomie przypina artykuł przyciskiem (+ PRZYPNIJ)
+  function simulatePinCurrent() {
+    if (!simulatedSaved.some(t => t.path === simulatedCurrentPath)) {
+      simulatedSaved.push({ path: simulatedCurrentPath, title: simulatedLastUnpinned ? simulatedLastUnpinned.title : simulatedCurrentPath });
+      simulatedLastUnpinned = null;
     }
   }
 
-  simulateSaveDynamic();
-  assert.equal(simulatedSaved.length, 3, 'Artykuł trafia do zapisanych zakładek');
-  assert.equal(simulatedDynamic, null, 'Slot dynamiczny zwalnia się po zapisaniu');
+  simulatePinCurrent();
+  assert.equal(simulatedSaved.length, 3, 'Artykuł trafia do stałych zakładek wyłącznie po jawnym przypięciu');
   assert.equal(simulatedSaved.some(t => t.path === 'docs/02_security.md'), true);
+  assert.equal(simulatedLastUnpinned, null, 'Stan powrotu czyści się po przypięciu');
 });
 
 
