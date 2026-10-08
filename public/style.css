@@ -808,47 +808,29 @@
       border-color: #ef4444;
       color: #ef4444;
     }
-    .btn-doc-return {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #182230;
-      border: 1px solid #38bdf8;
-      border-radius: 3px;
-      padding: 2px 8px;
-      font-size: 0.70rem;
-      font-weight: 600;
+    .doc-tab.doc-tab-browsing {
+      background: #111e30;
+      border: 1px solid #0284c7;
       color: #38bdf8;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-      line-height: 1.2;
-      max-width: 240px;
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
-    .btn-doc-return:hover {
-      background: #1e293b;
-      border-color: #7dd3fc;
+    .doc-tab.doc-tab-browsing:hover {
+      background: #162a45;
+      border-color: #38bdf8;
+      color: #7dd3fc;
+    }
+    .doc-tab.doc-tab-browsing.active {
+      background: #172554;
+      border: 1px solid #38bdf8;
       color: #ffffff;
-    }
-    .btn-doc-return span:first-child {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .btn-doc-return-dismiss {
-      font-size: 0.75rem;
       font-weight: 700;
-      color: #94a3b8;
-      padding: 0 2px;
-      margin-left: 2px;
-      cursor: pointer;
-      border-radius: 2px;
-      line-height: 1;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
     }
-    .btn-doc-return-dismiss:hover {
-      color: #ef4444;
-      background: rgba(239, 68, 68, 0.15);
+    .doc-tab.doc-tab-browsing .doc-tab-close {
+      color: #94a3b8;
+    }
+    .doc-tab.doc-tab-browsing .doc-tab-close:hover {
+      background: #ef4444;
+      color: #ffffff;
     }
     .doc-tabs-separator {
       display: inline-block;

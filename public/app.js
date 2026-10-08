@@ -1318,13 +1318,13 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
 
 const MAX_DOC_TABS = 10;
 const DOC_TABS_STORAGE_KEY = 'knowops_doc_tabs';
-const DOC_LAST_UNPINNED_STORAGE_KEY = 'knowops_last_unpinned_doc';
+const DOC_BROWSING_TAB_STORAGE_KEY = 'knowops_browsing_tab';
 let openDocTabs = [];
-let lastUnpinnedDoc = null;
+let browsingTab = null;
 
-function loadLastUnpinnedDocFromStorage() {
+function loadBrowsingTabFromStorage() {
   try {
-    const raw = sessionStorage.getItem(DOC_LAST_UNPINNED_STORAGE_KEY);
+    const raw = sessionStorage.getItem(DOC_BROWSING_TAB_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed.path === 'string' && parsed.path.trim()) {
@@ -1335,20 +1335,20 @@ function loadLastUnpinnedDocFromStorage() {
       }
     }
   } catch (e) {
-    console.warn('[DocTabs] Błąd odczytu ostatniego dokumentu roboczego z sessionStorage:', e);
+    console.warn('[DocTabs] Błąd odczytu karty roboczej z sessionStorage:', e);
   }
   return null;
 }
 
-function saveLastUnpinnedDocToStorage() {
+function saveBrowsingTabToStorage() {
   try {
-    if (lastUnpinnedDoc && lastUnpinnedDoc.path) {
-      sessionStorage.setItem(DOC_LAST_UNPINNED_STORAGE_KEY, JSON.stringify(lastUnpinnedDoc));
+    if (browsingTab && browsingTab.path) {
+      sessionStorage.setItem(DOC_BROWSING_TAB_STORAGE_KEY, JSON.stringify(browsingTab));
     } else {
-      sessionStorage.removeItem(DOC_LAST_UNPINNED_STORAGE_KEY);
+      sessionStorage.removeItem(DOC_BROWSING_TAB_STORAGE_KEY);
     }
   } catch (e) {
-    console.warn('[DocTabs] Błąd zapisu ostatniego dokumentu roboczego do sessionStorage:', e);
+    console.warn('[DocTabs] Błąd zapisu karty roboczej do sessionStorage:', e);
   }
 }
 
@@ -1488,9 +1488,9 @@ function registerDocTab(path, customTitle = null) {
     });
   }
 
-  if (lastUnpinnedDoc && lastUnpinnedDoc.path === cleanPath) {
-    lastUnpinnedDoc = null;
-    saveLastUnpinnedDocToStorage();
+  if (browsingTab && browsingTab.path === cleanPath) {
+    browsingTab = null;
+    saveBrowsingTabToStorage();
   }
 
   saveDocTabsToStorage();
@@ -1534,18 +1534,22 @@ function renderDocTabs() {
 
   const isCurrentPinned = openDocTabs.some(t => t.path === currentPath);
 
-  // Jeśli użytkownik czyta dokument niezapisany, rejestrujemy go jako ostatnio czytany dokument roboczy
+  // Jeśli użytkownik jest na dokumencie nieprzypiętym (roboczym), aktualizujemy kartę roboczą
   if (!isCurrentPinned) {
     let docTitle = null;
     const h1El = document.querySelector('#articleContentArea h1');
     if (h1El && h1El.innerText.trim()) {
       docTitle = h1El.innerText.trim();
     }
-    lastUnpinnedDoc = {
+    browsingTab = {
       path: currentPath,
       title: getDocTabTitleForPath(currentPath, docTitle)
     };
-    saveLastUnpinnedDocToStorage();
+    saveBrowsingTabToStorage();
+  } else {
+    if (!browsingTab) {
+      browsingTab = loadBrowsingTabFromStorage();
+    }
   }
 
   let html = '';
@@ -1557,22 +1561,23 @@ function renderDocTabs() {
     html += `<button type="button" class="btn-add-current-tab is-pinned" onclick="window.togglePinCurrentPage()" title="Odepnij ten dokument z paska zakładek (Alt+T)">ODEPNIJ</button>`;
   }
 
-  // 2. Dedykowany przycisk powrotu do ostatniego artykułu roboczego (gdy użytkownik przeszedł na zapisaną zakładkę)
-  if (isCurrentPinned && lastUnpinnedDoc && lastUnpinnedDoc.path && lastUnpinnedDoc.path !== currentPath && !openDocTabs.some(t => t.path === lastUnpinnedDoc.path)) {
-    html += `<button type="button" class="btn-doc-return" onclick="window.returnToLastUnpinnedDoc()" title="Powrót do ostatnio czytanego artykułu: ${escapeHtml(lastUnpinnedDoc.title)}">` +
-      `<span>Wróć do: ${escapeHtml(lastUnpinnedDoc.title)}</span>` +
-      `<span class="btn-doc-return-dismiss" onclick="window.clearLastUnpinnedDoc(event)" title="Ukryj powrót">×</span>` +
-    `</button>`;
+  // 2. Stała Karta Robocza (Browsing Tab - niebieski akcent)
+  if (browsingTab && browsingTab.path) {
+    const isBrowsingActive = (browsingTab.path === currentPath && !isCurrentPinned);
+    html += `<div class="doc-tab doc-tab-browsing ${isBrowsingActive ? 'active' : ''}" data-path="${escapeHtml(browsingTab.path)}" title="${escapeHtml(browsingTab.title)} (karta robocza)" onclick="window.switchDocTab('${escapeHtml(browsingTab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeBrowsingTab(event); }">` +
+      `<span class="doc-tab-title">${escapeHtml(browsingTab.title)}</span>` +
+      `<button type="button" class="doc-tab-close" title="Zamknij kartę roboczą" onclick="event.stopPropagation(); window.closeBrowsingTab(event)">X</button>` +
+    `</div>`;
   }
 
   if (openDocTabs.length > 0) {
     html += `<span class="doc-tabs-separator"></span>`;
   }
 
-  // 3. Wyłącznie lista przypiętych zakładek (trwałych)
+  // 3. Karty Przypięte (Saved / Pinned Tabs)
   for (const tab of openDocTabs) {
     const isSavedActive = (tab.path === currentPath);
-    html += `<div class="doc-tab doc-tab-saved ${isSavedActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)}" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
+    html += `<div class="doc-tab doc-tab-saved ${isSavedActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)} (karta przypięta)" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
       `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
       `<button type="button" class="doc-tab-close" title="Usuń z przypiętych zakładek" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
     `</div>`;
@@ -1605,20 +1610,25 @@ window.switchDocTab = function(path) {
   window.location.hash = '#/' + clean;
 };
 
-window.returnToLastUnpinnedDoc = function() {
-  if (lastUnpinnedDoc && lastUnpinnedDoc.path) {
-    window.location.hash = '#/' + lastUnpinnedDoc.path;
-  }
-};
-
-window.clearLastUnpinnedDoc = function(event) {
+window.closeBrowsingTab = function(event) {
   if (event) {
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
     if (typeof event.preventDefault === 'function') event.preventDefault();
   }
-  lastUnpinnedDoc = null;
-  saveLastUnpinnedDocToStorage();
-  renderDocTabs();
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  const wasActive = browsingTab && (browsingTab.path === currentPath);
+  browsingTab = null;
+  saveBrowsingTabToStorage();
+
+  if (wasActive) {
+    if (openDocTabs.length > 0) {
+      window.location.hash = '#/' + openDocTabs[0].path;
+    } else {
+      window.location.hash = '#/kanban';
+    }
+  } else {
+    renderDocTabs();
+  }
 };
 
 window.addCurrentPageToTabs = function() {
@@ -1635,8 +1645,11 @@ window.unpinDocTab = function(path) {
   const cleanPath = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
   const idx = openDocTabs.findIndex(t => t.path === cleanPath);
   if (idx !== -1) {
+    const tabObj = openDocTabs[idx];
     openDocTabs.splice(idx, 1);
     saveDocTabsToStorage();
+    browsingTab = { path: tabObj.path, title: tabObj.title };
+    saveBrowsingTabToStorage();
     renderDocTabs();
   }
 };
@@ -1657,8 +1670,8 @@ window.closeDocTab = function(path, event) {
   saveDocTabsToStorage();
 
   if (isClosingActive) {
-    if (lastUnpinnedDoc && lastUnpinnedDoc.path && !openDocTabs.some(t => t.path === lastUnpinnedDoc.path)) {
-      window.location.hash = '#/' + lastUnpinnedDoc.path;
+    if (browsingTab && browsingTab.path && !openDocTabs.some(t => t.path === browsingTab.path)) {
+      window.location.hash = '#/' + browsingTab.path;
     } else if (openDocTabs.length > 0) {
       const nextIdx = Math.min(idx, openDocTabs.length - 1);
       const nextTab = openDocTabs[nextIdx];
@@ -1700,11 +1713,11 @@ window.renameDocTab = function(oldPath, newPath, newTitle = null) {
     else tab.title = getDocTabTitleForPath(cleanNew);
     saveDocTabsToStorage();
   }
-  if (lastUnpinnedDoc && lastUnpinnedDoc.path === cleanOld) {
-    lastUnpinnedDoc.path = cleanNew;
-    if (newTitle) lastUnpinnedDoc.title = newTitle;
-    else lastUnpinnedDoc.title = getDocTabTitleForPath(cleanNew);
-    saveLastUnpinnedDocToStorage();
+  if (browsingTab && browsingTab.path === cleanOld) {
+    browsingTab.path = cleanNew;
+    if (newTitle) browsingTab.title = newTitle;
+    else browsingTab.title = getDocTabTitleForPath(cleanNew);
+    saveBrowsingTabToStorage();
   }
   renderDocTabs();
 };
@@ -1712,9 +1725,10 @@ window.renameDocTab = function(oldPath, newPath, newTitle = null) {
 window.initDocTabs = function() {
   try {
     sessionStorage.removeItem('knowops_dynamic_tab');
+    sessionStorage.removeItem('knowops_last_unpinned_doc');
   } catch (e) {}
   openDocTabs = loadDocTabsFromStorage();
-  lastUnpinnedDoc = loadLastUnpinnedDocFromStorage();
+  browsingTab = loadBrowsingTabFromStorage();
   renderDocTabs();
   syncDocTabsFromServer();
 };
@@ -1735,9 +1749,8 @@ window.openDocTabAndSwitch = window.openDocTabAndSwitch;
 window.addCurrentPageToTabs = window.addCurrentPageToTabs;
 window.unpinDocTab = window.unpinDocTab;
 window.togglePinCurrentPage = window.togglePinCurrentPage;
-window.returnToLastUnpinnedDoc = window.returnToLastUnpinnedDoc;
-window.clearLastUnpinnedDoc = window.clearLastUnpinnedDoc;
-window.getLastUnpinnedDoc = () => lastUnpinnedDoc;
+window.closeBrowsingTab = window.closeBrowsingTab;
+window.getBrowsingTab = () => browsingTab;
 window.getOpenDocTabs = () => openDocTabs;
 window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
 window.syncDocTabsFromServer = syncDocTabsFromServer;
@@ -1757,8 +1770,8 @@ function renderSecondaryPicker() {
 
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
   const allTabs = [...openDocTabs];
-  if (lastUnpinnedDoc && !allTabs.some(t => t.path === lastUnpinnedDoc.path)) {
-    allTabs.unshift(lastUnpinnedDoc);
+  if (browsingTab && !allTabs.some(t => t.path === browsingTab.path)) {
+    allTabs.unshift(browsingTab);
   }
   const tabs = allTabs.filter(t => t.path !== currentPath);
   let tabsHtml = '';
@@ -2420,9 +2433,9 @@ async function loadArticle(articlePath) {
       existingTab.title = resolvedDocTitle;
       saveDocTabsToStorage();
     }
-    if (lastUnpinnedDoc && lastUnpinnedDoc.path === articlePath && resolvedDocTitle && lastUnpinnedDoc.title !== resolvedDocTitle) {
-      lastUnpinnedDoc.title = resolvedDocTitle;
-      saveLastUnpinnedDocToStorage();
+    if (browsingTab && browsingTab.path === articlePath && resolvedDocTitle && browsingTab.title !== resolvedDocTitle) {
+      browsingTab.title = resolvedDocTitle;
+      saveBrowsingTabToStorage();
     }
     if (typeof renderDocTabs === 'function') {
       renderDocTabs();

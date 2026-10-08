@@ -2604,80 +2604,79 @@ test('51. Article Verification Status Engine: weryfikacja statusów procedur (te
   assert.equal(fs.existsSync(testStatusesPath), true, 'Rejestr data/article_statuses.json musi istnieć');
 });
 
-test('52. Strict Pinned Tabs Architecture & Return To Last Document Engine (Wariant 2): weryfikacja czystego paska zakładek (wyłącznie przypięte karty), przycisków + PRZYPNIJ / ODEPNIJ oraz przycisku powrotu do ostatniego artykułu', () => {
+test('52. Browser Tab & Pinned Tabs Architecture (Wariant A): weryfikacja stałej Karty Roboczej (Browsing Tab w kolorze niebieskim), Kart Przypiętych oraz przycisków + PRZYPNIJ / ODEPNIJ', () => {
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
 
-  // 1. Weryfikacja obecności funkcji obsługi czystego paska i powrotu do ostatniego artykułu
+  // 1. Weryfikacja obecności funkcji obsługi stałej Karty Roboczej i Kart Przypiętych
   assert.equal(appJs.includes('window.togglePinCurrentPage'), true, 'Brak eksportu window.togglePinCurrentPage');
   assert.equal(appJs.includes('window.addCurrentPageToTabs'), true, 'Brak eksportu window.addCurrentPageToTabs');
   assert.equal(appJs.includes('window.unpinDocTab'), true, 'Brak eksportu window.unpinDocTab');
-  assert.equal(appJs.includes('window.returnToLastUnpinnedDoc'), true, 'Brak eksportu window.returnToLastUnpinnedDoc');
-  assert.equal(appJs.includes('window.clearLastUnpinnedDoc'), true, 'Brak eksportu window.clearLastUnpinnedDoc');
-  assert.equal(appJs.includes('DOC_LAST_UNPINNED_STORAGE_KEY'), true, 'Brak DOC_LAST_UNPINNED_STORAGE_KEY w app.js');
+  assert.equal(appJs.includes('window.closeBrowsingTab'), true, 'Brak eksportu window.closeBrowsingTab');
+  assert.equal(appJs.includes('window.getBrowsingTab'), true, 'Brak eksportu window.getBrowsingTab');
+  assert.equal(appJs.includes('DOC_BROWSING_TAB_STORAGE_KEY'), true, 'Brak DOC_BROWSING_TAB_STORAGE_KEY w app.js');
 
-  // 2. Weryfikacja stylów CSS dla przycisków akcji paska
+  // 2. Weryfikacja stylów CSS dla Karty Roboczej (niebieski akcent) i przycisków funkcyjnych
+  assert.equal(styleCss.includes('.doc-tab.doc-tab-browsing'), true, 'Brak stylu .doc-tab.doc-tab-browsing');
+  assert.equal(styleCss.includes('.doc-tab.doc-tab-browsing.active'), true, 'Brak stylu .doc-tab.doc-tab-browsing.active');
   assert.equal(styleCss.includes('.btn-add-current-tab'), true, 'Brak stylu .btn-add-current-tab');
   assert.equal(styleCss.includes('.btn-add-current-tab.is-pinned'), true, 'Brak stylu .btn-add-current-tab.is-pinned');
-  assert.equal(styleCss.includes('.btn-doc-return'), true, 'Brak stylu .btn-doc-return');
-  assert.equal(styleCss.includes('.btn-doc-return-dismiss'), true, 'Brak stylu .btn-doc-return-dismiss');
   assert.equal(styleCss.includes('.doc-tabs-separator'), true, 'Brak stylu .doc-tabs-separator');
 
-  // 3. Symulacja zachowania: czysty pasek (brak samoczynnego dodawania kart) + powrót do ostatniego artykułu
+  // 3. Symulacja zachowania: stała Karta Robocza ("karta po której się ruszam") + Karty Przypięte
   let simulatedSaved = [
     { path: 'tool/overtime', title: 'Ewidencja Nadgodzin' },
     { path: 'kanban', title: 'Tablica Kanban' }
   ];
-  let simulatedLastUnpinned = null;
+  let simulatedBrowsing = null;
   let simulatedCurrentPath = 'kanban';
 
   function simulateNavigate(targetPath, title = null) {
     simulatedCurrentPath = targetPath;
     const isSaved = simulatedSaved.some(t => t.path === targetPath);
     if (!isSaved) {
-      // Artykuł niezapisany NIE tworzy żadnej zakładki na pasku, aktualizuje jedynie stan powrotu
-      simulatedLastUnpinned = { path: targetPath, title: title || targetPath };
+      // Artykuł roboczy aktualizuje pojedynczą Kartę Roboczą (nigdy nie mnoży kart!)
+      simulatedBrowsing = { path: targetPath, title: title || targetPath };
     }
   }
 
   // Użytkownik otwiera artykuł A
   simulateNavigate('docs/01_linux.md', 'Linux');
-  assert.equal(simulatedSaved.length, 2, 'Otwarcie artykułu nie dodaje żadnej zakładki na pasek');
-  assert.equal(simulatedLastUnpinned.path, 'docs/01_linux.md');
+  assert.equal(simulatedSaved.length, 2, 'Karty przypięte bez zmian');
+  assert.equal(simulatedBrowsing.path, 'docs/01_linux.md', 'Karta robocza przyjmuje artykuł A');
 
-  // Użytkownik otwiera artykuł B
+  // Użytkownik otwiera artykuł B: porusza się wewnątrz Karty Roboczej
   simulateNavigate('docs/02_security.md', 'Security');
-  assert.equal(simulatedSaved.length, 2, 'Kolejny artykuł nadal nie mnoży zakładek na pasku');
-  assert.equal(simulatedLastUnpinned.path, 'docs/02_security.md');
+  assert.equal(simulatedSaved.length, 2, 'Brak mnożenia zakładek na pasku');
+  assert.equal(simulatedBrowsing.path, 'docs/02_security.md', 'Karta robocza płynnie aktualizuje się do artykułu B');
 
-  // Użytkownik przełącza się na zapisaną zakładkę 'tool/overtime'
+  // Użytkownik przełącza się na kartę przypiętą 'tool/overtime'
   simulateNavigate('tool/overtime');
-  assert.equal(simulatedSaved.length, 2, 'Liczba zapisanych zakładek bez zmian');
-  // Obiekt powrotu do ostatniego artykułu 'docs/02_security.md' pozostaje zachowany dla przycisku Wróć do
-  assert.ok(simulatedLastUnpinned, 'Stan powrotu nie może zniknąć po przełączeniu na zapisaną zakładkę');
-  assert.equal(simulatedLastUnpinned.path, 'docs/02_security.md');
+  assert.equal(simulatedSaved.length, 2, 'Liczba przypiętych kart bez zmian');
+  // Karta robocza ("niebieska") POZOSTAJE na stałe na pasku z artykułem 'docs/02_security.md'
+  assert.ok(simulatedBrowsing, 'Karta robocza nie może zniknąć po przełączeniu na kartę przypiętą');
+  assert.equal(simulatedBrowsing.path, 'docs/02_security.md');
 
-  // Symulacja kliknięcia przycisku powrotu (Wróć do: Security)
-  function simulateReturn() {
-    if (simulatedLastUnpinned) {
-      simulateNavigate(simulatedLastUnpinned.path, simulatedLastUnpinned.title);
+  // Kliknięcie w Kartę Roboczą przywraca czytanie artykułu
+  function simulateClickBrowsingTab() {
+    if (simulatedBrowsing) {
+      simulateNavigate(simulatedBrowsing.path, simulatedBrowsing.title);
     }
   }
-  simulateReturn();
-  assert.equal(simulatedCurrentPath, 'docs/02_security.md', 'Użytkownik powraca do czytanego artykułu');
+  simulateClickBrowsingTab();
+  assert.equal(simulatedCurrentPath, 'docs/02_security.md', 'Użytkownik powraca do czytania w Karcie Roboczej');
 
   // Użytkownik świadomie przypina artykuł przyciskiem (+ PRZYPNIJ)
-  function simulatePinCurrent() {
+  function simulatePinBrowsingTab() {
     if (!simulatedSaved.some(t => t.path === simulatedCurrentPath)) {
-      simulatedSaved.push({ path: simulatedCurrentPath, title: simulatedLastUnpinned ? simulatedLastUnpinned.title : simulatedCurrentPath });
-      simulatedLastUnpinned = null;
+      simulatedSaved.push({ path: simulatedCurrentPath, title: simulatedBrowsing ? simulatedBrowsing.title : simulatedCurrentPath });
+      simulatedBrowsing = null;
     }
   }
 
-  simulatePinCurrent();
-  assert.equal(simulatedSaved.length, 3, 'Artykuł trafia do stałych zakładek wyłącznie po jawnym przypięciu');
+  simulatePinBrowsingTab();
+  assert.equal(simulatedSaved.length, 3, 'Artykuł trafia do kart przypiętych');
   assert.equal(simulatedSaved.some(t => t.path === 'docs/02_security.md'), true);
-  assert.equal(simulatedLastUnpinned, null, 'Stan powrotu czyści się po przypięciu');
 });
 
 
