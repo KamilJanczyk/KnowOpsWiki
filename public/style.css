@@ -798,6 +798,30 @@
       border-color: var(--sw-gold);
       color: #ffffff;
     }
+    .btn-add-current-tab.is-pinned {
+      border: 1px solid #52525b;
+      color: #a1a1aa;
+      background: #202023;
+    }
+    .btn-add-current-tab.is-pinned:hover {
+      background: #27272a;
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .doc-tab.doc-tab-unpinned {
+      border-style: dashed;
+      border-color: #52525b;
+      opacity: 0.92;
+    }
+    .doc-tab.doc-tab-unpinned:hover {
+      border-color: #71717a;
+      opacity: 1;
+    }
+    .doc-tab.doc-tab-unpinned.active {
+      border-style: dashed;
+      border-color: var(--sw-gold);
+      opacity: 1;
+    }
 
     .breadcrumb-nav { font-size: 0.72rem; color: #888888; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #222; }
 

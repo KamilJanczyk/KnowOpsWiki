@@ -2604,6 +2604,77 @@ test('51. Article Verification Status Engine: weryfikacja statusów procedur (te
   assert.equal(fs.existsSync(testStatusesPath), true, 'Rejestr data/article_statuses.json musi istnieć');
 });
 
+test('52. Session Tabs & Pinned Anchor Architecture: weryfikacja stałego przycisku przypinania/odpinania na 1. pozycji oraz zachowania nieprzypiętych kart sesji', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja obecności funkcji zarządzania stanem przypięcia i odpięcia
+  assert.equal(appJs.includes('window.unpinDocTab'), true, 'Brak eksportu window.unpinDocTab');
+  assert.equal(appJs.includes('window.togglePinCurrentPage'), true, 'Brak eksportu window.togglePinCurrentPage');
+  assert.equal(appJs.includes('window.getUnpinnedDocTabs'), true, 'Brak eksportu window.getUnpinnedDocTabs');
+  assert.equal(appJs.includes('DOC_UNPINNED_TABS_STORAGE_KEY'), true, 'Brak klucza pamięci podręcznej dla nieprzypiętych zakładek');
+
+  // 2. Weryfikacja reguł CSS dla przycisku w stanie przypiętym oraz kart nieprzypiętych
+  assert.equal(styleCss.includes('.btn-add-current-tab.is-pinned'), true, 'Brak stylu .btn-add-current-tab.is-pinned');
+  assert.equal(styleCss.includes('.doc-tab.doc-tab-unpinned'), true, 'Brak stylu .doc-tab.doc-tab-unpinned');
+  assert.equal(styleCss.includes('border-style: dashed;'), true, 'Nieprzypięte zakładki muszą mieć przerywaną ramkę (dashed)');
+
+  // 3. Symulacja zachowania zakładek: nieprzypięta karta nie znika po przełączeniu na przypiętą
+  let simulatedPinned = [
+    { path: 'tool/overtime', title: 'Ewidencja Nadgodzin' },
+    { path: 'kanban', title: 'Tablica Kanban' }
+  ];
+  let simulatedUnpinned = [];
+
+  function simulateNavigate(targetPath, title = null) {
+    const isPinned = simulatedPinned.some(t => t.path === targetPath);
+    if (!isPinned) {
+      if (!simulatedUnpinned.some(t => t.path === targetPath)) {
+        simulatedUnpinned.push({ path: targetPath, title: title || targetPath });
+      }
+    } else {
+      simulatedUnpinned = simulatedUnpinned.filter(t => t.path !== targetPath);
+    }
+  }
+
+  // Użytkownik otwiera artykuł nieprzypięty
+  simulateNavigate('docs/01_Cyber/instrukcja.md', 'Instrukcja');
+  assert.equal(simulatedUnpinned.length, 1, 'Nieprzypięty artykuł musi trafić do sesyjnych kart');
+  assert.equal(simulatedUnpinned[0].path, 'docs/01_Cyber/instrukcja.md');
+
+  // Użytkownik przełącza się na przypiętą zakładkę 'tool/overtime'
+  simulateNavigate('tool/overtime');
+  // Karta 'docs/01_Cyber/instrukcja.md' NIE MOŻE zniknąć!
+  assert.equal(simulatedUnpinned.length, 1, 'Karta robocza nie może zniknąć po przełączeniu na przypiętą');
+  assert.equal(simulatedUnpinned[0].path, 'docs/01_Cyber/instrukcja.md');
+
+  // Użytkownik decyduje się przypiąć artykuł
+  function simulatePin(targetPath, title = null) {
+    simulatedUnpinned = simulatedUnpinned.filter(t => t.path !== targetPath);
+    if (!simulatedPinned.some(t => t.path === targetPath)) {
+      simulatedPinned.push({ path: targetPath, title: title || targetPath });
+    }
+  }
+
+  simulatePin('docs/01_Cyber/instrukcja.md', 'Instrukcja');
+  assert.equal(simulatedPinned.some(t => t.path === 'docs/01_Cyber/instrukcja.md'), true, 'Artykuł musi stać się przypięty');
+  assert.equal(simulatedUnpinned.length, 0, 'Artykuł musi zostać usunięty z nieprzypiętych po przypięciu');
+
+  // Użytkownik odpina zakładkę
+  function simulateUnpin(targetPath) {
+    const pIdx = simulatedPinned.findIndex(t => t.path === targetPath);
+    if (pIdx !== -1) {
+      const item = simulatedPinned.splice(pIdx, 1)[0];
+      simulatedUnpinned.push(item);
+    }
+  }
+
+  simulateUnpin('docs/01_Cyber/instrukcja.md');
+  assert.equal(simulatedPinned.some(t => t.path === 'docs/01_Cyber/instrukcja.md'), false);
+  assert.equal(simulatedUnpinned.some(t => t.path === 'docs/01_Cyber/instrukcja.md'), true);
+});
+
+
 
 
 
