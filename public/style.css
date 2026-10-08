@@ -808,19 +808,52 @@
       border-color: #ef4444;
       color: #ef4444;
     }
-    .doc-tab.doc-tab-unpinned {
+    .doc-tab.doc-tab-unpinned,
+    .doc-tab.doc-tab-dynamic {
       border-style: dashed;
       border-color: #52525b;
-      opacity: 0.92;
+      opacity: 0.95;
+      background: #202023;
     }
-    .doc-tab.doc-tab-unpinned:hover {
+    .doc-tab.doc-tab-unpinned:hover,
+    .doc-tab.doc-tab-dynamic:hover {
       border-color: #71717a;
       opacity: 1;
     }
-    .doc-tab.doc-tab-unpinned.active {
+    .doc-tab.doc-tab-unpinned.active,
+    .doc-tab.doc-tab-dynamic.active {
       border-style: dashed;
       border-color: var(--sw-gold);
+      background: #262419;
       opacity: 1;
+    }
+    .doc-tab-pin-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(250, 204, 21, 0.15);
+      border: 1px solid var(--sw-gold);
+      color: var(--sw-gold);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 2px;
+      cursor: pointer;
+      margin-left: 3px;
+      line-height: 1.2;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .doc-tab-pin-action:hover {
+      background: var(--sw-gold);
+      color: #000000;
+    }
+    .doc-tabs-separator {
+      display: inline-block;
+      width: 1px;
+      height: 16px;
+      background: #3f3f46;
+      margin: 0 4px;
+      flex-shrink: 0;
     }
 
     .breadcrumb-nav { font-size: 0.72rem; color: #888888; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #222; }

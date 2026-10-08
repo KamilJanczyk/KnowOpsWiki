@@ -1318,7 +1318,39 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
 
 const MAX_DOC_TABS = 10;
 const DOC_TABS_STORAGE_KEY = 'knowops_doc_tabs';
+const DOC_DYNAMIC_TAB_STORAGE_KEY = 'knowops_dynamic_tab';
 let openDocTabs = [];
+let dynamicDocTab = null;
+
+function loadDynamicDocTabFromStorage() {
+  try {
+    const raw = sessionStorage.getItem(DOC_DYNAMIC_TAB_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.path === 'string' && parsed.path.trim()) {
+        return {
+          path: parsed.path.trim(),
+          title: String(parsed.title || '').trim() || getDocTabTitleForPath(parsed.path)
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[DocTabs] Błąd odczytu dynamicznej zakładki z sessionStorage:', e);
+  }
+  return null;
+}
+
+function saveDynamicDocTabToStorage() {
+  try {
+    if (dynamicDocTab) {
+      sessionStorage.setItem(DOC_DYNAMIC_TAB_STORAGE_KEY, JSON.stringify(dynamicDocTab));
+    } else {
+      sessionStorage.removeItem(DOC_DYNAMIC_TAB_STORAGE_KEY);
+    }
+  } catch (e) {
+    console.warn('[DocTabs] Błąd zapisu dynamicznej zakładki do sessionStorage:', e);
+  }
+}
 
 function getDocTabTitleForPath(path, customTitle = null) {
   if (customTitle && typeof customTitle === 'string' && customTitle.trim()) {
@@ -1456,6 +1488,11 @@ function registerDocTab(path, customTitle = null) {
     });
   }
 
+  if (dynamicDocTab && dynamicDocTab.path === cleanPath) {
+    dynamicDocTab = null;
+    saveDynamicDocTabToStorage();
+  }
+
   saveDocTabsToStorage();
   renderDocTabs();
 }
@@ -1495,22 +1532,47 @@ function renderDocTabs() {
   const splitBtnText = window.isSplitViewActive ? 'Zamknij Split' : 'Podziel Ekran';
   const splitActiveCls = window.isSplitViewActive ? 'active' : '';
 
-  const isCurrentPinned = openDocTabs.some(t => t.path === currentPath);
+  const isCurrentInSaved = openDocTabs.some(t => t.path === currentPath);
+  if (!isCurrentInSaved) {
+    let docTitle = null;
+    const h1El = document.querySelector('#articleContentArea h1');
+    if (h1El && h1El.innerText.trim()) {
+      docTitle = h1El.innerText.trim();
+    }
+    dynamicDocTab = {
+      path: currentPath,
+      title: getDocTabTitleForPath(currentPath, docTitle)
+    };
+    saveDynamicDocTabToStorage();
+  } else {
+    if (dynamicDocTab && dynamicDocTab.path === currentPath) {
+      dynamicDocTab = null;
+      saveDynamicDocTabToStorage();
+    }
+  }
 
   let html = '';
 
-  // 1. Przycisk Przypnij / Odepnij po lewej stronie jako PIERWSZY element
-  const pinBtnText = isCurrentPinned ? 'ODEPNIJ' : '+ PRZYPNIJ';
-  const pinBtnTitle = isCurrentPinned ? 'Odepnij bieżący dokument od paska zakładek' : 'Przypnij bieżący dokument do paska zakładek (Alt+T)';
-  const pinBtnClass = isCurrentPinned ? 'btn-add-current-tab is-pinned' : 'btn-add-current-tab';
-  html += `<button type="button" class="${pinBtnClass}" onclick="window.togglePinCurrentPage()" title="${pinBtnTitle}">${pinBtnText}</button>`;
+  // 1. Slot #1: Dynamiczna zakładka bieżącego / ostatnio czytanego dokumentu
+  if (dynamicDocTab && !openDocTabs.some(t => t.path === dynamicDocTab.path)) {
+    const isDynamicActive = (dynamicDocTab.path === currentPath);
+    html += `<div class="doc-tab doc-tab-dynamic ${isDynamicActive ? 'active' : ''}" data-path="${escapeHtml(dynamicDocTab.path)}" title="${escapeHtml(dynamicDocTab.title)} (bieżący dokument)" onclick="window.switchDocTab('${escapeHtml(dynamicDocTab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDynamicDocTab(event); }">` +
+      `<span class="doc-tab-title">${escapeHtml(dynamicDocTab.title)}</span>` +
+      (isDynamicActive ? `<button type="button" class="doc-tab-pin-action" title="Zapisz ten dokument do stałych zakładek (Alt+T)" onclick="event.stopPropagation(); window.saveDynamicDocTab('${escapeHtml(dynamicDocTab.path)}')">+ ZAPISZ</button>` : '') +
+      `<button type="button" class="doc-tab-close" title="Zamknij bieżącą zakładkę roboczą" onclick="event.stopPropagation(); window.closeDynamicDocTab(event)">X</button>` +
+    `</div>`;
 
-  // 2. Lista przypiętych zakładek
+    if (openDocTabs.length > 0) {
+      html += `<span class="doc-tabs-separator"></span>`;
+    }
+  }
+
+  // 2. Sloty #2+: Lista zapisanych zakładek (trwałych)
   for (const tab of openDocTabs) {
-    const isActive = (tab.path === currentPath);
-    html += `<div class="doc-tab ${isActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)}" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
+    const isSavedActive = (tab.path === currentPath);
+    html += `<div class="doc-tab doc-tab-saved ${isSavedActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)}" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
       `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
-      `<button type="button" class="doc-tab-close" title="Zamknij zakładkę (lub kliknij kółkiem myszy)" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
+      `<button type="button" class="doc-tab-close" title="Usuń z zapisanych zakładek" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
     `</div>`;
   }
 
@@ -1541,6 +1603,40 @@ window.switchDocTab = function(path) {
   window.location.hash = '#/' + clean;
 };
 
+window.saveDynamicDocTab = function(path) {
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  const targetPath = path || (dynamicDocTab ? dynamicDocTab.path : currentPath);
+  let title = (dynamicDocTab && dynamicDocTab.path === targetPath) ? dynamicDocTab.title : null;
+  const h1El = document.querySelector('#articleContentArea h1');
+  if (!title && h1El && h1El.innerText.trim()) {
+    title = h1El.innerText.trim();
+  }
+  dynamicDocTab = null;
+  saveDynamicDocTabToStorage();
+  registerDocTab(targetPath, title);
+};
+
+window.closeDynamicDocTab = function(event) {
+  if (event) {
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+  }
+  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+  const wasActive = dynamicDocTab && (dynamicDocTab.path === currentPath);
+  dynamicDocTab = null;
+  saveDynamicDocTabToStorage();
+
+  if (wasActive) {
+    if (openDocTabs.length > 0) {
+      window.location.hash = '#/' + openDocTabs[0].path;
+    } else {
+      window.location.hash = '#/kanban';
+    }
+  } else {
+    renderDocTabs();
+  }
+};
+
 window.closeDocTab = function(path, event) {
   if (event) {
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
@@ -1556,19 +1652,16 @@ window.closeDocTab = function(path, event) {
   openDocTabs.splice(idx, 1);
   saveDocTabsToStorage();
 
-  if (openDocTabs.length === 0) {
-    if (isClosingActive) {
-      window.location.hash = '#/kanban';
-    } else {
-      renderDocTabs();
-    }
-    return;
-  }
-
   if (isClosingActive) {
-    const nextIdx = Math.min(idx, openDocTabs.length - 1);
-    const nextTab = openDocTabs[nextIdx];
-    window.location.hash = '#/' + nextTab.path;
+    if (dynamicDocTab && dynamicDocTab.path) {
+      window.location.hash = '#/' + dynamicDocTab.path;
+    } else if (openDocTabs.length > 0) {
+      const nextIdx = Math.min(idx, openDocTabs.length - 1);
+      const nextTab = openDocTabs[nextIdx];
+      window.location.hash = '#/' + nextTab.path;
+    } else {
+      window.location.hash = '#/kanban';
+    }
   } else {
     renderDocTabs();
   }
@@ -1585,21 +1678,18 @@ window.openDocTabAndSwitch = function(path, customTitle = null) {
 };
 
 window.addCurrentPageToTabs = function() {
-  const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
-  let title = null;
-  const h1El = document.querySelector('#articleContentArea h1');
-  if (h1El && h1El.innerText.trim()) {
-    title = h1El.innerText.trim();
-  }
-  registerDocTab(currentPath, title);
+  window.saveDynamicDocTab();
 };
 
 window.unpinDocTab = function(path) {
   const cleanPath = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
   const idx = openDocTabs.findIndex(t => t.path === cleanPath);
   if (idx !== -1) {
+    const tabObj = openDocTabs[idx];
     openDocTabs.splice(idx, 1);
     saveDocTabsToStorage();
+    dynamicDocTab = { path: tabObj.path, title: tabObj.title };
+    saveDynamicDocTabToStorage();
     renderDocTabs();
   }
 };
@@ -1609,7 +1699,7 @@ window.togglePinCurrentPage = function() {
   if (openDocTabs.some(t => t.path === currentPath)) {
     window.unpinDocTab(currentPath);
   } else {
-    window.addCurrentPageToTabs();
+    window.saveDynamicDocTab(currentPath);
   }
 };
 
@@ -1622,12 +1712,19 @@ window.renameDocTab = function(oldPath, newPath, newTitle = null) {
     if (newTitle) tab.title = newTitle;
     else tab.title = getDocTabTitleForPath(cleanNew);
     saveDocTabsToStorage();
-    renderDocTabs();
   }
+  if (dynamicDocTab && dynamicDocTab.path === cleanOld) {
+    dynamicDocTab.path = cleanNew;
+    if (newTitle) dynamicDocTab.title = newTitle;
+    else dynamicDocTab.title = getDocTabTitleForPath(cleanNew);
+    saveDynamicDocTabToStorage();
+  }
+  renderDocTabs();
 };
 
 window.initDocTabs = function() {
   openDocTabs = loadDocTabsFromStorage();
+  dynamicDocTab = loadDynamicDocTabFromStorage();
   renderDocTabs();
   syncDocTabsFromServer();
 };
@@ -1646,9 +1743,12 @@ window.registerDocTab = registerDocTab;
 window.renderDocTabs = renderDocTabs;
 window.openDocTabAndSwitch = window.openDocTabAndSwitch;
 window.addCurrentPageToTabs = window.addCurrentPageToTabs;
+window.saveDynamicDocTab = window.saveDynamicDocTab;
+window.closeDynamicDocTab = window.closeDynamicDocTab;
 window.unpinDocTab = window.unpinDocTab;
 window.togglePinCurrentPage = window.togglePinCurrentPage;
 window.getOpenDocTabs = () => openDocTabs;
+window.getDynamicDocTab = () => dynamicDocTab;
 window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
 window.syncDocTabsFromServer = syncDocTabsFromServer;
 window.saveDocTabsToServer = saveDocTabsToServer;
@@ -1666,7 +1766,11 @@ function renderSecondaryPicker() {
   if (!contentArea) return;
 
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
-  const tabs = (window.getOpenDocTabs ? window.getOpenDocTabs() : []).filter(t => t.path !== currentPath);
+  const allTabs = [...openDocTabs];
+  if (dynamicDocTab && !allTabs.some(t => t.path === dynamicDocTab.path)) {
+    allTabs.unshift(dynamicDocTab);
+  }
+  const tabs = allTabs.filter(t => t.path !== currentPath);
   let tabsHtml = '';
   if (tabs.length > 0) {
     tabsHtml = `<div style="margin-bottom:16px;">
@@ -2325,6 +2429,10 @@ async function loadArticle(articlePath) {
     if (existingTab && resolvedDocTitle && existingTab.title !== resolvedDocTitle) {
       existingTab.title = resolvedDocTitle;
       saveDocTabsToStorage();
+    }
+    if (dynamicDocTab && dynamicDocTab.path === articlePath && resolvedDocTitle && dynamicDocTab.title !== resolvedDocTitle) {
+      dynamicDocTab.title = resolvedDocTitle;
+      saveDynamicDocTabToStorage();
     }
     if (typeof renderDocTabs === 'function') {
       renderDocTabs();
