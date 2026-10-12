@@ -9992,6 +9992,7 @@ let mpkState = {
   }
 };
 let isNewProjectFormOpen = false;
+const mpkExpandedProjectIds = new Set();
 
 async function renderMpkModule() {
   const contentArea = document.getElementById('articleContentArea');
@@ -10009,11 +10010,17 @@ async function renderMpkModule() {
             Płaska ewidencja godzin w projektach z kontrolą limitów budżetowych i statusem zaraportowania do kalendarza pracy.
           </p>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button type="button" class="btn-mpk-action" onclick="window.toggleNewMpkProjectForm()">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn-action" onclick="window.toggleNewMpkProjectForm()" style="font-size:0.75rem; padding:6px 14px;">
             + Nowy Projekt MPK
           </button>
-          <button type="button" class="btn-mpk-secondary" onclick="window.loadMpkData()">
+          <button type="button" class="btn-secondary" onclick="window.toggleAllMpkProjects(true)" style="font-size:0.75rem; padding:6px 12px;">
+            Rozwiń Wszystkie
+          </button>
+          <button type="button" class="btn-secondary" onclick="window.toggleAllMpkProjects(false)" style="font-size:0.75rem; padding:6px 12px;">
+            Zwiń Wszystkie
+          </button>
+          <button type="button" class="btn-secondary" onclick="window.loadMpkData()" style="font-size:0.75rem; padding:6px 12px;">
             Odśwież
           </button>
         </div>
@@ -10036,10 +10043,10 @@ async function renderMpkModule() {
             <input type="number" id="mpkNewProjHours" step="0.5" min="0.5" max="10000" placeholder="np. 40.0" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:7px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
           </div>
           <div style="display:flex; gap:8px;">
-            <button type="submit" class="btn-mpk-action">
+            <button type="submit" class="btn-action" style="padding:7px 16px; font-size:0.78rem;">
               Zapisz Projekt
             </button>
-            <button type="button" class="btn-mpk-secondary" onclick="window.toggleNewMpkProjectForm(false)">
+            <button type="button" class="btn-secondary" onclick="window.toggleNewMpkProjectForm(false)" style="padding:7px 12px; font-size:0.78rem;">
               Anuluj
             </button>
           </div>
@@ -10176,8 +10183,8 @@ function renderMpkProjectsAndStats() {
             <td style="padding:7px 10px; color:#d4d4d8;">${desc}</td>
             <td style="padding:7px 10px; text-align:center;">${statusBtn}</td>
             <td style="padding:7px 10px; text-align:right; white-space:nowrap;">
-              <button type="button" class="btn-mpk-secondary" onclick="window.editMpkEntry('${eid}')" style="margin-right:4px;" title="Edytuj ten wpis">Edytuj</button>
-              <button type="button" class="btn-mpk-danger" onclick="window.deleteMpkEntry('${eid}')" title="Usuń ten wpis">Usuń</button>
+              <button type="button" class="btn-secondary" onclick="window.editMpkEntry('${eid}')" style="font-size:0.68rem; padding:2px 7px; margin-right:4px;" title="Edytuj ten wpis">Edytuj</button>
+              <button type="button" class="btn-danger" onclick="window.deleteMpkEntry('${eid}')" style="font-size:0.68rem; padding:2px 7px;" title="Usuń ten wpis">Usuń</button>
             </td>
           </tr>
         `;
@@ -10203,71 +10210,77 @@ function renderMpkProjectsAndStats() {
       `;
     }
 
+    const isExpanded = mpkExpandedProjectIds.has(pid);
+
     html += `
-      <div class="mpk-project-card" style="background:#111; border:1px solid #27272a; border-radius:6px; margin-bottom:24px; overflow:hidden;">
-        <!-- Pasek Nagłówkowy Projektu -->
-        <div style="background:#18181b; border-bottom:1px solid #27272a; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div class="mpk-project-card" style="background:#111; border:1px solid #27272a; border-radius:6px; margin-bottom:14px; overflow:hidden;">
+        <!-- Pasek Nagłówkowy Projektu (Zwijanie / Rozwijanie) -->
+        <div class="mpk-project-header" onclick="window.toggleMpkProjectDetails('${pid}')" style="background:#18181b; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; cursor:pointer; user-select:none;">
           <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span id="mpkCollapseInd_${pid}" style="font-size:0.7rem; color:var(--sw-gold); font-weight:700; font-family:monospace; background:#27272a; border:1px solid #3f3f46; padding:2px 7px; border-radius:3px;">${isExpanded ? '[-] ZWIŃ' : '[+] ROZWIŃ'}</span>
             ${proj.code ? `<span style="background:#27272a; border:1px solid var(--sw-gold); color:var(--sw-gold); font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:3px; font-family:monospace;">${escapeHtml(proj.code)}</span>` : ''}
             <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">${escapeHtml(proj.name)}</span>
           </div>
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;" onclick="event.stopPropagation()">
             ${balanceBadgeHtml}
-            <button type="button" class="btn-mpk-secondary" onclick="window.toggleEditMpkProject('${pid}')" title="Edytuj nazwę, kod lub pulę godzin projektu">
+            <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}')" style="font-size:0.7rem; padding:3px 10px;" title="Edytuj nazwę, kod lub pulę godzin projektu">
               Edytuj Projekt
             </button>
-            <button type="button" class="btn-mpk-danger" onclick="window.deleteMpkProject('${pid}', '${escapeHtml(proj.name)}')" title="Usuń ten projekt i wszystkie jego wpisy">
+            <button type="button" class="btn-danger" onclick="window.deleteMpkProject('${pid}', '${escapeHtml(proj.name)}')" style="font-size:0.7rem; padding:3px 10px;" title="Usuń ten projekt i wszystkie jego wpisy">
               Usuń Projekt
             </button>
           </div>
         </div>
 
-        <!-- Formularz Edycji Projektu (zwijany/rozwijany) -->
-        <div id="mpkEditPanel_${pid}" style="display:none; background:#18181b; border-bottom:1px solid #3f3f46; padding:12px 16px;">
-          <form onsubmit="window.saveEditMpkProject(event, '${pid}')" style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
-            <div style="flex:2; min-width:180px;">
-              <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Nazwa Projektu:</label>
-              <input type="text" id="mpkEditName_${pid}" value="${escapeHtml(proj.name)}" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
-            </div>
-            <div style="width:130px;">
-              <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Kod / MPK:</label>
-              <input type="text" id="mpkEditCode_${pid}" value="${escapeHtml(proj.code || '')}" placeholder="np. MPK-101" style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
-            </div>
-            <div style="width:120px;">
-              <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Pula Godzin (h):</label>
-              <input type="number" id="mpkEditHours_${pid}" value="${proj.allocatedHours}" step="0.5" min="0.5" max="10000" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
-            </div>
-            <div style="display:flex; gap:6px;">
-              <button type="submit" class="btn-mpk-action">
-                Zapisz Zmiany
-              </button>
-              <button type="button" class="btn-mpk-secondary" onclick="window.toggleEditMpkProject('${pid}', false)">
-                Anuluj
-              </button>
-            </div>
-          </form>
-        </div>
+        <!-- Ciało Projektu (domyślnie zwinięte: widoczny tylko górny pasek) -->
+        <div id="mpkProjectBody_${pid}" style="display:${isExpanded ? 'block' : 'none'}; border-top:1px solid #222;">
+          <!-- Formularz Edycji Projektu (zwijany/rozwijany) -->
+          <div id="mpkEditPanel_${pid}" style="display:none; background:#18181b; border-bottom:1px solid #3f3f46; padding:12px 16px;">
+            <form onsubmit="window.saveEditMpkProject(event, '${pid}')" style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
+              <div style="flex:2; min-width:180px;">
+                <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Nazwa Projektu:</label>
+                <input type="text" id="mpkEditName_${pid}" value="${escapeHtml(proj.name)}" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              </div>
+              <div style="width:130px;">
+                <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Kod / MPK:</label>
+                <input type="text" id="mpkEditCode_${pid}" value="${escapeHtml(proj.code || '')}" placeholder="np. MPK-101" style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              </div>
+              <div style="width:120px;">
+                <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Pula Godzin (h):</label>
+                <input type="number" id="mpkEditHours_${pid}" value="${proj.allocatedHours}" step="0.5" min="0.5" max="10000" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button type="submit" class="btn-action" style="padding:6px 14px; font-size:0.75rem;">
+                  Zapisz Zmiany
+                </button>
+                <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}', false)" style="padding:6px 10px; font-size:0.75rem;">
+                  Anuluj
+                </button>
+              </div>
+            </form>
+          </div>
 
-        <!-- Szybki wiersz dodawania godzin (Inline Excel-like) -->
-        <div style="background:#141416; border-bottom:1px solid #222; padding:10px 16px;">
-          <form onsubmit="window.submitMpkEntry(event, '${pid}')" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <input type="date" id="mpkDate_${pid}" value="${todayStr}" required style="height:28px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; width:130px; box-sizing:border-box;">
-            <input type="number" id="mpkHours_${pid}" step="0.5" min="0.5" max="24" placeholder="h (np. 2)" required style="height:28px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; width:80px; box-sizing:border-box;">
-            <div style="display:flex; gap:4px;">
-              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 1.0)">+1h</button>
-              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 2.0)">+2h</button>
-              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 4.0)">+4h</button>
-              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 8.0)">+8h</button>
-            </div>
-            <input type="text" id="mpkDesc_${pid}" placeholder="Opis zrealizowanego zadania..." required style="height:28px; flex:1; min-width:180px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
-            <button type="submit" class="btn-mpk-action">
-              + Dodaj Wpis
-            </button>
-          </form>
-        </div>
+          <!-- Szybki wiersz dodawania godzin (Inline Excel-like) -->
+          <div style="background:#141416; border-bottom:1px solid #222; padding:10px 16px;">
+            <form onsubmit="window.submitMpkEntry(event, '${pid}')" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <input type="date" id="mpkDate_${pid}" value="${todayStr}" required style="height:28px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; width:130px; box-sizing:border-box;">
+              <input type="number" id="mpkHours_${pid}" step="0.5" min="0.5" max="24" placeholder="h (np. 2)" required style="height:28px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; width:80px; box-sizing:border-box;">
+              <div style="display:flex; gap:4px;">
+                <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 1.0)" style="font-size:0.7rem; padding:3px 8px;">+1h</button>
+                <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 2.0)" style="font-size:0.7rem; padding:3px 8px;">+2h</button>
+                <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 4.0)" style="font-size:0.7rem; padding:3px 8px;">+4h</button>
+                <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 8.0)" style="font-size:0.7rem; padding:3px 8px;">+8h</button>
+              </div>
+              <input type="text" id="mpkDesc_${pid}" placeholder="Opis zrealizowanego zadania..." required style="height:28px; flex:1; min-width:180px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+              <button type="submit" class="btn-action" style="padding:5px 14px; font-size:0.75rem;">
+                + Dodaj Wpis
+              </button>
+            </form>
+          </div>
 
-        <!-- Tabela Wpisów Projektu -->
-        ${entriesTableHtml}
+          <!-- Tabela Wpisów Projektu -->
+          ${entriesTableHtml}
+        </div>
       </div>
     `;
   }
@@ -10394,6 +10407,7 @@ window.submitMpkEntry = async function(event, pid) {
     mpkState.projects = data.projects || [];
     mpkState.entries = data.entries || [];
     mpkState.stats = data.stats || {};
+    mpkExpandedProjectIds.add(pid);
     renderMpkProjectsAndStats();
   } catch (err) {
     alert('Nie udało się dodać wpisu: ' + err.message);
@@ -10402,6 +10416,9 @@ window.submitMpkEntry = async function(event, pid) {
 
 window.deleteMpkEntry = async function(eid) {
   if (!confirm('Czy na pewno chcesz usunąć ten wpis godzin?')) return;
+
+  const targetEntry = (mpkState.entries || []).find(e => e.id === eid);
+  const targetPid = targetEntry ? targetEntry.projectId : null;
 
   try {
     const res = await fetch('/api/mpk/entry', {
@@ -10420,6 +10437,7 @@ window.deleteMpkEntry = async function(eid) {
     mpkState.projects = data.projects || [];
     mpkState.entries = data.entries || [];
     mpkState.stats = data.stats || {};
+    if (targetPid) mpkExpandedProjectIds.add(targetPid);
     renderMpkProjectsAndStats();
   } catch (err) {
     alert('Nie udało się usunąć wpisu: ' + err.message);
@@ -10427,6 +10445,9 @@ window.deleteMpkEntry = async function(eid) {
 };
 
 window.toggleMpkEntry = async function(eid, isReported) {
+  const targetEntry = (mpkState.entries || []).find(e => e.id === eid);
+  const targetPid = targetEntry ? targetEntry.projectId : null;
+
   try {
     const res = await fetch('/api/mpk/toggle', {
       method: 'POST',
@@ -10444,18 +10465,60 @@ window.toggleMpkEntry = async function(eid, isReported) {
     mpkState.projects = data.projects || [];
     mpkState.entries = data.entries || [];
     mpkState.stats = data.stats || {};
+    if (targetPid) mpkExpandedProjectIds.add(targetPid);
     renderMpkProjectsAndStats();
   } catch (err) {
     alert('Nie udało się zmienić statusu: ' + err.message);
   }
 };
 
+window.toggleMpkProjectDetails = function(pid, event) {
+  if (event) event.stopPropagation();
+  const body = document.getElementById(`mpkProjectBody_${pid}`);
+  const ind = document.getElementById(`mpkCollapseInd_${pid}`);
+  if (!body) return;
+  const isCurrentlyHidden = (body.style.display === 'none');
+  body.style.display = isCurrentlyHidden ? 'block' : 'none';
+  if (ind) {
+    ind.textContent = isCurrentlyHidden ? '[-] ZWIŃ' : '[+] ROZWIŃ';
+  }
+  if (isCurrentlyHidden) {
+    mpkExpandedProjectIds.add(pid);
+  } else {
+    mpkExpandedProjectIds.delete(pid);
+  }
+};
+
+window.toggleAllMpkProjects = function(expand) {
+  for (const proj of mpkState.projects) {
+    const pid = proj.id;
+    const body = document.getElementById(`mpkProjectBody_${pid}`);
+    const ind = document.getElementById(`mpkCollapseInd_${pid}`);
+    if (body) {
+      body.style.display = expand ? 'block' : 'none';
+    }
+    if (ind) {
+      ind.textContent = expand ? '[-] ZWIŃ' : '[+] ROZWIŃ';
+    }
+    if (expand) {
+      mpkExpandedProjectIds.add(pid);
+    } else {
+      mpkExpandedProjectIds.delete(pid);
+    }
+  }
+};
+
 window.toggleEditMpkProject = function(pid, forceOpen) {
   const panel = document.getElementById(`mpkEditPanel_${pid}`);
+  const body = document.getElementById(`mpkProjectBody_${pid}`);
+  const ind = document.getElementById(`mpkCollapseInd_${pid}`);
   if (!panel) return;
   const isVisible = (typeof forceOpen === 'boolean') ? forceOpen : (panel.style.display === 'none');
   panel.style.display = isVisible ? 'block' : 'none';
   if (isVisible) {
+    if (body) body.style.display = 'block';
+    if (ind) ind.textContent = '[-] ZWIŃ';
+    mpkExpandedProjectIds.add(pid);
     const input = document.getElementById(`mpkEditName_${pid}`);
     if (input) input.focus();
   }

@@ -2500,73 +2500,121 @@
       font-weight: 700;
     }
 
-    /* Uniwersalny styl przycisków niebezpiecznych (usuwanie) */
-    .btn-danger {
-      height: 24px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid #ef4444;
-      color: #fca5a5;
-      font-size: 0.68rem;
-      font-weight: 600;
-      padding: 0 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.15s ease;
-      white-space: nowrap;
-      box-sizing: border-box;
-    }
-    .btn-danger:hover {
-      background: rgba(239, 68, 68, 0.28);
-      border-color: #f87171;
-      color: #fee2e2;
-    }
-
-    /* Ujednolicony system przycisków i etykiet modułu Projekty MPK */
-    .btn-mpk-action {
-      height: 28px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: #166534;
-      border: 1px solid #22c55e;
-      color: #f0fdf4;
-      font-size: 0.74rem;
+    /* Uniwersalne klasy przycisków aplikacji KnowOps Wiki */
+    .btn-action {
+      background: var(--sw-gold);
+      border: 1px solid var(--sw-gold);
+      color: #000000;
       font-weight: 700;
-      padding: 0 14px;
+      font-size: 0.74rem;
+      padding: 6px 14px;
       border-radius: 4px;
       cursor: pointer;
       user-select: none;
-      transition: all 0.15s ease;
+      transition: all 0.12s ease;
       white-space: nowrap;
       box-sizing: border-box;
-    }
-    .btn-mpk-action:hover {
-      background: #15803d;
-      border-color: #4ade80;
-      color: #ffffff;
-    }
-
-    .btn-mpk-secondary {
-      height: 24px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      line-height: 1.2;
+    }
+    .btn-action:hover {
+      background: #eab308;
+      border-color: #eab308;
+      color: #000000;
+    }
+
+    .btn-secondary {
       background: #27272a;
       border: 1px solid #3f3f46;
       color: #d4d4d8;
-      font-size: 0.68rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      padding: 0 10px;
+      padding: 5px 12px;
       border-radius: 4px;
       cursor: pointer;
       user-select: none;
-      transition: all 0.15s ease;
+      transition: all 0.12s ease;
       white-space: nowrap;
       box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+    }
+    .btn-secondary:hover {
+      background: #3f3f46;
+      border-color: #52525b;
+      color: #ffffff;
+    }
+
+    .btn-danger {
+      background: #7f1d1d;
+      border: 1px solid #ef4444;
+      color: #ffffff;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+    }
+    .btn-danger:hover {
+      background: #991b1b;
+      border-color: #f87171;
+      color: #ffffff;
+    }
+
+    /* Klasy zgodności dla modułu Projekty MPK */
+    .btn-mpk-action {
+      background: var(--sw-gold);
+      border: 1px solid var(--sw-gold);
+      color: #000000;
+      font-weight: 700;
+      font-size: 0.74rem;
+      padding: 5px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+    }
+    .btn-mpk-action:hover {
+      background: #eab308;
+      border-color: #eab308;
+      color: #000000;
+    }
+
+    .btn-mpk-secondary {
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      color: #d4d4d8;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
     }
     .btn-mpk-secondary:hover {
       background: #3f3f46;
@@ -2575,27 +2623,27 @@
     }
 
     .btn-mpk-danger {
-      height: 24px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(239, 68, 68, 0.12);
+      background: #7f1d1d;
       border: 1px solid #ef4444;
-      color: #fca5a5;
-      font-size: 0.68rem;
+      color: #ffffff;
+      font-size: 0.7rem;
       font-weight: 600;
-      padding: 0 10px;
+      padding: 4px 10px;
       border-radius: 4px;
       cursor: pointer;
       user-select: none;
-      transition: all 0.15s ease;
+      transition: all 0.12s ease;
       white-space: nowrap;
       box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
     }
     .btn-mpk-danger:hover {
-      background: rgba(239, 68, 68, 0.28);
+      background: #991b1b;
       border-color: #f87171;
-      color: #fee2e2;
+      color: #ffffff;
     }
 
     .btn-mpk-quick-h {
