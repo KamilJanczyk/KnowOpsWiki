@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.21.0">
+  <link rel="stylesheet" href="/public/style.css?v=2.22.0">
 </head>
 <body>
 
@@ -101,7 +101,10 @@
             <input type="text" id="globalSearchInput" placeholder="Szukaj w wiki (lub #tag)..." style="width: 100%; background: #111111; border: 1px solid #333333; color: #ffffff; padding: 6px 10px; font-size: 0.73rem; border-radius: 4px;">
             <div id="sidebarTagCloud" class="sidebar-tag-cloud" style="display:none; margin-top: 6px;"></div>
           </div>
-          <div class="right-sidebar-title">AKTYWNE ZADANIA KANBAN</div>
+          <div class="right-sidebar-title">
+            <span>AKTYWNE ZADANIA KANBAN</span>
+            <button type="button" id="btnToggleSidebarHideCompleted" class="btn-sidebar-toggle-completed active" onclick="window.toggleHideCompletedSidebarTasks()" title="Zadania w 100% ukończone są ukrywane (kliknij, aby pokazać wszystkie)">Ukryj 100%</button>
+          </div>
           <div class="right-kanban-list" id="rightKanbanList">
             <div style="font-size:0.68rem; color:#555; text-align:center; padding:10px;">Ładowanie zadań...</div>
           </div>
@@ -244,7 +247,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.21.0"></script>
+  <script src="/public/app.js?v=2.22.0"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
@@ -751,7 +754,6 @@
         <div id="authLockError" class="auth-lock-error" style="display:none;"></div>
         <button type="submit" id="authSubmitBtn" class="auth-submit-btn">Odblokuj panel</button>
       </form>
-      <div class="auth-lock-footer">Automatyczne wygaszanie sesji po 6 godzinach.</div>
     </div>
   </div>
 

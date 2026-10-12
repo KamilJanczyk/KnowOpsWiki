@@ -753,6 +753,49 @@ test('Kanban Subtasks & Cards: Sortowanie otwartych na górze, opadanie zadań 1
   assert.equal(sortedCards[0].id, 'c1');
   assert.equal(sortedCards[1].id, 'c3');
   assert.equal(sortedCards[2].id, 'c2');
+
+  // D. Prawy pasek boczny Kanban: Wariant 1 (ukrywanie zadań w 100% ukończonych z przełącznikiem i licznikiem)
+  const isTask100PercentDone = (t) => {
+    const sub = t.subtasks || [];
+    return sub.length > 0 && sub.filter(s => s.done).length === sub.length;
+  };
+
+  // Gdy filtr ukrywania jest włączony (domyślnie: true)
+  const hideCompleted = true;
+  let hiddenCount = 0;
+  const filteredWhenHidden = cards.filter(t => {
+    if (hideCompleted && isTask100PercentDone(t)) {
+      hiddenCount++;
+      return false;
+    }
+    return true;
+  });
+  assert.equal(filteredWhenHidden.length, 2);
+  assert.equal(filteredWhenHidden.some(t => t.id === 'c2'), false);
+  assert.equal(hiddenCount, 1);
+
+  // Gdy filtr ukrywania jest wyłączony (false)
+  const filteredWhenShown = cards.filter(t => {
+    if (false && isTask100PercentDone(t)) {
+      return false;
+    }
+    return true;
+  });
+  assert.equal(filteredWhenShown.length, 3);
+  assert.equal(filteredWhenShown.some(t => t.id === 'c2'), true);
+
+  // Weryfikacja integracji kodu w app.js, index.html oraz style.css
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  assert.equal(appJs.includes('knowops_sidebar_hide_completed_tasks'), true);
+  assert.equal(appJs.includes('toggleHideCompletedSidebarTasks'), true);
+  assert.equal(appJs.includes('right-kanban-hidden-notice'), true);
+  assert.equal(indexHtml.includes('btnToggleSidebarHideCompleted'), true);
+  assert.equal(indexHtml.includes('btn-sidebar-toggle-completed'), true);
+  assert.equal(styleCss.includes('.btn-sidebar-toggle-completed'), true);
+  assert.equal(styleCss.includes('.right-kanban-hidden-notice'), true);
 });
 
 // 20. Tree Navigation: Wielopoziomowe kolorowanie poziomów folderów (Wariant 1)

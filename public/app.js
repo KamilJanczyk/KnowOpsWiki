@@ -45,7 +45,7 @@ function scheduleSessionTimeout(expiresAt) {
   if (authSessionTimer) clearTimeout(authSessionTimer);
   const remainingMs = Math.max(0, expiresAt - Date.now());
   authSessionTimer = setTimeout(() => {
-    lockSession('Sesja wygasła po 6 godzinach. Wprowadź hasło dostępu.');
+    lockSession('Sesja wygasła. Wprowadź hasło dostępu.');
   }, remainingMs);
 }
 
@@ -181,7 +181,7 @@ window.fetch = async function(url, options = {}) {
     const isLoginEndpoint = typeof url === 'string' && url.includes('/api/login');
     if (!isLoginEndpoint) {
       clearStoredAuth();
-      showLockScreen('Sesja wygasła po 6 godzinach. Wprowadź hasło dostępu.');
+      showLockScreen('Sesja wygasła. Wprowadź hasło dostępu.');
     }
   }
 
@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           await initializeWikiContent();
         } else {
           clearStoredAuth();
-          showLockScreen('Sesja wygasła po 6 godzinach. Wprowadź hasło dostępu.');
+          showLockScreen('Sesja wygasła. Wprowadź hasło dostępu.');
         }
       }
     } else {
@@ -5361,9 +5361,32 @@ window.submitImportUrl = async function() {
   }
 };
 
+let sidebarHideCompletedTasks = localStorage.getItem('knowops_sidebar_hide_completed_tasks') !== 'false';
+window.sidebarHideCompletedTasks = sidebarHideCompletedTasks;
+
+window.toggleHideCompletedSidebarTasks = async function() {
+  sidebarHideCompletedTasks = !sidebarHideCompletedTasks;
+  window.sidebarHideCompletedTasks = sidebarHideCompletedTasks;
+  localStorage.setItem('knowops_sidebar_hide_completed_tasks', sidebarHideCompletedTasks ? 'true' : 'false');
+  await loadRightSidebarKanban();
+};
+
 async function loadRightSidebarKanban() {
   const container = document.getElementById('rightKanbanList');
   if (!container) return;
+
+  const toggleBtn = document.getElementById('btnToggleSidebarHideCompleted');
+  if (toggleBtn) {
+    if (sidebarHideCompletedTasks) {
+      toggleBtn.textContent = 'Ukryj 100%';
+      toggleBtn.classList.add('active');
+      toggleBtn.title = 'Zadania w 100% ukończone są ukrywane (kliknij, aby pokazać wszystkie)';
+    } else {
+      toggleBtn.textContent = 'Pokaż 100%';
+      toggleBtn.classList.remove('active');
+      toggleBtn.title = 'Wszystkie zadania są widoczne (kliknij, aby ukryć zadania 100%)';
+    }
+  }
 
   try {
     let tasks = [];
@@ -5379,35 +5402,63 @@ async function loadRightSidebarKanban() {
 
     const activeTasks = tasks.filter(t => t.status === 'in_progress' && !t.archived);
     const prioWeights = { high: 3, medium: 2, low: 1 };
+    const isTask100PercentDone = (t) => {
+      const sub = t.subtasks || [];
+      return sub.length > 0 && sub.filter(s => s.done).length === sub.length;
+    };
+
     activeTasks.sort((a, b) => {
+      const aFinished = isTask100PercentDone(a);
+      const bFinished = isTask100PercentDone(b);
+      if (aFinished !== bFinished) return aFinished ? 1 : -1;
+
       const hasOrderA = typeof a.sidebarOrder === 'number';
       const hasOrderB = typeof b.sidebarOrder === 'number';
       if (hasOrderA && hasOrderB) return a.sidebarOrder - b.sidebarOrder;
       if (hasOrderA) return -1;
       if (hasOrderB) return 1;
 
-      const aTotal = (a.subtasks || []).length;
-      const aDone = (a.subtasks || []).filter(s => s.done).length;
-      const aFinished = aTotal > 0 && aDone === aTotal;
-
-      const bTotal = (b.subtasks || []).length;
-      const bDone = (b.subtasks || []).filter(s => s.done).length;
-      const bFinished = bTotal > 0 && bDone === bTotal;
-
-      if (aFinished !== bFinished) return aFinished ? 1 : -1;
       return (prioWeights[b.priority || 'medium'] || 2) - (prioWeights[a.priority || 'medium'] || 2);
     });
 
-    if (activeTasks.length === 0) {
+    const totalActiveCount = activeTasks.length;
+    const completedCount = activeTasks.filter(isTask100PercentDone).length;
+    let tasksToRender = activeTasks;
+    let hiddenCount = 0;
+
+    if (sidebarHideCompletedTasks) {
+      tasksToRender = activeTasks.filter(t => {
+        if (isTask100PercentDone(t)) {
+          hiddenCount++;
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (totalActiveCount === 0) {
       container.innerHTML = `<div style="font-size:0.68rem; color:#555; text-align:center; padding:10px;">Brak aktywnych zadań</div>`;
       return;
     }
 
+    if (tasksToRender.length === 0 && hiddenCount > 0) {
+      container.innerHTML = `
+        <div style="font-size:0.68rem; color:#71717a; text-align:center; padding:10px;">
+          Wszystkie aktywne zadania zostały ukończone (${hiddenCount}).
+        </div>
+        <div class="right-kanban-hidden-notice">
+          <span>Ukryto ukończone zadania (${hiddenCount})</span>
+          <button type="button" class="btn-kanban-hidden-toggle" onclick="window.toggleHideCompletedSidebarTasks()">Pokaż</button>
+        </div>
+      `;
+      return;
+    }
+
     let html = '';
-    for (let i = 0; i < activeTasks.length; i++) {
-      const t = activeTasks[i];
+    for (let i = 0; i < tasksToRender.length; i++) {
+      const t = tasksToRender[i];
       const isFirst = (i === 0);
-      const isLast = (i === activeTasks.length - 1);
+      const isLast = (i === tasksToRender.length - 1);
       const prioClass = `prio-${t.priority || 'medium'}`;
       const subtasks = t.subtasks || [];
       const total = subtasks.length;
@@ -5501,6 +5552,23 @@ async function loadRightSidebarKanban() {
         </div>
       `;
     }
+
+    if (sidebarHideCompletedTasks && hiddenCount > 0) {
+      html += `
+        <div class="right-kanban-hidden-notice">
+          <span>Ukryto ukończone zadania (${hiddenCount})</span>
+          <button type="button" class="btn-kanban-hidden-toggle" onclick="window.toggleHideCompletedSidebarTasks()">Pokaż</button>
+        </div>
+      `;
+    } else if (!sidebarHideCompletedTasks && completedCount > 0) {
+      html += `
+        <div class="right-kanban-hidden-notice">
+          <span>Ukończone zadania (${completedCount}) są widoczne</span>
+          <button type="button" class="btn-kanban-hidden-toggle" onclick="window.toggleHideCompletedSidebarTasks()">Ukryj</button>
+        </div>
+      `;
+    }
+
     container.innerHTML = html;
     if (window._lastActiveSidebarSubtaskInputTaskId) {
       const activeTaskId = window._lastActiveSidebarSubtaskInputTaskId;
@@ -5586,36 +5654,37 @@ window.moveSidebarTask = async function(taskId, direction) {
 
   const activeTasks = tasks.filter(t => t.status === 'in_progress' && !t.archived);
   const prioWeights = { high: 3, medium: 2, low: 1 };
+  const isTask100PercentDone = (t) => {
+    const sub = t.subtasks || [];
+    return sub.length > 0 && sub.filter(s => s.done).length === sub.length;
+  };
+
   activeTasks.sort((a, b) => {
+    const aFinished = isTask100PercentDone(a);
+    const bFinished = isTask100PercentDone(b);
+    if (aFinished !== bFinished) return aFinished ? 1 : -1;
+
     const hasOrderA = typeof a.sidebarOrder === 'number';
     const hasOrderB = typeof b.sidebarOrder === 'number';
     if (hasOrderA && hasOrderB) return a.sidebarOrder - b.sidebarOrder;
     if (hasOrderA) return -1;
     if (hasOrderB) return 1;
 
-    const aTotal = (a.subtasks || []).length;
-    const aDone = (a.subtasks || []).filter(s => s.done).length;
-    const aFinished = aTotal > 0 && aDone === aTotal;
-
-    const bTotal = (b.subtasks || []).length;
-    const bDone = (b.subtasks || []).filter(s => s.done).length;
-    const bFinished = bTotal > 0 && bDone === bTotal;
-
-    if (aFinished !== bFinished) return aFinished ? 1 : -1;
     return (prioWeights[b.priority || 'medium'] || 2) - (prioWeights[a.priority || 'medium'] || 2);
   });
 
-  const currentIndex = activeTasks.findIndex(t => t.id === taskId);
+  const visibleTasks = sidebarHideCompletedTasks ? activeTasks.filter(t => !isTask100PercentDone(t)) : activeTasks;
+  const currentIndex = visibleTasks.findIndex(t => t.id === taskId);
   if (currentIndex === -1) return;
 
   const targetIndex = currentIndex + direction;
-  if (targetIndex < 0 || targetIndex >= activeTasks.length) return;
+  if (targetIndex < 0 || targetIndex >= visibleTasks.length) return;
 
-  const temp = activeTasks[currentIndex];
-  activeTasks[currentIndex] = activeTasks[targetIndex];
-  activeTasks[targetIndex] = temp;
+  const temp = visibleTasks[currentIndex];
+  visibleTasks[currentIndex] = visibleTasks[targetIndex];
+  visibleTasks[targetIndex] = temp;
 
-  activeTasks.forEach((t, idx) => {
+  visibleTasks.forEach((t, idx) => {
     t.sidebarOrder = (idx + 1) * 10;
   });
 

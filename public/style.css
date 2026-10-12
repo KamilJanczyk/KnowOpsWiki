@@ -993,7 +993,60 @@
       max-height: 100%;
       overflow-y: auto;
     }
-    .right-sidebar-title { font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; letter-spacing: 0.5px; }
+    .right-sidebar-title { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-sidebar-toggle-completed {
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      color: #a1a1aa;
+      padding: 1px 6px;
+      font-size: 0.60rem;
+      font-weight: 700;
+      border-radius: 3px;
+      cursor: pointer;
+      user-select: none;
+      text-transform: none;
+      letter-spacing: normal;
+      transition: all 0.15s ease;
+    }
+    .btn-sidebar-toggle-completed:hover {
+      background: #27272a;
+      color: var(--sw-gold);
+      border-color: var(--sw-gold);
+    }
+    .btn-sidebar-toggle-completed.active {
+      background: rgba(226, 179, 78, 0.15);
+      border-color: var(--sw-gold);
+      color: var(--sw-gold);
+    }
+    .right-kanban-hidden-notice {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      margin-top: 4px;
+      background: #141416;
+      border: 1px dashed #27272a;
+      border-radius: 4px;
+      font-size: 0.64rem;
+      color: #71717a;
+    }
+    .btn-kanban-hidden-toggle {
+      background: transparent;
+      border: 1px solid #3f3f46;
+      color: var(--sw-gold);
+      padding: 1px 6px;
+      font-size: 0.60rem;
+      font-weight: 700;
+      border-radius: 3px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+    }
+    .btn-kanban-hidden-toggle:hover {
+      background: var(--sw-gold);
+      color: #000000;
+      border-color: var(--sw-gold);
+    }
     .right-kanban-list { display: flex; flex-direction: column; gap: 8px; }
     .right-kanban-item { background: #141416; border: 1px solid #222224; border-left: 3px solid var(--sw-gold); padding: 8px; border-radius: 4px; font-size: 0.7rem; }
     .right-kanban-item.prio-high { border-left-color: #ef4444; }
