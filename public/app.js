@@ -1554,53 +1554,74 @@ function renderDocTabs() {
 
   let html = '';
 
-  // 1. Przycisk funkcyjny PRZYPNIJ / ODEPNIJ na pozycji #1
-  if (!isCurrentPinned) {
-    html += `<button type="button" class="btn-add-current-tab" onclick="window.togglePinCurrentPage()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ PRZYPNIJ</button>`;
-  } else {
-    html += `<button type="button" class="btn-add-current-tab is-pinned" onclick="window.togglePinCurrentPage()" title="Odepnij ten dokument z paska zakładek (Alt+T)">ODEPNIJ</button>`;
+  // 1. POZIOM WYŻEJ: Karty Przypięte (Saved / Pinned Tabs) z obsługą przeciągania myszką
+  if (openDocTabs.length > 0) {
+    let pinnedTabsHtml = '';
+    for (let i = 0; i < openDocTabs.length; i++) {
+      const tab = openDocTabs[i];
+      const isSavedActive = (tab.path === currentPath);
+      pinnedTabsHtml += `<div class="doc-tab doc-tab-saved ${isSavedActive ? 'active' : ''}" ` +
+        `draggable="true" ` +
+        `data-path="${escapeHtml(tab.path)}" ` +
+        `data-index="${i}" ` +
+        `title="${escapeHtml(tab.title)} (karta przypięta - przeciągnij myszką, aby zmienić kolejność)" ` +
+        `onclick="window.switchDocTab('${escapeHtml(tab.path)}')" ` +
+        `ondragstart="window.handleDocTabDragStart(event, ${i})" ` +
+        `ondragover="window.handleDocTabDragOver(event, ${i})" ` +
+        `ondragleave="window.handleDocTabDragLeave(event)" ` +
+        `ondrop="window.handleDocTabDrop(event, ${i})" ` +
+        `ondragend="window.handleDocTabDragEnd(event)" ` +
+        `onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
+        `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
+        `<button type="button" class="doc-tab-close" title="Usuń z przypiętych zakładek" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
+      `</div>`;
+    }
+    html += `<div class="doc-tabs-pinned-row" id="docTabsPinnedRow" ondragover="window.handleDocTabDragOver(event, ${openDocTabs.length - 1})" ondrop="window.handleDocTabsPinnedRowDrop(event)">${pinnedTabsHtml}</div>`;
   }
 
-  // 2. Stała Karta Robocza (Browsing Tab - niebieski akcent)
+  // 2. POZIOM NIŻEJ: Opcja Przypnij/Odepnij + Karta Robocza + Narzędzia
+  let actionRowHtml = '';
+
+  // A. Przycisk funkcyjny PRZYPNIJ / ODEPNIJ na pozycji #1
+  if (!isCurrentPinned) {
+    actionRowHtml += `<button type="button" class="btn-add-current-tab" onclick="window.togglePinCurrentPage()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ PRZYPNIJ</button>`;
+  } else {
+    actionRowHtml += `<button type="button" class="btn-add-current-tab is-pinned" onclick="window.togglePinCurrentPage()" title="Odepnij ten dokument z paska zakładek (Alt+T)">ODEPNIJ</button>`;
+  }
+
+  // B. Stała Karta Robocza (Browsing Tab - niebieski akcent)
   if (browsingTab && browsingTab.path) {
     const isBrowsingActive = (browsingTab.path === currentPath && !isCurrentPinned);
-    html += `<div class="doc-tab doc-tab-browsing ${isBrowsingActive ? 'active' : ''}" data-path="${escapeHtml(browsingTab.path)}" title="${escapeHtml(browsingTab.title)} (karta robocza)" onclick="window.switchDocTab('${escapeHtml(browsingTab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeBrowsingTab(event); }">` +
+    actionRowHtml += `<div class="doc-tab doc-tab-browsing ${isBrowsingActive ? 'active' : ''}" data-path="${escapeHtml(browsingTab.path)}" title="${escapeHtml(browsingTab.title)} (karta robocza)" onclick="window.switchDocTab('${escapeHtml(browsingTab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeBrowsingTab(event); }">` +
       `<span class="doc-tab-title">${escapeHtml(browsingTab.title)}</span>` +
       `<button type="button" class="doc-tab-close" title="Zamknij kartę roboczą" onclick="event.stopPropagation(); window.closeBrowsingTab(event)">X</button>` +
     `</div>`;
   }
 
-  if (openDocTabs.length > 0) {
-    html += `<span class="doc-tabs-separator"></span>`;
-  }
+  // C. Przycisk Split View
+  actionRowHtml += `<button type="button" class="btn-split-toggle ${splitActiveCls}" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">${splitBtnText}</button>`;
 
-  // 3. Karty Przypięte (Saved / Pinned Tabs)
-  for (const tab of openDocTabs) {
-    const isSavedActive = (tab.path === currentPath);
-    html += `<div class="doc-tab doc-tab-saved ${isSavedActive ? 'active' : ''}" data-path="${escapeHtml(tab.path)}" title="${escapeHtml(tab.title)} (karta przypięta)" onclick="window.switchDocTab('${escapeHtml(tab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
-      `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
-      `<button type="button" class="doc-tab-close" title="Usuń z przypiętych zakładek" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
-    `</div>`;
-  }
-
-  // 4. Przycisk Split View
-  html += `<button type="button" class="btn-split-toggle ${splitActiveCls}" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">${splitBtnText}</button>`;
+  html += `<div class="doc-tabs-action-row" id="docTabsActionRow">${actionRowHtml}</div>`;
 
   container.innerHTML = html;
 
   const activeTabEl = container.querySelector('.doc-tab.active');
   if (activeTabEl) {
-    const tabLeft = activeTabEl.offsetLeft;
-    const tabRight = tabLeft + activeTabEl.offsetWidth;
-    if (tabLeft < container.scrollLeft) {
-      container.scrollLeft = tabLeft - 8;
-    } else if (tabRight > container.scrollLeft + container.clientWidth) {
-      container.scrollLeft = tabRight - container.clientWidth + 8;
+    const tabRow = activeTabEl.closest('.doc-tabs-pinned-row') || activeTabEl.closest('.doc-tabs-action-row');
+    if (tabRow) {
+      const tabLeft = activeTabEl.offsetLeft;
+      const tabRight = tabLeft + activeTabEl.offsetWidth;
+      if (tabLeft < tabRow.scrollLeft) {
+        tabRow.scrollLeft = tabLeft - 8;
+      } else if (tabRight > tabRow.scrollLeft + tabRow.clientWidth) {
+        tabRow.scrollLeft = tabRight - tabRow.clientWidth + 8;
+      }
     }
   }
 }
 
 window.switchDocTab = function(path) {
+  if (window._isDraggingDocTab) return;
   const clean = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
   const current = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
   if (current === clean) {
@@ -1722,6 +1743,114 @@ window.renameDocTab = function(oldPath, newPath, newTitle = null) {
   renderDocTabs();
 };
 
+window.handleDocTabDragStart = function(event, index) {
+  window._draggedDocTabIndex = parseInt(index, 10);
+  window._isDraggingDocTab = true;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+  }
+  const el = event.currentTarget || event.target;
+  if (el) el.classList.add('dragging');
+};
+
+window.handleDocTabDragOver = function(event, index) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  const target = event.currentTarget;
+  if (!target || !target.classList.contains('doc-tab-saved')) return;
+  const rect = target.getBoundingClientRect();
+  const midX = rect.left + rect.width / 2;
+  const isAfter = event.clientX > midX;
+
+  target.classList.remove('drag-over-left', 'drag-over-right');
+  if (isAfter) {
+    target.classList.add('drag-over-right');
+  } else {
+    target.classList.add('drag-over-left');
+  }
+};
+
+window.handleDocTabDragLeave = function(event) {
+  const target = event.currentTarget;
+  if (target) {
+    target.classList.remove('drag-over-left', 'drag-over-right');
+  }
+};
+
+window.handleDocTabDrop = function(event, targetIndex) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const target = event.currentTarget;
+  let isAfter = false;
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    isAfter = event.clientX > midX;
+    target.classList.remove('drag-over-left', 'drag-over-right');
+  }
+
+  const fromIndex = window._draggedDocTabIndex;
+  const toIndex = parseInt(targetIndex, 10);
+  window._draggedDocTabIndex = null;
+
+  if (typeof fromIndex === 'number' && !isNaN(fromIndex) && !isNaN(toIndex)) {
+    window.reorderDocTabs(fromIndex, toIndex, isAfter);
+  }
+};
+
+window.handleDocTabsPinnedRowDrop = function(event) {
+  if (event.target && event.target.closest('.doc-tab-saved')) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const fromIndex = window._draggedDocTabIndex;
+  window._draggedDocTabIndex = null;
+  if (typeof fromIndex === 'number' && !isNaN(fromIndex) && openDocTabs.length > 0) {
+    window.reorderDocTabs(fromIndex, openDocTabs.length - 1, true);
+  }
+};
+
+window.handleDocTabDragEnd = function(event) {
+  window._draggedDocTabIndex = null;
+  setTimeout(() => {
+    window._isDraggingDocTab = false;
+  }, 100);
+  const container = document.getElementById('docTabsPinnedRow');
+  if (container) {
+    const tabs = container.querySelectorAll('.doc-tab-saved');
+    tabs.forEach(t => t.classList.remove('dragging', 'drag-over-left', 'drag-over-right'));
+  }
+};
+
+window.reorderDocTabs = function(fromIndex, toIndex, dropAfter = false) {
+  if (typeof fromIndex !== 'number' || typeof toIndex !== 'number') return;
+  if (fromIndex === toIndex && !dropAfter) return;
+  if (fromIndex < 0 || fromIndex >= openDocTabs.length) return;
+  if (toIndex < 0 || toIndex >= openDocTabs.length) return;
+
+  const item = openDocTabs.splice(fromIndex, 1)[0];
+  if (!item) return;
+
+  let targetIdx = toIndex;
+  if (fromIndex < toIndex) {
+    targetIdx = dropAfter ? toIndex : toIndex - 1;
+  } else {
+    targetIdx = dropAfter ? toIndex + 1 : toIndex;
+  }
+  targetIdx = Math.max(0, Math.min(openDocTabs.length, targetIdx));
+  openDocTabs.splice(targetIdx, 0, item);
+
+  saveDocTabsToStorage();
+  renderDocTabs();
+  if (typeof window.saveDocTabsToServer === 'function') {
+    window.saveDocTabsToServer();
+  }
+};
+
 window.initDocTabs = function() {
   try {
     sessionStorage.removeItem('knowops_dynamic_tab');
@@ -1752,6 +1881,16 @@ window.togglePinCurrentPage = window.togglePinCurrentPage;
 window.closeBrowsingTab = window.closeBrowsingTab;
 window.getBrowsingTab = () => browsingTab;
 window.getOpenDocTabs = () => openDocTabs;
+window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
+window.syncDocTabsFromServer = syncDocTabsFromServer;
+window.saveDocTabsToServer = saveDocTabsToServer;
+window.reorderDocTabs = window.reorderDocTabs;
+window.handleDocTabDragStart = window.handleDocTabDragStart;
+window.handleDocTabDragOver = window.handleDocTabDragOver;
+window.handleDocTabDragLeave = window.handleDocTabDragLeave;
+window.handleDocTabDrop = window.handleDocTabDrop;
+window.handleDocTabDragEnd = window.handleDocTabDragEnd;
+window.handleDocTabsPinnedRowDrop = window.handleDocTabsPinnedRowDrop;
 window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
 window.syncDocTabsFromServer = syncDocTabsFromServer;
 window.saveDocTabsToServer = saveDocTabsToServer;

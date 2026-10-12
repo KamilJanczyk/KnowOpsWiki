@@ -2456,8 +2456,8 @@ test('48. Compact Pinned Tabs, Short Action Labels & Move Page Path Auto-Populat
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
 
   // 1. Weryfikacja kompaktowej wysokości belki i zakładek
-  const tabsBarMatch = styleCss.match(/\.doc-tabs-bar\s*\{[^}]*?height:\s*32px;/);
-  assert.ok(tabsBarMatch, '.doc-tabs-bar musi mieć kompaktową wysokość 32px');
+  const tabsBarMatch = styleCss.match(/\.doc-tabs-bar\s*\{[^}]*?min-height:\s*32px;/);
+  assert.ok(tabsBarMatch, '.doc-tabs-bar musi mieć kompaktową minimalną wysokość 32px');
 
   const docTabMatch = styleCss.match(/\.doc-tab\s*\{[^}]*?padding:\s*2px 7px;/);
   assert.ok(docTabMatch, '.doc-tab musi mieć niski profil padding: 2px 7px');
@@ -2720,6 +2720,67 @@ test('52. Browser Tab & Pinned Tabs Architecture (Wariant A): weryfikacja stałe
   simulatePinBrowsingTab();
   assert.equal(simulatedSaved.length, 3, 'Artykuł trafia do kart przypiętych');
   assert.equal(simulatedSaved.some(t => t.path === 'docs/02_security.md'), true);
+});
+
+test('53. Two-Tier Tabs Architecture & Drag-and-Drop Reordering: weryfikacja podziału na poziom kart przypiętych i poziom opcji przypnij/odepnij oraz przesuwania kart myszką', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja obecności stylów 2 poziomów belki zakładek w style.css
+  assert.equal(styleCss.includes('.doc-tabs-pinned-row'), true, 'Brak stylu .doc-tabs-pinned-row');
+  assert.equal(styleCss.includes('.doc-tabs-action-row'), true, 'Brak stylu .doc-tabs-action-row');
+  assert.equal(styleCss.includes('.doc-tab.doc-tab-saved.dragging'), true, 'Brak stylu .doc-tab.doc-tab-saved.dragging');
+  assert.equal(styleCss.includes('.doc-tab.doc-tab-saved.drag-over-left'), true, 'Brak stylu .drag-over-left');
+  assert.equal(styleCss.includes('.doc-tab.doc-tab-saved.drag-over-right'), true, 'Brak stylu .drag-over-right');
+
+  // 2. Weryfikacja obecności funkcji Drag & Drop oraz reorderDocTabs w app.js
+  assert.equal(appJs.includes('window.reorderDocTabs'), true, 'Brak window.reorderDocTabs');
+  assert.equal(appJs.includes('window.handleDocTabDragStart'), true, 'Brak window.handleDocTabDragStart');
+  assert.equal(appJs.includes('window.handleDocTabDragOver'), true, 'Brak window.handleDocTabDragOver');
+  assert.equal(appJs.includes('window.handleDocTabDrop'), true, 'Brak window.handleDocTabDrop');
+  assert.equal(appJs.includes('window.handleDocTabDragEnd'), true, 'Brak window.handleDocTabDragEnd');
+  assert.equal(appJs.includes('docTabsPinnedRow'), true, 'Brak docTabsPinnedRow w renderDocTabs');
+  assert.equal(appJs.includes('docTabsActionRow'), true, 'Brak docTabsActionRow w renderDocTabs');
+  assert.equal(appJs.includes('draggable="true"'), true, 'Karty przypięte muszą posiadać atrybut draggable="true"');
+
+  // 3. Symulacja algorytmu reorderDocTabs (zamiana kolejności kart przypiętych)
+  const tabs = [
+    { path: 'doc1', title: 'Dokument 1' },
+    { path: 'doc2', title: 'Dokument 2' },
+    { path: 'doc3', title: 'Dokument 3' }
+  ];
+
+  function simulateReorder(list, fromIndex, toIndex, dropAfter) {
+    const copy = [...list];
+    const item = copy.splice(fromIndex, 1)[0];
+    let targetIdx = toIndex;
+    if (fromIndex < toIndex) {
+      targetIdx = dropAfter ? toIndex : toIndex - 1;
+    } else {
+      targetIdx = dropAfter ? toIndex + 1 : toIndex;
+    }
+    targetIdx = Math.max(0, Math.min(copy.length, targetIdx));
+    copy.splice(targetIdx, 0, item);
+    return copy;
+  }
+
+  // A. Przeciągnięcie doc3 (indeks 2) przed doc1 (indeks 0, dropAfter=false)
+  const reordered1 = simulateReorder(tabs, 2, 0, false);
+  assert.equal(reordered1[0].path, 'doc3');
+  assert.equal(reordered1[1].path, 'doc1');
+  assert.equal(reordered1[2].path, 'doc2');
+
+  // B. Przeciągnięcie doc1 (indeks 0) za doc2 (indeks 1, dropAfter=true)
+  const reordered2 = simulateReorder(tabs, 0, 1, true);
+  assert.equal(reordered2[0].path, 'doc2');
+  assert.equal(reordered2[1].path, 'doc1');
+  assert.equal(reordered2[2].path, 'doc3');
+
+  // C. Przeciągnięcie doc2 (indeks 1) na sam koniec za doc3 (indeks 2, dropAfter=true)
+  const reordered3 = simulateReorder(tabs, 1, 2, true);
+  assert.equal(reordered3[0].path, 'doc1');
+  assert.equal(reordered3[1].path, 'doc3');
+  assert.equal(reordered3[2].path, 'doc2');
 });
 
 

@@ -682,33 +682,60 @@
     }
     .doc-tabs-bar {
       display: flex;
-      align-items: center;
-      gap: 5px;
-      overflow-x: auto;
-      overflow-y: hidden;
+      flex-direction: column;
+      gap: 3px;
       padding: 3px 8px;
       min-height: 32px;
-      height: 32px;
       background: #18181b;
       border: none;
       border-top-left-radius: 6px;
       border-top-right-radius: 6px;
       border-bottom: 1px solid #27272a;
-      scrollbar-width: thin;
-      scrollbar-color: #52525b #18181b;
     }
     .doc-tabs-bar.no-action-bar {
       border-bottom: none;
       border-radius: 6px;
     }
-    .doc-tabs-bar::-webkit-scrollbar {
+    .doc-tabs-pinned-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      min-height: 25px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #27272a;
+      scrollbar-width: thin;
+      scrollbar-color: #52525b #18181b;
+    }
+    .doc-tabs-pinned-row::-webkit-scrollbar {
       height: 3px;
     }
-    .doc-tabs-bar::-webkit-scrollbar-thumb {
+    .doc-tabs-pinned-row::-webkit-scrollbar-thumb {
       background: #52525b;
       border-radius: 2px;
     }
-    .doc-tabs-bar::-webkit-scrollbar-track {
+    .doc-tabs-pinned-row::-webkit-scrollbar-track {
+      background: #18181b;
+    }
+    .doc-tabs-action-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      min-height: 25px;
+      scrollbar-width: thin;
+      scrollbar-color: #52525b #18181b;
+    }
+    .doc-tabs-action-row::-webkit-scrollbar {
+      height: 3px;
+    }
+    .doc-tabs-action-row::-webkit-scrollbar-thumb {
+      background: #52525b;
+      border-radius: 2px;
+    }
+    .doc-tabs-action-row::-webkit-scrollbar-track {
       background: #18181b;
     }
     .doc-tab {
@@ -724,7 +751,7 @@
       cursor: pointer;
       user-select: none;
       white-space: nowrap;
-      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease, opacity 0.12s ease;
       max-width: 170px;
       flex-shrink: 0;
       line-height: 1.2;
@@ -740,6 +767,25 @@
       color: #ffffff;
       font-weight: 700;
       box-shadow: 0 0 8px rgba(250, 204, 21, 0.25);
+    }
+    .doc-tab.doc-tab-saved {
+      cursor: grab;
+    }
+    .doc-tab.doc-tab-saved:active {
+      cursor: grabbing;
+    }
+    .doc-tab.doc-tab-saved.dragging {
+      opacity: 0.4;
+      border-style: dashed;
+      border-color: var(--sw-gold);
+    }
+    .doc-tab.doc-tab-saved.drag-over-left {
+      border-left: 3px solid var(--sw-gold) !important;
+      transform: translateX(3px);
+    }
+    .doc-tab.doc-tab-saved.drag-over-right {
+      border-right: 3px solid var(--sw-gold) !important;
+      transform: translateX(-3px);
     }
     .doc-tab-title {
       overflow: hidden;
