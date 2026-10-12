@@ -10010,10 +10010,10 @@ async function renderMpkModule() {
           </p>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button type="button" class="btn-action" onclick="window.toggleNewMpkProjectForm()" style="font-size:0.75rem; padding:6px 14px; background:#166534; border:1px solid #22c55e;">
+          <button type="button" class="btn-mpk-action" onclick="window.toggleNewMpkProjectForm()">
             + Nowy Projekt MPK
           </button>
-          <button type="button" class="btn-action" onclick="window.loadMpkData()" style="font-size:0.75rem; padding:6px 14px;">
+          <button type="button" class="btn-mpk-secondary" onclick="window.loadMpkData()">
             Odśwież
           </button>
         </div>
@@ -10036,10 +10036,10 @@ async function renderMpkModule() {
             <input type="number" id="mpkNewProjHours" step="0.5" min="0.5" max="10000" placeholder="np. 40.0" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:7px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
           </div>
           <div style="display:flex; gap:8px;">
-            <button type="submit" class="btn-action" style="padding:7px 16px; font-size:0.78rem; font-weight:bold; background:#166534; border:1px solid #22c55e;">
+            <button type="submit" class="btn-mpk-action">
               Zapisz Projekt
             </button>
-            <button type="button" class="btn-secondary" onclick="window.toggleNewMpkProjectForm(false)" style="padding:7px 12px; font-size:0.78rem;">
+            <button type="button" class="btn-mpk-secondary" onclick="window.toggleNewMpkProjectForm(false)">
               Anuluj
             </button>
           </div>
@@ -10176,8 +10176,8 @@ function renderMpkProjectsAndStats() {
             <td style="padding:7px 10px; color:#d4d4d8;">${desc}</td>
             <td style="padding:7px 10px; text-align:center;">${statusBtn}</td>
             <td style="padding:7px 10px; text-align:right; white-space:nowrap;">
-              <button type="button" class="btn-secondary" onclick="window.editMpkEntry('${eid}')" style="padding:2px 7px; font-size:0.68rem; margin-right:4px;" title="Edytuj ten wpis">Edytuj</button>
-              <button type="button" class="btn-danger" onclick="window.deleteMpkEntry('${eid}')" style="padding:2px 7px; font-size:0.68rem;" title="Usuń ten wpis">Usuń</button>
+              <button type="button" class="btn-mpk-secondary" onclick="window.editMpkEntry('${eid}')" style="margin-right:4px;" title="Edytuj ten wpis">Edytuj</button>
+              <button type="button" class="btn-mpk-danger" onclick="window.deleteMpkEntry('${eid}')" title="Usuń ten wpis">Usuń</button>
             </td>
           </tr>
         `;
@@ -10213,10 +10213,10 @@ function renderMpkProjectsAndStats() {
           </div>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             ${balanceBadgeHtml}
-            <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}')" style="padding:3px 10px; font-size:0.68rem; font-weight:600;" title="Edytuj nazwę, kod lub pulę godzin projektu">
+            <button type="button" class="btn-mpk-secondary" onclick="window.toggleEditMpkProject('${pid}')" title="Edytuj nazwę, kod lub pulę godzin projektu">
               Edytuj Projekt
             </button>
-            <button type="button" class="btn-danger" onclick="window.deleteMpkProject('${pid}', '${escapeHtml(proj.name)}')" style="padding:3px 8px; font-size:0.68rem;" title="Usuń ten projekt i wszystkie jego wpisy">
+            <button type="button" class="btn-mpk-danger" onclick="window.deleteMpkProject('${pid}', '${escapeHtml(proj.name)}')" title="Usuń ten projekt i wszystkie jego wpisy">
               Usuń Projekt
             </button>
           </div>
@@ -10238,10 +10238,10 @@ function renderMpkProjectsAndStats() {
               <input type="number" id="mpkEditHours_${pid}" value="${proj.allocatedHours}" step="0.5" min="0.5" max="10000" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
             </div>
             <div style="display:flex; gap:6px;">
-              <button type="submit" class="btn-action" style="padding:6px 14px; font-size:0.75rem; font-weight:700; background:#166534; border:1px solid #22c55e;">
+              <button type="submit" class="btn-mpk-action">
                 Zapisz Zmiany
               </button>
-              <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}', false)" style="padding:6px 10px; font-size:0.75rem;">
+              <button type="button" class="btn-mpk-secondary" onclick="window.toggleEditMpkProject('${pid}', false)">
                 Anuluj
               </button>
             </div>
@@ -10251,16 +10251,16 @@ function renderMpkProjectsAndStats() {
         <!-- Szybki wiersz dodawania godzin (Inline Excel-like) -->
         <div style="background:#141416; border-bottom:1px solid #222; padding:10px 16px;">
           <form onsubmit="window.submitMpkEntry(event, '${pid}')" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <input type="date" id="mpkDate_${pid}" value="${todayStr}" required style="background:#18181b; border:1px solid #333; color:#fff; padding:5px 8px; border-radius:4px; font-size:0.75rem; width:130px;">
-            <input type="number" id="mpkHours_${pid}" step="0.5" min="0.5" max="24" placeholder="h (np. 2)" required style="background:#18181b; border:1px solid #333; color:#fff; padding:5px 8px; border-radius:4px; font-size:0.75rem; width:80px;">
-            <div style="display:flex; gap:3px;">
-              <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 1.0)" style="padding:3px 6px; font-size:0.68rem;">+1h</button>
-              <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 2.0)" style="padding:3px 6px; font-size:0.68rem;">+2h</button>
-              <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 4.0)" style="padding:3px 6px; font-size:0.68rem;">+4h</button>
-              <button type="button" class="btn-secondary" onclick="window.setMpkHoursField('${pid}', 8.0)" style="padding:3px 6px; font-size:0.68rem;">+8h</button>
+            <input type="date" id="mpkDate_${pid}" value="${todayStr}" required style="height:28px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; width:130px; box-sizing:border-box;">
+            <input type="number" id="mpkHours_${pid}" step="0.5" min="0.5" max="24" placeholder="h (np. 2)" required style="height:28px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; width:80px; box-sizing:border-box;">
+            <div style="display:flex; gap:4px;">
+              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 1.0)">+1h</button>
+              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 2.0)">+2h</button>
+              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 4.0)">+4h</button>
+              <button type="button" class="btn-mpk-quick-h" onclick="window.setMpkHoursField('${pid}', 8.0)">+8h</button>
             </div>
-            <input type="text" id="mpkDesc_${pid}" placeholder="Opis zrealizowanego zadania..." required style="flex:1; min-width:180px; background:#18181b; border:1px solid #333; color:#fff; padding:5px 8px; border-radius:4px; font-size:0.75rem;">
-            <button type="submit" class="btn-action" style="padding:5px 14px; font-size:0.75rem; font-weight:700; background:#166534; border:1px solid #22c55e; white-space:nowrap;">
+            <input type="text" id="mpkDesc_${pid}" placeholder="Opis zrealizowanego zadania..." required style="height:28px; flex:1; min-width:180px; background:#111; border:1px solid #333; color:#fff; padding:0 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+            <button type="submit" class="btn-mpk-action">
               + Dodaj Wpis
             </button>
           </form>

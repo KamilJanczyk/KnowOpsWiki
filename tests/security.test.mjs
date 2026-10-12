@@ -2893,6 +2893,11 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(styleCss.includes('.btn-mpk-status'), true, 'Brak .btn-mpk-status w style.css');
   assert.equal(styleCss.includes('.mpk-badge-exceeded'), true, 'Brak .mpk-badge-exceeded w style.css');
   assert.equal(styleCss.includes('.mpk-badge-ok'), true, 'Brak .mpk-badge-ok w style.css');
+  assert.equal(styleCss.includes('.btn-danger'), true, 'Brak .btn-danger w style.css');
+  assert.equal(styleCss.includes('.btn-mpk-action'), true, 'Brak .btn-mpk-action w style.css');
+  assert.equal(styleCss.includes('.btn-mpk-secondary'), true, 'Brak .btn-mpk-secondary w style.css');
+  assert.equal(styleCss.includes('.btn-mpk-danger'), true, 'Brak .btn-mpk-danger w style.css');
+  assert.equal(styleCss.includes('.btn-mpk-quick-h'), true, 'Brak .btn-mpk-quick-h w style.css');
 
   // 4. Test jednostkowy algorytmu kalkulacji statystyk i przekroczenia godzin
   function testCalculateMpkStats(projects, entries) {
