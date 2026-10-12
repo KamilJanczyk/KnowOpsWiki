@@ -10019,24 +10019,6 @@ async function renderMpkModule() {
         </div>
       </div>
 
-      <!-- 1. Pasek Podsumowania Zbiorczego na Samej Górze -->
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:20px;">
-        <div style="background:#111; border:1px solid #333; border-radius:6px; padding:12px 16px;">
-          <div style="font-size:0.7rem; color:#888; text-transform:uppercase; font-weight:600;">1. Łączny Budżet Projektów</div>
-          <div id="mpkStatTotalBudget" style="font-size:1.5rem; font-weight:700; color:var(--sw-gold); margin-top:4px;">0.0 h</div>
-        </div>
-
-        <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:12px 16px;">
-          <div style="font-size:0.7rem; color:#a1a1aa; text-transform:uppercase; font-weight:600;">2. Wpisano Łącznie</div>
-          <div id="mpkStatTotalLogged" style="font-size:1.5rem; font-weight:700; color:#ffffff; margin-top:4px;">0.0 h</div>
-        </div>
-
-        <div style="background:#111; border:1px solid #1e3a8a; border-radius:6px; padding:12px 16px;">
-          <div style="font-size:0.7rem; color:#93c5fd; text-transform:uppercase; font-weight:600;">3. Do Wpisania w Kalendarzu</div>
-          <div id="mpkStatTotalPending" style="font-size:1.5rem; font-weight:700; color:#38bdf8; margin-top:4px;">0.0 h</div>
-        </div>
-      </div>
-
       <!-- Formularz Nowego Projektu (zwijany/rozwijany) -->
       <div id="mpkNewProjectContainer" style="display:none; background:#18181b; border:1px solid #3f3f46; border-radius:6px; padding:16px; margin-bottom:20px;">
         <h3 style="color:var(--sw-gold); font-size:0.85rem; margin:0 0 12px 0; text-transform:uppercase;">Utwórz Nowy Projekt MPK</h3>
@@ -10116,14 +10098,6 @@ window.loadMpkData = async function() {
 
 function renderMpkProjectsAndStats() {
   const stats = mpkState.stats || {};
-  const statTotalBudget = document.getElementById('mpkStatTotalBudget');
-  const statTotalLogged = document.getElementById('mpkStatTotalLogged');
-  const statTotalPending = document.getElementById('mpkStatTotalPending');
-
-  if (statTotalBudget) statTotalBudget.textContent = (stats.totalAllocatedHours || 0).toFixed(1) + ' h';
-  if (statTotalLogged) statTotalLogged.textContent = (stats.totalLoggedHours || 0).toFixed(1) + ' h';
-  if (statTotalPending) statTotalPending.textContent = (stats.totalPendingHours || 0).toFixed(1) + ' h';
-
   const container = document.getElementById('mpkProjectsListContainer');
   if (!container) return;
 

@@ -2887,6 +2887,7 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(appJs.includes('editMpkEntry'), true, 'Brak editMpkEntry w app.js');
   assert.equal(appJs.includes("hash === 'tool/mpk'"), true, 'Brak routingu tool/mpk w handleHashNavigation');
   assert.equal(appJs.includes("clean === 'tool/mpk'"), true, 'Brak tytułu dla tool/mpk w getDocTabTitleForPath');
+  assert.equal(appJs.includes('mpkStatTotalBudget'), false, 'Kafelki podsumowania mpkStatTotalBudget powinny być usunięte dla zyskania przestrzeni');
 
   // 3. Weryfikacja styli CSS
   assert.equal(styleCss.includes('.btn-mpk-status'), true, 'Brak .btn-mpk-status w style.css');
