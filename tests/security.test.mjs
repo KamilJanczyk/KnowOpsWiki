@@ -2783,6 +2783,73 @@ test('53. Two-Tier Tabs Architecture & Drag-and-Drop Reordering: weryfikacja pod
   assert.equal(reordered3[2].path, 'doc2');
 });
 
+test('54. Unified Action Bar & Two-Tier Compact Header (Wariant A): weryfikacja scalenia wiersza zakładek i paska akcji artykułu, likwidacji osobnego 3. wiersza oraz integracji kontrolek procedury', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja stylów CSS Wariantu A w style.css
+  assert.equal(styleCss.includes('.article-action-header'), true);
+  assert.equal(styleCss.includes('display: none !important;'), true, 'Wiersz 3 (.article-action-header) musi być wygaszony z widoku (display: none !important)');
+  assert.equal(styleCss.includes('.doc-tabs-action-left'), true, 'Brak klasy .doc-tabs-action-left w style.css');
+  assert.equal(styleCss.includes('.doc-tabs-action-right'), true, 'Brak klasy .doc-tabs-action-right w style.css');
+  assert.equal(styleCss.includes('.doc-tabs-mtime'), true, 'Brak klasy .doc-tabs-mtime w style.css');
+
+  // 2. Weryfikacja struktury renderDocTabs w app.js
+  assert.equal(appJs.includes('doc-tabs-action-left'), true, 'renderDocTabs musi generować doc-tabs-action-left');
+  assert.equal(appJs.includes('doc-tabs-action-right'), true, 'renderDocTabs musi generować doc-tabs-action-right');
+  assert.equal(appJs.includes('btnArticleStatusBadge'), true, 'renderDocTabs musi zawierać przycisk statusu procedury');
+  assert.equal(appJs.includes('articleStatusDropdown'), true, 'renderDocTabs musi zawierać dropdown wyboru statusu');
+  assert.equal(appJs.includes('>EKSPORTUJ</button>'), true, 'renderDocTabs musi zawierać przycisk EKSPORTUJ');
+  assert.equal(appJs.includes('>DRUKUJ</button>'), true, 'renderDocTabs musi zawierać przycisk DRUKUJ');
+  assert.equal(appJs.includes('+ DODAJ STRONĘ / DZIAŁ'), true, 'renderDocTabs musi zawierać przycisk dodawania');
+  assert.equal(appJs.includes('openEditorModal()'), true, 'renderDocTabs musi zawierać przycisk edycji');
+  assert.equal(appJs.includes('btn-split-toggle'), true, 'renderDocTabs musi zawierać przycisk Podziel Ekran w wierszu akcji');
+
+  // 3. Weryfikacja zachowania w hideArticleActionBar
+  assert.equal(appJs.includes("currentArticlePath = '';"), true, 'hideArticleActionBar musi resetować currentArticlePath');
+  assert.equal(appJs.includes('window.currentArticleStatus = null;'), true, 'hideArticleActionBar musi resetować window.currentArticleStatus');
+  assert.equal(appJs.includes("window.currentMtime = '';"), true, 'hideArticleActionBar musi resetować window.currentMtime');
+
+  // 4. Test logiczny: symulacja generowania wiersza akcji dla artykułu vs narzędzia
+  function simulateRenderActionRow(currentPath, currentArticlePath, status, mtime, isPinned) {
+    let left = '';
+    let right = '';
+    if (!isPinned) {
+      left += '<button>+ PRZYPNIJ</button>';
+    } else {
+      left += '<button>ODEPNIJ</button>';
+    }
+    const isArticle = Boolean(currentArticlePath && (currentArticlePath === currentPath || currentPath.endsWith('.md')));
+    if (isArticle) {
+      left += `<div id="btnArticleStatusBadge" class="${status}">STATUS</div>`;
+      if (mtime) left += `<span class="doc-tabs-mtime">${mtime}</span>`;
+      right += '<button>KOPIUJ</button><button>EKSPORTUJ</button><button>DRUKUJ</button><button>+ DODAJ STRONĘ / DZIAŁ</button><button>EDYTUJ</button>';
+    }
+    right += '<button class="btn-split-toggle">Podziel Ekran</button>';
+    return { left, right };
+  }
+
+  // Przypadek A: Otwarty artykuł procedury (np. docs/01_linux.md)
+  const articleRow = simulateRenderActionRow('docs/01_linux.md', 'docs/01_linux.md', 'tested', '12.10.2026', false);
+  assert.equal(articleRow.left.includes('+ PRZYPNIJ'), true);
+  assert.equal(articleRow.left.includes('btnArticleStatusBadge'), true);
+  assert.equal(articleRow.left.includes('doc-tabs-mtime'), true);
+  assert.equal(articleRow.right.includes('KOPIUJ'), true);
+  assert.equal(articleRow.right.includes('EKSPORTUJ'), true);
+  assert.equal(articleRow.right.includes('EDYTUJ'), true);
+  assert.equal(articleRow.right.includes('btn-split-toggle'), true);
+
+  // Przypadek B: Narzędzie systemowe (np. tool/cve)
+  const toolRow = simulateRenderActionRow('tool/cve', '', null, '', false);
+  assert.equal(toolRow.left.includes('+ PRZYPNIJ'), true);
+  assert.equal(toolRow.left.includes('btnArticleStatusBadge'), false);
+  assert.equal(toolRow.left.includes('doc-tabs-mtime'), false);
+  assert.equal(toolRow.right.includes('KOPIUJ'), false);
+  assert.equal(toolRow.right.includes('EKSPORTUJ'), false);
+  assert.equal(toolRow.right.includes('btn-split-toggle'), true);
+});
+
 
 
 

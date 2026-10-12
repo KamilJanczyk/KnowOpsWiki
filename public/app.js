@@ -1498,6 +1498,9 @@ function registerDocTab(path, customTitle = null) {
 }
 
 function hideArticleActionBar() {
+  currentArticlePath = '';
+  window.currentArticleStatus = null;
+  window.currentMtime = '';
   const bar = document.getElementById('articleActionBar');
   if (bar) {
     bar.style.display = 'none';
@@ -1522,11 +1525,10 @@ function renderDocTabs() {
   }
 
   const actionBar = document.getElementById('articleActionBar');
-  if (actionBar && actionBar.style.display !== 'none' && actionBar.innerHTML.trim() !== '') {
-    container.classList.remove('no-action-bar');
-  } else {
-    container.classList.add('no-action-bar');
+  if (actionBar) {
+    actionBar.style.display = 'none';
   }
+  container.classList.add('no-action-bar');
 
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
   const splitBtnText = window.isSplitViewActive ? 'Zamknij Split' : 'Podziel Ekran';
@@ -1579,27 +1581,81 @@ function renderDocTabs() {
     html += `<div class="doc-tabs-pinned-row" id="docTabsPinnedRow" ondragover="window.handleDocTabDragOver(event, ${openDocTabs.length - 1})" ondrop="window.handleDocTabsPinnedRowDrop(event)">${pinnedTabsHtml}</div>`;
   }
 
-  // 2. POZIOM NIŻEJ: Opcja Przypnij/Odepnij + Karta Robocza + Narzędzia
-  let actionRowHtml = '';
+  // 2. POZIOM NIŻEJ: Scalony wiersz operacyjny (Wariant A: akcja + karta robocza + status + narzędzia)
+  let actionLeftHtml = '';
 
   // A. Przycisk funkcyjny PRZYPNIJ / ODEPNIJ na pozycji #1
   if (!isCurrentPinned) {
-    actionRowHtml += `<button type="button" class="btn-add-current-tab" onclick="window.togglePinCurrentPage()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ PRZYPNIJ</button>`;
+    actionLeftHtml += `<button type="button" class="btn-add-current-tab" onclick="window.togglePinCurrentPage()" title="Przypnij ten dokument do paska zakładek (Alt+T)">+ PRZYPNIJ</button>`;
   } else {
-    actionRowHtml += `<button type="button" class="btn-add-current-tab is-pinned" onclick="window.togglePinCurrentPage()" title="Odepnij ten dokument z paska zakładek (Alt+T)">ODEPNIJ</button>`;
+    actionLeftHtml += `<button type="button" class="btn-add-current-tab is-pinned" onclick="window.togglePinCurrentPage()" title="Odepnij ten dokument z paska zakładek (Alt+T)">ODEPNIJ</button>`;
   }
 
   // B. Stała Karta Robocza (Browsing Tab - niebieski akcent)
   if (browsingTab && browsingTab.path) {
     const isBrowsingActive = (browsingTab.path === currentPath && !isCurrentPinned);
-    actionRowHtml += `<div class="doc-tab doc-tab-browsing ${isBrowsingActive ? 'active' : ''}" data-path="${escapeHtml(browsingTab.path)}" title="${escapeHtml(browsingTab.title)} (karta robocza)" onclick="window.switchDocTab('${escapeHtml(browsingTab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeBrowsingTab(event); }">` +
+    actionLeftHtml += `<div class="doc-tab doc-tab-browsing ${isBrowsingActive ? 'active' : ''}" data-path="${escapeHtml(browsingTab.path)}" title="${escapeHtml(browsingTab.title)} (karta robocza)" onclick="window.switchDocTab('${escapeHtml(browsingTab.path)}')" onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeBrowsingTab(event); }">` +
       `<span class="doc-tab-title">${escapeHtml(browsingTab.title)}</span>` +
       `<button type="button" class="doc-tab-close" title="Zamknij kartę roboczą" onclick="event.stopPropagation(); window.closeBrowsingTab(event)">X</button>` +
     `</div>`;
   }
 
-  // C. Przycisk Split View
-  actionRowHtml += `<button type="button" class="btn-split-toggle ${splitActiveCls}" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">${splitBtnText}</button>`;
+  // C. Weryfikacja widoku artykułu i wstrzyknięcie badge statusu oraz modyfikacji do lewej sekcji
+  const isArticleView = Boolean(currentArticlePath && (currentArticlePath === currentPath || currentPath.endsWith('.md')));
+
+  if (isArticleView) {
+    const docStatus = window.currentArticleStatus || 'untested';
+    const statusBadgeLabels = {
+      'tested': 'STATUS: PRZETESTOWANE',
+      'partial': 'STATUS: CZĘŚCIOWO',
+      'untested': 'STATUS: NIEPRZETESTOWANE'
+    };
+    const currentStatusText = statusBadgeLabels[docStatus] || 'STATUS: NIEPRZETESTOWANE';
+
+    actionLeftHtml += `
+      <div class="article-status-container">
+        <button type="button" id="btnArticleStatusBadge" class="btn-status-badge status-${docStatus}" onclick="window.toggleStatusDropdown(event)" title="Kliknij, aby zmienić stopień przetestowania procedury">
+          <span class="status-indicator-dot"></span>
+          <span id="articleStatusLabel">${currentStatusText}</span>
+          <span style="font-size:0.55rem; margin-left:3px; opacity:0.7;">▼</span>
+        </button>
+        <div id="articleStatusDropdown" class="article-status-dropdown" style="display:none;">
+          <div class="status-dropdown-item ${docStatus === 'tested' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('tested')">
+            <span class="status-dot status-tested"></span>
+            <span>Przetestowane (100% zweryfikowana)</span>
+          </div>
+          <div class="status-dropdown-item ${docStatus === 'partial' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('partial')">
+            <span class="status-dot status-partial"></span>
+            <span>Testowane częściowo (wymaga uwagi)</span>
+          </div>
+          <div class="status-dropdown-item ${docStatus === 'untested' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('untested')">
+            <span class="status-dot status-untested"></span>
+            <span>Nieprzetestowane (teoria / AI)</span>
+          </div>
+        </div>
+      </div>`;
+
+    if (window.currentMtime) {
+      actionLeftHtml += `<span class="doc-tabs-mtime" title="Ostatnia modyfikacja: ${escapeHtml(window.currentMtime)}">mod: <span style="color:#ffffff; font-weight:600;">${escapeHtml(window.currentMtime)}</span></span>`;
+    }
+  }
+
+  // D. Prawa strona: Przyciski operacyjne artykułu oraz Split View
+  let actionRightHtml = '';
+  if (isArticleView) {
+    actionRightHtml += `
+      <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
+      <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ</button>
+      <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ</button>
+      <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()" title="Dodaj stronę lub dział w bieżącym folderze">+ DODAJ STRONĘ / DZIAŁ</button>
+      <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()" title="Edytuj ten dokument (Markdown)">EDYTUJ</button>
+    `;
+  }
+
+  // E. Przycisk Split View
+  actionRightHtml += `<button type="button" class="btn-split-toggle ${splitActiveCls}" onclick="window.toggleSplitView()" title="Podziel ekran na dwie kolumny (Alt+D)">${splitBtnText}</button>`;
+
+  const actionRowHtml = `<div class="doc-tabs-action-left">${actionLeftHtml}</div><div class="doc-tabs-action-right">${actionRightHtml}</div>`;
 
   html += `<div class="doc-tabs-action-row" id="docTabsActionRow">${actionRowHtml}</div>`;
 
@@ -2481,41 +2537,8 @@ async function loadArticle(articlePath) {
 
     const actionBar = document.getElementById('articleActionBar');
     if (actionBar) {
-      actionBar.style.display = 'flex';
-      actionBar.innerHTML = `
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-          <span style="font-size:0.72rem; color:#a1a1aa; font-weight:500;">Ostatnia modyfikacja: <span style="color:#ffffff; font-weight:600;">${window.currentMtime || "Brak danych"}</span></span>
-          <div class="article-status-container">
-            <button type="button" id="btnArticleStatusBadge" class="btn-status-badge status-${docStatus}" onclick="window.toggleStatusDropdown(event)" title="Kliknij, aby zmienić stopień przetestowania procedury">
-              <span class="status-indicator-dot"></span>
-              <span id="articleStatusLabel">${currentStatusText}</span>
-              <span style="font-size:0.55rem; margin-left:3px; opacity:0.7;">▼</span>
-            </button>
-            <div id="articleStatusDropdown" class="article-status-dropdown" style="display:none;">
-              <div class="status-dropdown-item ${docStatus === 'tested' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('tested')">
-                <span class="status-dot status-tested"></span>
-                <span>Przetestowane (100% zweryfikowana)</span>
-              </div>
-              <div class="status-dropdown-item ${docStatus === 'partial' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('partial')">
-                <span class="status-dot status-partial"></span>
-                <span>Testowane częściowo (wymaga uwagi)</span>
-              </div>
-              <div class="status-dropdown-item ${docStatus === 'untested' ? 'selected' : ''}" onclick="window.setArticleVerificationStatus('untested')">
-                <span class="status-dot status-untested"></span>
-                <span>Nieprzetestowane (teoria / AI)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="copyCurrentArticleMarkdown(this)" title="Skopiuj zawartość artykułu (Markdown) do schowka">KOPIUJ</button>
-          <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ</button>
-          <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ</button>
-          <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()">+ DODAJ STRONĘ / DZIAŁ</button>
-          <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()">EDYTUJ TEN DOKUMENT</button>
-        </div>`;
-      const tabsBar = document.getElementById('docTabsBar');
-      if (tabsBar) tabsBar.classList.remove('no-action-bar');
+      actionBar.style.display = 'none';
+      actionBar.innerHTML = '';
     }
 
     function findNavFile(rel) {

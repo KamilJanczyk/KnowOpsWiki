@@ -720,23 +720,32 @@
     }
     .doc-tabs-action-row {
       display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      min-height: 28px;
+      overflow: visible;
+    }
+    .doc-tabs-action-left {
+      display: flex;
       align-items: center;
       gap: 6px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      min-height: 25px;
-      scrollbar-width: thin;
-      scrollbar-color: #52525b #18181b;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: visible;
     }
-    .doc-tabs-action-row::-webkit-scrollbar {
-      height: 3px;
+    .doc-tabs-action-right {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
     }
-    .doc-tabs-action-row::-webkit-scrollbar-thumb {
-      background: #52525b;
-      border-radius: 2px;
-    }
-    .doc-tabs-action-row::-webkit-scrollbar-track {
-      background: #18181b;
+    .doc-tabs-mtime {
+      font-size: 0.68rem;
+      color: #a1a1aa;
+      font-weight: 500;
+      white-space: nowrap;
+      margin-left: 2px;
     }
     .doc-tab {
       display: inline-flex;
@@ -1012,9 +1021,9 @@
       border-color: var(--sw-gold) !important;
     }
 
-    /* Belka akcji dokumentu (naglowek ze sciezka, data i przyciskami wewnatrz scalonego naglowka) */
+    /* Belka akcji dokumentu - w Wariancie A wygaszona z widoku, zintegrowana w wierszu zakładek */
     .article-action-header {
-      display: flex;
+      display: none !important;
       justify-content: space-between;
       align-items: center;
       background: #141416;
