@@ -10123,8 +10123,11 @@ function renderMpkProjectsAndStats() {
   const todayStr = new Date().toISOString().split('T')[0];
   let html = '';
 
-  for (const proj of mpkState.projects) {
+  for (let i = 0; i < mpkState.projects.length; i++) {
+    const proj = mpkState.projects[i];
     const pid = proj.id;
+    const isFirst = (i === 0);
+    const isLast = (i === mpkState.projects.length - 1);
     const pStats = (stats.projectStats && stats.projectStats[pid]) || {
       allocatedHours: proj.allocatedHours || 0,
       loggedHours: 0,
@@ -10221,8 +10224,10 @@ function renderMpkProjectsAndStats() {
             ${proj.code ? `<span style="background:#27272a; border:1px solid var(--sw-gold); color:var(--sw-gold); font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:3px; font-family:monospace;">${escapeHtml(proj.code)}</span>` : ''}
             <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">${escapeHtml(proj.name)}</span>
           </div>
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;" onclick="event.stopPropagation()">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;" onclick="event.stopPropagation()">
             ${balanceBadgeHtml}
+            <button type="button" class="btn-secondary" onclick="window.moveMpkProject('${pid}', -1)" style="font-size:0.7rem; padding:3px 8px;" title="Przesuń projekt w górę" ${isFirst ? 'disabled style="opacity:0.35; cursor:not-allowed;"' : ''}>GÓRA</button>
+            <button type="button" class="btn-secondary" onclick="window.moveMpkProject('${pid}', 1)" style="font-size:0.7rem; padding:3px 8px;" title="Przesuń projekt w dół" ${isLast ? 'disabled style="opacity:0.35; cursor:not-allowed;"' : ''}>DÓŁ</button>
             <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}')" style="font-size:0.7rem; padding:3px 10px;" title="Edytuj nazwę, kod lub pulę godzin projektu">
               Edytuj Projekt
             </button>
@@ -10607,6 +10612,39 @@ window.editMpkEntry = async function(eid) {
     renderMpkProjectsAndStats();
   } catch (err) {
     alert('Nie udało się zapisać zmian wpisu: ' + err.message);
+  }
+};
+
+window.moveMpkProject = async function(pid, direction) {
+  if (!mpkState || !Array.isArray(mpkState.projects) || mpkState.projects.length <= 1) return;
+  const currentIndex = mpkState.projects.findIndex(p => p.id === pid);
+  if (currentIndex === -1) return;
+
+  const targetIndex = currentIndex + direction;
+  if (targetIndex < 0 || targetIndex >= mpkState.projects.length) return;
+
+  const temp = mpkState.projects[currentIndex];
+  mpkState.projects[currentIndex] = mpkState.projects[targetIndex];
+  mpkState.projects[targetIndex] = temp;
+
+  renderMpkProjectsAndStats();
+
+  try {
+    const res = await fetch('/api/mpk/reorder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ projectIds: mpkState.projects.map(p => p.id) })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu kolejności projektów');
+    }
+  } catch (err) {
+    console.error('[MPK Reorder Error]', err);
+    await loadMpkData();
   }
 };
 

@@ -2869,6 +2869,7 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   // 1. Weryfikacja rejestracji tras API w server.mjs
   assert.equal(serverMjs.includes("normPath === '/api/mpk'"), true, 'Brak GET /api/mpk w server.mjs');
   assert.equal(serverMjs.includes("normPath === '/api/mpk/project'"), true, 'Brak /api/mpk/project w server.mjs');
+  assert.equal(serverMjs.includes("normPath === '/api/mpk/reorder'"), true, 'Brak POST /api/mpk/reorder w server.mjs');
   assert.equal(serverMjs.includes("normPath === '/api/mpk/entry'"), true, 'Brak /api/mpk/entry w server.mjs');
   assert.equal(serverMjs.includes("normPath === '/api/mpk/toggle'"), true, 'Brak /api/mpk/toggle w server.mjs');
   assert.equal(serverMjs.includes('mpk_projects.json'), true, 'Brak obsługi mpk_projects.json w server.mjs');
@@ -2888,6 +2889,7 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(appJs.includes('toggleMpkProjectDetails'), true, 'Brak toggleMpkProjectDetails w app.js');
   assert.equal(appJs.includes('toggleAllMpkProjects'), true, 'Brak toggleAllMpkProjects w app.js');
   assert.equal(appJs.includes('mpkExpandedProjectIds'), true, 'Brak mpkExpandedProjectIds w app.js');
+  assert.equal(appJs.includes('moveMpkProject'), true, 'Brak moveMpkProject w app.js');
   assert.equal(appJs.includes("hash === 'tool/mpk'"), true, 'Brak routingu tool/mpk w handleHashNavigation');
   assert.equal(appJs.includes("clean === 'tool/mpk'"), true, 'Brak tytułu dla tool/mpk w getDocTabTitleForPath');
   assert.equal(appJs.includes('mpkStatTotalBudget'), false, 'Kafelki podsumowania mpkStatTotalBudget powinny być usunięte dla zyskania przestrzeni');
@@ -2985,6 +2987,31 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(ps2.remainingHours, -3.5);
   assert.equal(ps2.isExceeded, true);
   assert.equal(ps2.exceededHours, 3.5);
+
+  // 5. Test logiki przesuwania projektów MPK góra/dół
+  function testMoveProject(projects, pid, direction) {
+    const list = [...projects];
+    const currentIndex = list.findIndex(p => p.id === pid);
+    if (currentIndex === -1) return list;
+    const targetIndex = currentIndex + direction;
+    if (targetIndex < 0 || targetIndex >= list.length) return list;
+    const temp = list[currentIndex];
+    list[currentIndex] = list[targetIndex];
+    list[targetIndex] = temp;
+    return list;
+  }
+
+  const reorderedDown = testMoveProject(sampleProjects, 'proj1', 1);
+  assert.equal(reorderedDown[0].id, 'proj2');
+  assert.equal(reorderedDown[1].id, 'proj1');
+
+  const reorderedUp = testMoveProject(reorderedDown, 'proj1', -1);
+  assert.equal(reorderedUp[0].id, 'proj1');
+  assert.equal(reorderedUp[1].id, 'proj2');
+
+  // Przesunięcie pierwszego elementu w górę nie zmienia kolejności
+  const noChangeUp = testMoveProject(sampleProjects, 'proj1', -1);
+  assert.equal(noChangeUp[0].id, 'proj1');
 });
 
 

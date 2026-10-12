@@ -2509,6 +2509,39 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (normPath === '/api/mpk/reorder') {
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { projectIds } = body;
+        if (!Array.isArray(projectIds)) {
+          return sendJson(400, { error: 'Wymagana tablica identyfikatorów projektów projectIds.' });
+        }
+
+        const data = getMpkData();
+        const pMap = new Map(data.projects.map(p => [p.id, p]));
+        const reordered = [];
+        for (const id of projectIds) {
+          if (pMap.has(id)) {
+            reordered.push(pMap.get(id));
+            pMap.delete(id);
+          }
+        }
+        for (const remaining of pMap.values()) {
+          reordered.push(remaining);
+        }
+        data.projects = reordered;
+        saveMpkData(data);
+
+        return sendJson(200, {
+          success: true,
+          projects: data.projects,
+          entries: data.entries,
+          stats: calculateMpkStats(data.projects, data.entries)
+        });
+      }
+    }
+
     if (normPath === '/api/mpk/entry') {
       if (req.method === 'POST') {
         if (!checkMutatingRateLimit(req, res)) return;
