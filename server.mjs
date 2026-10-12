@@ -178,6 +178,101 @@ export function calculateOvertimeStats(entries = []) {
   };
 }
 
+const MPK_FILE = path.join(DATA_DIR, 'mpk_projects.json');
+
+export function getMpkData() {
+  if (fs.existsSync(MPK_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(MPK_FILE, 'utf8'));
+      if (data && Array.isArray(data.projects) && Array.isArray(data.entries)) {
+        return data;
+      }
+    } catch (e) {
+      console.error('[MPK Error] Błąd odczytu mpk_projects.json:', e.message);
+    }
+  }
+  const defaultData = { projects: [], entries: [] };
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    atomicWriteFile(MPK_FILE, JSON.stringify(defaultData, null, 2), 'utf8');
+  } catch (e) {}
+  return defaultData;
+}
+
+export function saveMpkData(data) {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  atomicWriteFile(MPK_FILE, JSON.stringify(data, null, 2), 'utf8');
+  return data;
+}
+
+export function calculateMpkStats(projects = [], entries = []) {
+  let totalAllocatedHours = 0;
+  let totalLoggedHours = 0;
+  let totalReportedHours = 0;
+  let totalPendingHours = 0;
+
+  const projectStatsMap = {};
+  for (const p of projects) {
+    const allocated = typeof p.allocatedHours === 'number' ? p.allocatedHours : parseFloat(p.allocatedHours) || 0;
+    totalAllocatedHours += allocated;
+    projectStatsMap[p.id] = {
+      allocatedHours: Math.round(allocated * 100) / 100,
+      loggedHours: 0,
+      reportedHours: 0,
+      pendingHours: 0,
+      remainingHours: Math.round(allocated * 100) / 100,
+      isExceeded: false,
+      exceededHours: 0
+    };
+  }
+
+  for (const e of entries) {
+    const h = typeof e.hours === 'number' ? e.hours : parseFloat(e.hours) || 0;
+    totalLoggedHours += h;
+    if (e.isReported) {
+      totalReportedHours += h;
+    } else {
+      totalPendingHours += h;
+    }
+
+    if (projectStatsMap[e.projectId]) {
+      const ps = projectStatsMap[e.projectId];
+      ps.loggedHours += h;
+      if (e.isReported) {
+        ps.reportedHours += h;
+      } else {
+        ps.pendingHours += h;
+      }
+      ps.remainingHours = ps.allocatedHours - ps.loggedHours;
+      if (ps.remainingHours < 0) {
+        ps.isExceeded = true;
+        ps.exceededHours = Math.abs(ps.remainingHours);
+      }
+    }
+  }
+
+  for (const pid of Object.keys(projectStatsMap)) {
+    const ps = projectStatsMap[pid];
+    ps.loggedHours = Math.round(ps.loggedHours * 100) / 100;
+    ps.reportedHours = Math.round(ps.reportedHours * 100) / 100;
+    ps.pendingHours = Math.round(ps.pendingHours * 100) / 100;
+    ps.remainingHours = Math.round(ps.remainingHours * 100) / 100;
+    ps.exceededHours = Math.round(ps.exceededHours * 100) / 100;
+  }
+
+  return {
+    totalAllocatedHours: Math.round(totalAllocatedHours * 100) / 100,
+    totalLoggedHours: Math.round(totalLoggedHours * 100) / 100,
+    totalReportedHours: Math.round(totalReportedHours * 100) / 100,
+    totalPendingHours: Math.round(totalPendingHours * 100) / 100,
+    projectStats: projectStatsMap
+  };
+}
+
 export function saveTrashManifest(items) {
   try {
     atomicWriteFile(DOCS_TRASH_MANIFEST_FILE, JSON.stringify(items, null, 2), 'utf8');
@@ -2333,6 +2428,172 @@ const server = http.createServer(async (req, res) => {
         entry: target,
         entries: data.entries,
         stats: calculateOvertimeStats(data.entries)
+      });
+    }
+
+    // ================= ROZLICZANIE PROJEKTÓW MPK ================= //
+    if (normPath === '/api/mpk') {
+      if (req.method === 'GET') {
+        const data = getMpkData();
+        return sendJson(200, {
+          success: true,
+          projects: data.projects,
+          entries: data.entries,
+          stats: calculateMpkStats(data.projects, data.entries)
+        });
+      }
+    }
+
+    if (normPath === '/api/mpk/project') {
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { id, name, code, allocatedHours } = body;
+
+        const pName = String(name || '').trim().slice(0, 150);
+        if (!pName) {
+          return sendJson(400, { error: 'Nazwa projektu jest wymagana.' });
+        }
+
+        const parsedHours = Math.round((parseFloat(allocatedHours) || 0) * 100) / 100;
+        if (parsedHours <= 0) {
+          return sendJson(400, { error: 'Pula godzin projektu musi być większa od 0.' });
+        }
+
+        const data = getMpkData();
+        let project = id ? data.projects.find(p => p.id === id) : null;
+        if (project) {
+          project.name = pName;
+          project.code = String(code || '').trim().slice(0, 50);
+          project.allocatedHours = parsedHours;
+          project.updatedAt = new Date().toISOString();
+        } else {
+          project = {
+            id: `mpk_proj_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+            name: pName,
+            code: String(code || '').trim().slice(0, 50),
+            allocatedHours: parsedHours,
+            active: true,
+            createdAt: new Date().toISOString()
+          };
+          data.projects.push(project);
+        }
+
+        saveMpkData(data);
+        return sendJson(200, {
+          success: true,
+          project,
+          projects: data.projects,
+          entries: data.entries,
+          stats: calculateMpkStats(data.projects, data.entries)
+        });
+      }
+
+      if (req.method === 'DELETE') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { id } = body;
+        if (!id) return sendJson(400, { error: 'Wymagany parametr id' });
+
+        const data = getMpkData();
+        data.projects = data.projects.filter(p => p.id !== id);
+        data.entries = data.entries.filter(e => e.projectId !== id);
+        saveMpkData(data);
+
+        return sendJson(200, {
+          success: true,
+          projects: data.projects,
+          entries: data.entries,
+          stats: calculateMpkStats(data.projects, data.entries)
+        });
+      }
+    }
+
+    if (normPath === '/api/mpk/entry') {
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { projectId, date, hours, description } = body;
+
+        if (!projectId) {
+          return sendJson(400, { error: 'Wymagany identyfikator projektu (projectId).' });
+        }
+
+        const parsedHours = Math.round((parseFloat(hours) || 0) * 100) / 100;
+        if (parsedHours <= 0) {
+          return sendJson(400, { error: 'Ilość godzin musi być większa od 0.' });
+        }
+
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        const finalDate = (date && dateRegex.test(date))
+          ? date
+          : new Date().toISOString().split('T')[0];
+
+        const newEntry = {
+          id: `mpk_ent_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+          projectId,
+          date: finalDate,
+          hours: parsedHours,
+          description: String(description || '').trim().slice(0, 500),
+          isReported: false,
+          createdAt: new Date().toISOString()
+        };
+
+        const data = getMpkData();
+        data.entries.unshift(newEntry);
+        data.entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+        saveMpkData(data);
+
+        return sendJson(200, {
+          success: true,
+          entry: newEntry,
+          projects: data.projects,
+          entries: data.entries,
+          stats: calculateMpkStats(data.projects, data.entries)
+        });
+      }
+
+      if (req.method === 'DELETE') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { id } = body;
+        if (!id) return sendJson(400, { error: 'Wymagany parametr id' });
+
+        const data = getMpkData();
+        data.entries = data.entries.filter(e => e.id !== id);
+        saveMpkData(data);
+
+        return sendJson(200, {
+          success: true,
+          projects: data.projects,
+          entries: data.entries,
+          stats: calculateMpkStats(data.projects, data.entries)
+        });
+      }
+    }
+
+    if (normPath === '/api/mpk/toggle' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { id, isReported } = body;
+      if (!id) return sendJson(400, { error: 'Wymagany parametr id' });
+
+      const data = getMpkData();
+      const target = data.entries.find(e => e.id === id);
+      if (!target) {
+        return sendJson(404, { error: 'Nie znaleziono wpisu o podanym id' });
+      }
+
+      target.isReported = (typeof isReported === 'boolean') ? isReported : !target.isReported;
+      target.updatedAt = new Date().toISOString();
+      saveMpkData(data);
+
+      return sendJson(200, {
+        success: true,
+        entry: target,
+        projects: data.projects,
+        entries: data.entries,
+        stats: calculateMpkStats(data.projects, data.entries)
       });
     }
 

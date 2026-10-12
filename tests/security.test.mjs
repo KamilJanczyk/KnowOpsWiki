@@ -2861,6 +2861,122 @@ test('54. Unified Action Bar & Two-Tier Compact Header (Wariant A): weryfikacja 
   assert.equal(toolRow.right.includes('btn-split-toggle'), true);
 });
 
+test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeżenia o przekroczeniu godzin i widoku tabelarycznego', () => {
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja rejestracji tras API w server.mjs
+  assert.equal(serverMjs.includes("normPath === '/api/mpk'"), true, 'Brak GET /api/mpk w server.mjs');
+  assert.equal(serverMjs.includes("normPath === '/api/mpk/project'"), true, 'Brak /api/mpk/project w server.mjs');
+  assert.equal(serverMjs.includes("normPath === '/api/mpk/entry'"), true, 'Brak /api/mpk/entry w server.mjs');
+  assert.equal(serverMjs.includes("normPath === '/api/mpk/toggle'"), true, 'Brak /api/mpk/toggle w server.mjs');
+  assert.equal(serverMjs.includes('mpk_projects.json'), true, 'Brak obsługi mpk_projects.json w server.mjs');
+  assert.equal(serverMjs.includes('calculateMpkStats'), true, 'Brak calculateMpkStats w server.mjs');
+
+  // 2. Weryfikacja interfejsu klienta w app.js
+  assert.equal(appJs.includes('renderMpkModule'), true, 'Brak renderMpkModule w app.js');
+  assert.equal(appJs.includes('loadMpkData'), true, 'Brak loadMpkData w app.js');
+  assert.equal(appJs.includes('submitNewMpkProject'), true, 'Brak submitNewMpkProject w app.js');
+  assert.equal(appJs.includes('submitMpkEntry'), true, 'Brak submitMpkEntry w app.js');
+  assert.equal(appJs.includes('toggleMpkEntry'), true, 'Brak toggleMpkEntry w app.js');
+  assert.equal(appJs.includes('deleteMpkEntry'), true, 'Brak deleteMpkEntry w app.js');
+  assert.equal(appJs.includes('deleteMpkProject'), true, 'Brak deleteMpkProject w app.js');
+  assert.equal(appJs.includes("hash === 'tool/mpk'"), true, 'Brak routingu tool/mpk w handleHashNavigation');
+  assert.equal(appJs.includes("clean === 'tool/mpk'"), true, 'Brak tytułu dla tool/mpk w getDocTabTitleForPath');
+
+  // 3. Weryfikacja styli CSS
+  assert.equal(styleCss.includes('.btn-mpk-status'), true, 'Brak .btn-mpk-status w style.css');
+  assert.equal(styleCss.includes('.mpk-badge-exceeded'), true, 'Brak .mpk-badge-exceeded w style.css');
+  assert.equal(styleCss.includes('.mpk-badge-ok'), true, 'Brak .mpk-badge-ok w style.css');
+
+  // 4. Test jednostkowy algorytmu kalkulacji statystyk i przekroczenia godzin
+  function testCalculateMpkStats(projects, entries) {
+    let totalAllocatedHours = 0;
+    let totalLoggedHours = 0;
+    let totalReportedHours = 0;
+    let totalPendingHours = 0;
+    const projectStatsMap = {};
+
+    for (const p of projects) {
+      const allocated = typeof p.allocatedHours === 'number' ? p.allocatedHours : parseFloat(p.allocatedHours) || 0;
+      totalAllocatedHours += allocated;
+      projectStatsMap[p.id] = {
+        allocatedHours: allocated,
+        loggedHours: 0,
+        reportedHours: 0,
+        pendingHours: 0,
+        remainingHours: allocated,
+        isExceeded: false,
+        exceededHours: 0
+      };
+    }
+
+    for (const e of entries) {
+      const h = typeof e.hours === 'number' ? e.hours : parseFloat(e.hours) || 0;
+      totalLoggedHours += h;
+      if (e.isReported) totalReportedHours += h;
+      else totalPendingHours += h;
+
+      if (projectStatsMap[e.projectId]) {
+        const ps = projectStatsMap[e.projectId];
+        ps.loggedHours += h;
+        if (e.isReported) ps.reportedHours += h;
+        else ps.pendingHours += h;
+        ps.remainingHours = ps.allocatedHours - ps.loggedHours;
+        if (ps.remainingHours < 0) {
+          ps.isExceeded = true;
+          ps.exceededHours = Math.abs(ps.remainingHours);
+        }
+      }
+    }
+
+    return {
+      totalAllocatedHours,
+      totalLoggedHours,
+      totalReportedHours,
+      totalPendingHours,
+      projectStats: projectStatsMap
+    };
+  }
+
+  const sampleProjects = [
+    { id: 'proj1', name: 'Projekt A - Migracja AD', allocatedHours: 40.0 },
+    { id: 'proj2', name: 'Projekt B - Sieć i SAN', allocatedHours: 20.0 }
+  ];
+
+  const sampleEntries = [
+    { id: 'e1', projectId: 'proj1', hours: 25.0, isReported: true },
+    { id: 'e2', projectId: 'proj1', hours: 10.0, isReported: false },
+    // proj1 suma = 35.0h, limit 40.0h -> pozostało 5.0h (brak przekroczenia)
+    { id: 'e3', projectId: 'proj2', hours: 15.0, isReported: true },
+    { id: 'e4', projectId: 'proj2', hours: 8.5, isReported: false }
+    // proj2 suma = 23.5h, limit 20.0h -> przekroczenie o 3.5h!
+  ];
+
+  const calc = testCalculateMpkStats(sampleProjects, sampleEntries);
+
+  // Globalne
+  assert.equal(calc.totalAllocatedHours, 60.0);
+  assert.equal(calc.totalLoggedHours, 58.5);
+  assert.equal(calc.totalReportedHours, 40.0);
+  assert.equal(calc.totalPendingHours, 18.5);
+
+  // Projekt A (w normie)
+  const ps1 = calc.projectStats['proj1'];
+  assert.equal(ps1.loggedHours, 35.0);
+  assert.equal(ps1.remainingHours, 5.0);
+  assert.equal(ps1.isExceeded, false);
+  assert.equal(ps1.exceededHours, 0);
+
+  // Projekt B (przekroczony budżet -> flaga isExceeded)
+  const ps2 = calc.projectStats['proj2'];
+  assert.equal(ps2.loggedHours, 23.5);
+  assert.equal(ps2.remainingHours, -3.5);
+  assert.equal(ps2.isExceeded, true);
+  assert.equal(ps2.exceededHours, 3.5);
+});
+
 
 
 
