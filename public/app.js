@@ -10011,6 +10011,9 @@ async function renderMpkModule() {
           </p>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span id="mpkGlobalPendingBadge" class="mpk-badge-pending zero" style="height:28px; padding:0 12px; font-size:0.74rem;" title="Łączna suma wszystkich nieodznaczonych godzin we wszystkich projektach">
+            Do wpisania: 0.0 h
+          </span>
           <button type="button" class="btn-action" onclick="window.toggleNewMpkProjectForm()" style="font-size:0.75rem; padding:6px 14px;">
             + Nowy Projekt MPK
           </button>
@@ -10108,6 +10111,15 @@ function renderMpkProjectsAndStats() {
   const container = document.getElementById('mpkProjectsListContainer');
   if (!container) return;
 
+  const globalPendingEl = document.getElementById('mpkGlobalPendingBadge');
+  if (globalPendingEl) {
+    const totalPending = (mpkState.entries || [])
+      .filter(e => !e.isReported)
+      .reduce((acc, e) => acc + (typeof e.hours === 'number' ? e.hours : parseFloat(e.hours) || 0), 0);
+    globalPendingEl.innerHTML = `Do wpisania: <strong>${totalPending.toFixed(1)} h</strong>`;
+    globalPendingEl.className = totalPending > 0 ? 'mpk-badge-pending' : 'mpk-badge-pending zero';
+  }
+
   if (mpkState.projects.length === 0) {
     container.innerHTML = `
       <div style="background:#18181b; border:1px solid #27272a; padding:32px; text-align:center; color:#888; border-radius:6px; font-size:0.85rem;">
@@ -10140,6 +10152,15 @@ function renderMpkProjectsAndStats() {
 
     const isExceeded = pStats.isExceeded;
     const projEntries = mpkState.entries.filter(e => e.projectId === pid);
+
+    // Suma godzin oczekujących na przepisanie do kalendarza (status: DO WPISANIA)
+    const pendingHours = projEntries
+      .filter(e => !e.isReported)
+      .reduce((acc, e) => acc + (typeof e.hours === 'number' ? e.hours : parseFloat(e.hours) || 0), 0);
+
+    const pendingBadgeHtml = (pendingHours > 0)
+      ? `<span class="mpk-badge-pending" title="Godziny oczekujące na wpisanie do kalendarza (status: DO WPISANIA)">Do wpisania: ${pendingHours.toFixed(1)} h</span>`
+      : `<span class="mpk-badge-pending zero" title="Wszystkie zarejestrowane godziny zostały już zaraportowane w kalendarzu">Do wpisania: 0.0 h</span>`;
 
     // Nagłówek statusu pozostało / przekroczenie
     let balanceBadgeHtml = '';
@@ -10226,6 +10247,7 @@ function renderMpkProjectsAndStats() {
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;" onclick="event.stopPropagation()">
             ${balanceBadgeHtml}
+            ${pendingBadgeHtml}
             <button type="button" class="btn-secondary" onclick="window.moveMpkProject('${pid}', -1)" style="font-size:0.7rem; padding:3px 8px;" title="Przesuń projekt w górę" ${isFirst ? 'disabled style="opacity:0.35; cursor:not-allowed;"' : ''}>GÓRA</button>
             <button type="button" class="btn-secondary" onclick="window.moveMpkProject('${pid}', 1)" style="font-size:0.7rem; padding:3px 8px;" title="Przesuń projekt w dół" ${isLast ? 'disabled style="opacity:0.35; cursor:not-allowed;"' : ''}>DÓŁ</button>
             <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}')" style="font-size:0.7rem; padding:3px 10px;" title="Edytuj nazwę, kod lub pulę godzin projektu">

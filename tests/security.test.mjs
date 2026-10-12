@@ -2893,6 +2893,8 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(appJs.includes("hash === 'tool/mpk'"), true, 'Brak routingu tool/mpk w handleHashNavigation');
   assert.equal(appJs.includes("clean === 'tool/mpk'"), true, 'Brak tytułu dla tool/mpk w getDocTabTitleForPath');
   assert.equal(appJs.includes('mpkStatTotalBudget'), false, 'Kafelki podsumowania mpkStatTotalBudget powinny być usunięte dla zyskania przestrzeni');
+  assert.equal(appJs.includes('mpkGlobalPendingBadge'), true, 'Brak mpkGlobalPendingBadge w app.js');
+  assert.equal(appJs.includes('mpk-badge-pending'), true, 'Brak mpk-badge-pending w app.js');
 
   // 3. Weryfikacja styli CSS
   assert.equal(styleCss.includes('.btn-action'), true, 'Brak .btn-action w style.css');
@@ -2901,6 +2903,7 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(styleCss.includes('.btn-mpk-status'), true, 'Brak .btn-mpk-status w style.css');
   assert.equal(styleCss.includes('.mpk-badge-exceeded'), true, 'Brak .mpk-badge-exceeded w style.css');
   assert.equal(styleCss.includes('.mpk-badge-ok'), true, 'Brak .mpk-badge-ok w style.css');
+  assert.equal(styleCss.includes('.mpk-badge-pending'), true, 'Brak .mpk-badge-pending w style.css');
 
   // 4. Test jednostkowy algorytmu kalkulacji statystyk i przekroczenia godzin
   function testCalculateMpkStats(projects, entries) {

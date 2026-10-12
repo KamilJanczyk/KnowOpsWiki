@@ -2731,6 +2731,28 @@
       font-size: 0.7rem;
       box-sizing: border-box;
     }
+    .mpk-badge-pending {
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(59, 130, 246, 0.14);
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+      font-weight: 700;
+      padding: 0 10px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      letter-spacing: 0.3px;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+    .mpk-badge-pending.zero {
+      background: rgba(39, 39, 42, 0.5);
+      border: 1px solid #3f3f46;
+      color: #71717a;
+      font-weight: 500;
+    }
 
 
 
