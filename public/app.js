@@ -10201,8 +10201,9 @@ function renderMpkProjectsAndStats() {
             <td style="padding:7px 10px; font-weight:700; color:var(--sw-gold); font-family:monospace;">${hours} h</td>
             <td style="padding:7px 10px; color:#d4d4d8;">${desc}</td>
             <td style="padding:7px 10px; text-align:center;">${statusBtn}</td>
-            <td style="padding:7px 10px; text-align:right;">
-              <button type="button" class="btn-danger" onclick="window.deleteMpkEntry('${eid}')" style="padding:2px 8px; font-size:0.68rem;" title="Usuń ten wpis">Usuń</button>
+            <td style="padding:7px 10px; text-align:right; white-space:nowrap;">
+              <button type="button" class="btn-secondary" onclick="window.editMpkEntry('${eid}')" style="padding:2px 7px; font-size:0.68rem; margin-right:4px;" title="Edytuj ten wpis">Edytuj</button>
+              <button type="button" class="btn-danger" onclick="window.deleteMpkEntry('${eid}')" style="padding:2px 7px; font-size:0.68rem;" title="Usuń ten wpis">Usuń</button>
             </td>
           </tr>
         `;
@@ -10217,7 +10218,7 @@ function renderMpkProjectsAndStats() {
                 <th style="padding:7px 10px; width:90px;">Godziny</th>
                 <th style="padding:7px 10px;">Opis Zrealizowanego Zadania</th>
                 <th style="padding:7px 10px; width:140px; text-align:center;">W Kalendarzu</th>
-                <th style="padding:7px 10px; width:70px; text-align:right;">Akcje</th>
+                <th style="padding:7px 10px; width:110px; text-align:right;">Akcje</th>
               </tr>
             </thead>
             <tbody>
@@ -10236,12 +10237,41 @@ function renderMpkProjectsAndStats() {
             ${proj.code ? `<span style="background:#27272a; border:1px solid var(--sw-gold); color:var(--sw-gold); font-size:0.68rem; font-weight:700; padding:2px 6px; border-radius:3px; font-family:monospace;">${escapeHtml(proj.code)}</span>` : ''}
             <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">${escapeHtml(proj.name)}</span>
           </div>
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             ${balanceBadgeHtml}
+            <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}')" style="padding:3px 10px; font-size:0.68rem; font-weight:600;" title="Edytuj nazwę, kod lub pulę godzin projektu">
+              Edytuj Projekt
+            </button>
             <button type="button" class="btn-danger" onclick="window.deleteMpkProject('${pid}', '${escapeHtml(proj.name)}')" style="padding:3px 8px; font-size:0.68rem;" title="Usuń ten projekt i wszystkie jego wpisy">
               Usuń Projekt
             </button>
           </div>
+        </div>
+
+        <!-- Formularz Edycji Projektu (zwijany/rozwijany) -->
+        <div id="mpkEditPanel_${pid}" style="display:none; background:#18181b; border-bottom:1px solid #3f3f46; padding:12px 16px;">
+          <form onsubmit="window.saveEditMpkProject(event, '${pid}')" style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
+            <div style="flex:2; min-width:180px;">
+              <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Nazwa Projektu:</label>
+              <input type="text" id="mpkEditName_${pid}" value="${escapeHtml(proj.name)}" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+            </div>
+            <div style="width:130px;">
+              <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Kod / MPK:</label>
+              <input type="text" id="mpkEditCode_${pid}" value="${escapeHtml(proj.code || '')}" placeholder="np. MPK-101" style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+            </div>
+            <div style="width:120px;">
+              <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Pula Godzin (h):</label>
+              <input type="number" id="mpkEditHours_${pid}" value="${proj.allocatedHours}" step="0.5" min="0.5" max="10000" required style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 8px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="submit" class="btn-action" style="padding:6px 14px; font-size:0.75rem; font-weight:700; background:#166534; border:1px solid #22c55e;">
+                Zapisz Zmiany
+              </button>
+              <button type="button" class="btn-secondary" onclick="window.toggleEditMpkProject('${pid}', false)" style="padding:6px 10px; font-size:0.75rem;">
+                Anuluj
+              </button>
+            </div>
+          </form>
         </div>
 
         <!-- Szybki wiersz dodawania godzin (Inline Excel-like) -->
@@ -10443,6 +10473,103 @@ window.toggleMpkEntry = async function(eid, isReported) {
     renderMpkProjectsAndStats();
   } catch (err) {
     alert('Nie udało się zmienić statusu: ' + err.message);
+  }
+};
+
+window.toggleEditMpkProject = function(pid, forceOpen) {
+  const panel = document.getElementById(`mpkEditPanel_${pid}`);
+  if (!panel) return;
+  const isVisible = (typeof forceOpen === 'boolean') ? forceOpen : (panel.style.display === 'none');
+  panel.style.display = isVisible ? 'block' : 'none';
+  if (isVisible) {
+    const input = document.getElementById(`mpkEditName_${pid}`);
+    if (input) input.focus();
+  }
+};
+
+window.saveEditMpkProject = async function(event, pid) {
+  if (event) event.preventDefault();
+  const nameEl = document.getElementById(`mpkEditName_${pid}`);
+  const codeEl = document.getElementById(`mpkEditCode_${pid}`);
+  const hoursEl = document.getElementById(`mpkEditHours_${pid}`);
+  if (!nameEl || !hoursEl) return;
+
+  const name = nameEl.value.trim();
+  const code = codeEl ? codeEl.value.trim() : '';
+  const allocatedHours = parseFloat(hoursEl.value) || 0;
+
+  if (!name) {
+    alert('Nazwa projektu jest wymagana.');
+    return;
+  }
+  if (allocatedHours <= 0) {
+    alert('Pula godzin musi być większa od zera.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/mpk/project', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ id: pid, name, code, allocatedHours })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu projektu');
+    }
+
+    mpkState.projects = data.projects || [];
+    mpkState.entries = data.entries || [];
+    mpkState.stats = data.stats || {};
+    renderMpkProjectsAndStats();
+  } catch (err) {
+    alert('Nie udało się zapisać zmian w projekcie: ' + err.message);
+  }
+};
+
+window.editMpkEntry = async function(eid) {
+  const entry = (mpkState.entries || []).find(e => e.id === eid);
+  if (!entry) return;
+
+  const newDate = prompt('Data wpisu (RRRR-MM-DD):', entry.date || '');
+  if (newDate === null) return;
+  const newHoursStr = prompt('Ilość godzin (h):', entry.hours);
+  if (newHoursStr === null) return;
+  const newHours = parseFloat(newHoursStr);
+  if (isNaN(newHours) || newHours <= 0) {
+    alert('Ilość godzin musi być większa od zera.');
+    return;
+  }
+  const newDesc = prompt('Opis zrealizowanego zadania:', entry.description || '');
+  if (newDesc === null) return;
+  if (!newDesc.trim()) {
+    alert('Opis zadania jest wymagany.');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/mpk/entry', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ id: eid, projectId: entry.projectId, date: newDate.trim(), hours: newHours, description: newDesc.trim() })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu wpisu');
+    }
+
+    mpkState.projects = data.projects || [];
+    mpkState.entries = data.entries || [];
+    mpkState.stats = data.stats || {};
+    renderMpkProjectsAndStats();
+  } catch (err) {
+    alert('Nie udało się zapisać zmian wpisu: ' + err.message);
   }
 };
 

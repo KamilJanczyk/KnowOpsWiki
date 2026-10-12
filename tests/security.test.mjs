@@ -2882,6 +2882,9 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(appJs.includes('toggleMpkEntry'), true, 'Brak toggleMpkEntry w app.js');
   assert.equal(appJs.includes('deleteMpkEntry'), true, 'Brak deleteMpkEntry w app.js');
   assert.equal(appJs.includes('deleteMpkProject'), true, 'Brak deleteMpkProject w app.js');
+  assert.equal(appJs.includes('toggleEditMpkProject'), true, 'Brak toggleEditMpkProject w app.js');
+  assert.equal(appJs.includes('saveEditMpkProject'), true, 'Brak saveEditMpkProject w app.js');
+  assert.equal(appJs.includes('editMpkEntry'), true, 'Brak editMpkEntry w app.js');
   assert.equal(appJs.includes("hash === 'tool/mpk'"), true, 'Brak routingu tool/mpk w handleHashNavigation');
   assert.equal(appJs.includes("clean === 'tool/mpk'"), true, 'Brak tytułu dla tool/mpk w getDocTabTitleForPath');
 

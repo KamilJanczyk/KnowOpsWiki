@@ -2513,9 +2513,12 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST') {
         if (!checkMutatingRateLimit(req, res)) return;
         const body = await getBody();
-        const { projectId, date, hours, description } = body;
+        const { id, projectId, date, hours, description } = body;
 
-        if (!projectId) {
+        const data = getMpkData();
+        let entry = id ? data.entries.find(e => e.id === id) : null;
+
+        if (!entry && !projectId) {
           return sendJson(400, { error: 'Wymagany identyfikator projektu (projectId).' });
         }
 
@@ -2529,24 +2532,31 @@ const server = http.createServer(async (req, res) => {
           ? date
           : new Date().toISOString().split('T')[0];
 
-        const newEntry = {
-          id: `mpk_ent_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
-          projectId,
-          date: finalDate,
-          hours: parsedHours,
-          description: String(description || '').trim().slice(0, 500),
-          isReported: false,
-          createdAt: new Date().toISOString()
-        };
+        if (entry) {
+          entry.date = finalDate;
+          entry.hours = parsedHours;
+          entry.description = String(description || '').trim().slice(0, 500);
+          if (projectId) entry.projectId = projectId;
+          entry.updatedAt = new Date().toISOString();
+        } else {
+          entry = {
+            id: `mpk_ent_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
+            projectId,
+            date: finalDate,
+            hours: parsedHours,
+            description: String(description || '').trim().slice(0, 500),
+            isReported: false,
+            createdAt: new Date().toISOString()
+          };
+          data.entries.unshift(entry);
+        }
 
-        const data = getMpkData();
-        data.entries.unshift(newEntry);
         data.entries.sort((a, b) => new Date(b.date) - new Date(a.date));
         saveMpkData(data);
 
         return sendJson(200, {
           success: true,
-          entry: newEntry,
+          entry,
           projects: data.projects,
           entries: data.entries,
           stats: calculateMpkStats(data.projects, data.entries)
