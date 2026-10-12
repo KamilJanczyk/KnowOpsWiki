@@ -9460,7 +9460,25 @@ async function renderOvertimeModule() {
         </div>
       </div>
 
-      <!-- Formularz Dodawania Nadgodzin -->
+      <!-- 1. Pasek Bilansu (3 Kolumny z Wyświetlaniem Godzin na Samej Górze) -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:20px;">
+        <div style="background:#111; border:1px solid #333; border-radius:6px; padding:12px 16px;">
+          <div style="font-size:0.7rem; color:#888; text-transform:uppercase; font-weight:600;">1. Przepracowane Nadgodziny (Łącznie)</div>
+          <div id="ovtStatTotal" style="font-size:1.5rem; font-weight:700; color:var(--sw-gold); margin-top:4px;">0.0 h</div>
+        </div>
+
+        <div style="background:#111; border:1px solid #166534; border-radius:6px; padding:12px 16px;">
+          <div style="font-size:0.7rem; color:#86efac; text-transform:uppercase; font-weight:600;">2. Odebrane / Rozliczone (Wolne)</div>
+          <div id="ovtStatTaken" style="font-size:1.5rem; font-weight:700; color:#4ade80; margin-top:4px;">0.0 h</div>
+        </div>
+
+        <div style="background:#111; border:1px solid #1e3a8a; border-radius:6px; padding:12px 16px;">
+          <div style="font-size:0.7rem; color:#93c5fd; text-transform:uppercase; font-weight:600;">3. Pozostały Bilans Netto (Do Odebrania)</div>
+          <div id="ovtStatRemaining" style="font-size:1.5rem; font-weight:700; color:#38bdf8; margin-top:4px;">0.0 h</div>
+        </div>
+      </div>
+
+      <!-- 2. Formularz Dodawania Nadgodzin (Nad Historią, Poniżej Bilansu) -->
       <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:16px; margin-bottom:20px;">
         <h3 style="color:#fff; font-size:0.85rem; margin:0 0 12px 0; text-transform:uppercase; letter-spacing:0.4px;">Szybki Formularz: Dodaj Nadgodziny</h3>
 
@@ -9516,8 +9534,8 @@ async function renderOvertimeModule() {
         </form>
       </div>
 
-      <!-- Filtry i Tabela Wpisów -->
-      <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:16px; margin-bottom:20px;">
+      <!-- 3. Historia i Tabela Wpisów (Na Samym Dole) -->
+      <div style="background:#111; border:1px solid #27272a; border-radius:6px; padding:16px; margin-bottom:30px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid #222; padding-bottom:10px;">
           <h3 style="color:var(--sw-gold); font-size:0.88rem; margin:0; text-transform:uppercase;">HISTORIA I WIDOK OGÓLNY WPISÓW</h3>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -9539,24 +9557,6 @@ async function renderOvertimeModule() {
 
         <div id="overtimeListContainer">
           <div style="text-align:center; padding:20px; color:#888; font-size:0.8rem;">Pobieranie ewidencji nadgodzin...</div>
-        </div>
-      </div>
-
-      <!-- Pasek Bilansu na Dole -->
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:30px;">
-        <div style="background:#111; border:1px solid #333; border-radius:6px; padding:12px 16px;">
-          <div style="font-size:0.7rem; color:#888; text-transform:uppercase; font-weight:600;">1. Przepracowane Nadgodziny (Łącznie)</div>
-          <div id="ovtStatTotal" style="font-size:1.5rem; font-weight:700; color:var(--sw-gold); margin-top:4px;">0.0 h</div>
-        </div>
-
-        <div style="background:#111; border:1px solid #166534; border-radius:6px; padding:12px 16px;">
-          <div style="font-size:0.7rem; color:#86efac; text-transform:uppercase; font-weight:600;">2. Odebrane / Rozliczone (Wolne)</div>
-          <div id="ovtStatTaken" style="font-size:1.5rem; font-weight:700; color:#4ade80; margin-top:4px;">0.0 h</div>
-        </div>
-
-        <div style="background:#111; border:1px solid #1e3a8a; border-radius:6px; padding:12px 16px;">
-          <div style="font-size:0.7rem; color:#93c5fd; text-transform:uppercase; font-weight:600;">3. Pozostały Bilans Netto (Do Odebrania)</div>
-          <div id="ovtStatRemaining" style="font-size:1.5rem; font-weight:700; color:#38bdf8; margin-top:4px;">0.0 h</div>
         </div>
       </div>
     </div>

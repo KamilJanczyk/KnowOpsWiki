@@ -1893,6 +1893,17 @@ test('37. Ewidencja Nadgodzin: weryfikacja logiki API, przeliczania bilansu i ob
   assert.equal(appJs.includes('copyOvertimeAsExcel'), true);
   assert.equal(appJs.includes('copyOvertimeAsMarkdown'), true);
   assert.equal(appJs.includes('copyOvertimeAsTextReport'), true);
+
+  // Weryfikacja nowej kolejności ergonomicznej: bilans (3 kolumny) na samej górze, formularz w środku, historia na dole
+  const renderOvertimeFnIdx = appJs.indexOf('async function renderOvertimeModule()');
+  assert.ok(renderOvertimeFnIdx !== -1, 'Brak funkcji renderOvertimeModule w app.js');
+  const overtimeFnCode = appJs.slice(renderOvertimeFnIdx, renderOvertimeFnIdx + 12000);
+  const posStats = overtimeFnCode.indexOf('id="ovtStatTotal"');
+  const posForm = overtimeFnCode.indexOf('id="overtimeForm"');
+  const posHistory = overtimeFnCode.indexOf('HISTORIA I WIDOK OGÓLNY WPISÓW');
+  assert.ok(posStats !== -1 && posForm !== -1 && posHistory !== -1, 'Wszystkie trzy kluczowe sekcje muszą być obecne w szablonie');
+  assert.ok(posStats < posForm, '3 kolumny bilansu godzin (ovtStatTotal) muszą znajdować się na samej górze nad formularzem');
+  assert.ok(posForm < posHistory, 'Formularz dodawania nadgodzin (overtimeForm) musi znajdować się nad historią i widokiem ogólnym wpisów');
 });
 
 test('38. Markdown Quotes Integrity: brak szkodliwej zamiany apostrofów na grawisy oraz ochrona Smart Quotes', () => {
