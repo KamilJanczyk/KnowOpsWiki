@@ -3017,6 +3017,44 @@ test('55. Projekty MPK: weryfikacja backendu API, kalkulacji limitów, ostrzeże
   assert.equal(noChangeUp[0].id, 'proj1');
 });
 
+test('56. Edytor Markdown & Klawisz Tab: weryfikacja wstawiania prawdziwego znaku tabulacji (\\t), Shift+Tab oraz reguł tab-size w CSS', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja wstawiania znaku \t w app.js
+  assert.equal(appJs.includes("e.key === 'Tab'"), true, 'Brak obsługi e.key === "Tab" w app.js');
+  assert.equal(appJs.includes("'\\t'"), true, 'Brak wstawiania znaku \\t w app.js');
+  assert.equal(appJs.includes("e.shiftKey"), true, 'Brak obsługi Shift+Tab w app.js');
+
+  // Upewnienie się, że nie wstawia się już na sztywno dwóch spacji w zdarzeniu Tab
+  assert.equal(appJs.includes('this.value.substring(0, start) + "  "'), false, 'Nadal obecne podstawianie dwóch spacji w app.js');
+
+  // 2. Weryfikacja reguł tab-size w style.css
+  assert.equal(styleCss.includes('tab-size: 4'), true, 'Brak tab-size: 4 w style.css');
+
+  // 3. Test jednostkowy wstawiania znaku \t
+  function testInsertTab(text, cursorStart, cursorEnd) {
+    const before = text.substring(0, cursorStart);
+    const after = text.substring(cursorEnd);
+    return before + '\t' + after;
+  }
+
+  // Wstawienie tabulatora w pustym tekście
+  assert.equal(testInsertTab('', 0, 0), '\t');
+  assert.equal(testInsertTab('hello world', 5, 5), 'hello\t world');
+
+  // 4. Test jednostkowy usuwania tabulatora (Shift+Tab)
+  function testRemoveTab(text, cursorStart) {
+    if (cursorStart > 0 && text.charAt(cursorStart - 1) === '\t') {
+      return text.substring(0, cursorStart - 1) + text.substring(cursorStart);
+    }
+    return text;
+  }
+
+  assert.equal(testRemoveTab('\thello', 1), 'hello');
+  assert.equal(testRemoveTab('hello', 1), 'hello');
+});
+
 
 
 

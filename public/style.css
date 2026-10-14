@@ -1219,7 +1219,7 @@
     .markdown-body li { margin-bottom: 6px; font-size: 0.85rem; line-height: 1.5; color: #cccccc; }
     .markdown-body li > ul, .markdown-body li > ol { margin-top: 6px; margin-bottom: 0; padding-left: 20px; }
     .markdown-body code { background: #1a1a1a; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: #e2e8f0; }
-    .markdown-body pre { background: #121212; border: 1px solid #282828; padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 14px; position: relative; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+    .markdown-body pre { background: #121212; border: 1px solid #282828; padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 14px; position: relative; transition: border-color 0.3s ease, box-shadow 0.3s ease; tab-size: 4; }
     .markdown-body pre.code-block-last-copied {
       border-color: var(--sw-gold) !important;
       box-shadow: 0 0 12px rgba(212, 175, 55, 0.3) !important;
@@ -1839,7 +1839,7 @@
       overflow-wrap: break-word;
       box-sizing: border-box;
       border: none;
-      tab-size: 2;
+      tab-size: 4;
     }
 
     #editorHighlights {
@@ -2132,6 +2132,7 @@
       line-height: 1.5;
       resize: none;
       outline: none;
+      tab-size: 4;
     }
     .scratchpad-textarea:focus {
       border-color: var(--sw-gold);

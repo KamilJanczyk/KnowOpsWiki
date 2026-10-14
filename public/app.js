@@ -5900,26 +5900,68 @@ window.toggleSidebarSubtask = async function(taskId, subtaskId) {
   }
 };
 
-// --- ZMIANY: Tabulator oraz zmiana nazwy ---
-document.addEventListener('DOMContentLoaded', () => {
-  const textareas = ['editorTextarea', 'createItemContentTextarea'];
-  textareas.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          const start = this.selectionStart;
-          const end = this.selectionEnd;
-          this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
-          this.selectionStart = this.selectionEnd = start + 2;
-          if (typeof updateEditorPreview === 'function' && id === 'editorTextarea') {
-            updateEditorPreview();
+// --- ZMIANY: Prawdziwy znak tabulacji (\t) oraz cofanie wcięć (Shift + Tab) ---
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Tab' && e.target && e.target.tagName === 'TEXTAREA') {
+    const el = e.target;
+    const id = el.id;
+    if (id === 'editorTextarea' || id === 'createItemContentTextarea' || id === 'scratchpadTextarea') {
+      e.preventDefault();
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+
+      if (e.shiftKey) {
+        // Shift + Tab: usuwanie wcięcia tabulatora
+        if (start === end) {
+          if (start > 0 && el.value.charAt(start - 1) === '\t') {
+            el.value = el.value.substring(0, start - 1) + el.value.substring(start);
+            el.selectionStart = el.selectionEnd = start - 1;
+          }
+        } else {
+          const before = el.value.substring(0, start);
+          const selected = el.value.substring(start, end);
+          const after = el.value.substring(end);
+          const unindented = selected.replace(/^\t/gm, '');
+          const diff = selected.length - unindented.length;
+          el.value = before + unindented + after;
+          el.selectionStart = start;
+          el.selectionEnd = Math.max(start, end - diff);
+        }
+      } else {
+        // Tab: wstawianie prawdziwego znaku tabulacji \t
+        if (start !== end && el.value.substring(start, end).includes('\n')) {
+          const before = el.value.substring(0, start);
+          const selected = el.value.substring(start, end);
+          const after = el.value.substring(end);
+          const indented = selected.replace(/^/gm, '\t');
+          const diff = indented.length - selected.length;
+          el.value = before + indented + after;
+          el.selectionStart = start;
+          el.selectionEnd = end + diff;
+        } else {
+          let inserted = false;
+          if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+            try {
+              inserted = document.execCommand('insertText', false, '\t');
+            } catch (err) {
+              inserted = false;
+            }
+          }
+          if (!inserted) {
+            el.value = el.value.substring(0, start) + '\t' + el.value.substring(end);
+            el.selectionStart = el.selectionEnd = start + 1;
           }
         }
-      });
+      }
+
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+
+      if (id === 'editorTextarea') {
+        if (typeof updateEditorPreview === 'function') updateEditorPreview();
+        if (typeof updateEditorHighlights === 'function') updateEditorHighlights();
+      }
     }
-  });
+  }
 });
 
 window.renameCurrentFile = async function() {
