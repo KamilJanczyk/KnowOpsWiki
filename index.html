@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
 
   <!-- Główny arkusz stylów aplikacji -->
-  <link rel="stylesheet" href="/public/style.css?v=2.34.0">
+  <link rel="stylesheet" href="/public/style.css?v=2.35.0">
 </head>
 <body>
 
@@ -247,7 +247,7 @@
   </div>
 
   <!-- App Client Script -->
-  <script src="/public/app.js?v=2.34.0"></script>
+  <script src="/public/app.js?v=2.35.0"></script>
 
   <!-- Custom Modal Overlays for Kanban -->
   <div id="addTaskModalOverlay" class="custom-modal-overlay" style="display:none;">
@@ -600,6 +600,22 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeBackupsModal()">Zamknij</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Grup Kategorii Menu Górnego -->
+  <div id="categoryGroupsModalOverlay" class="custom-modal-overlay" style="display:none;">
+    <div class="custom-modal" style="max-width: 760px; width: 95%;">
+      <div class="modal-header">
+        <h3 style="color:var(--sw-gold);">ZARZĄDZANIE GRUPAMI MENU GÓRNEGO</h3>
+        <button class="modal-close-btn" onclick="window.closeCategoryGroupsModal()">X</button>
+      </div>
+      <div class="modal-body" id="categoryGroupsModalBody" style="max-height: 520px; overflow-y: auto;">
+        <!-- Renderowane dynamicznie w app.js -->
+      </div>
+      <div class="modal-footer" id="categoryGroupsModalFooter">
+        <button class="btn-secondary" onclick="window.closeCategoryGroupsModal()">Zamknij</button>
       </div>
     </div>
   </div>

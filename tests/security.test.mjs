@@ -3055,11 +3055,12 @@ test('56. Edytor Markdown & Klawisz Tab: weryfikacja wstawiania prawdziwego znak
   assert.equal(testRemoveTab('hello', 1), 'hello');
 });
 
-test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfikacja konfiguracji, belki sekcyjnej i mapowania działów', () => {
+test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfikacja konfiguracji, belki sekcyjnej, API POST i panelu GUI', () => {
   const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
   const buildNavMjs = fs.readFileSync(path.resolve('build_navigation.mjs'), 'utf8');
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
 
   // 1. Weryfikacja pliku konfiguracyjnego
   const groupsFile = path.resolve('data/category_groups.json');
@@ -3071,19 +3072,32 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.equal(osGroup.title, 'OS');
   assert.equal(osGroup.sections.length >= 2, true);
 
-  // 2. Weryfikacja integracji w server.mjs i build_navigation.mjs
+  // 2. Weryfikacja integracji API w server.mjs i build_navigation.mjs
   assert.equal(serverMjs.includes("normPath === '/api/category-groups'"), true, 'Brak /api/category-groups w server.mjs');
+  assert.equal(serverMjs.includes("req.method === 'POST'") && serverMjs.includes("atomicWriteFile(groupsFile"), true, 'Brak obsługi zapisu POST w server.mjs dla grup');
   assert.equal(buildNavMjs.includes('category_groups.json'), true, 'Brak category_groups.json w build_navigation.mjs');
 
   // 3. Weryfikacja styli belki nieklikalnej w style.css
   assert.equal(styleCss.includes('.top-dropdown-section-header'), true, 'Brak .top-dropdown-section-header w style.css');
   assert.equal(styleCss.includes('pointer-events: none'), true, 'Brak pointer-events: none w style.css dla sekcji');
 
-  // 4. Weryfikacja logiki w app.js
+  // 4. Weryfikacja elementów modala w index.html
+  assert.equal(indexHtml.includes('id="categoryGroupsModalOverlay"'), true, 'Brak modala categoryGroupsModalOverlay w index.html');
+  assert.equal(indexHtml.includes('id="categoryGroupsModalBody"'), true, 'Brak categoryGroupsModalBody w index.html');
+  assert.equal(indexHtml.includes('id="categoryGroupsModalFooter"'), true, 'Brak categoryGroupsModalFooter w index.html');
+
+  // 5. Weryfikacja logiki i funkcji panelu GUI w app.js
   assert.equal(appJs.includes('categoryGroups'), true, 'Brak obsługi categoryGroups w app.js');
   assert.equal(appJs.includes('top-dropdown-section-header'), true, 'Brak top-dropdown-section-header w app.js');
+  assert.equal(appJs.includes('window.openCategoryGroupsModal'), true, 'Brak openCategoryGroupsModal w app.js');
+  assert.equal(appJs.includes('window.closeCategoryGroupsModal'), true, 'Brak closeCategoryGroupsModal w app.js');
+  assert.equal(appJs.includes('window.renderCategoryGroupsList'), true, 'Brak renderCategoryGroupsList w app.js');
+  assert.equal(appJs.includes('window.showEditCategoryGroupForm'), true, 'Brak showEditCategoryGroupForm w app.js');
+  assert.equal(appJs.includes('window.saveCategoryGroup'), true, 'Brak saveCategoryGroup w app.js');
+  assert.equal(appJs.includes('window.deleteCategoryGroup'), true, 'Brak deleteCategoryGroup w app.js');
+  assert.equal(appJs.includes('Zarządzaj Grupami Menu Górnego'), true, 'Brak przycisku akcji w Centrum Administracyjnym w app.js');
 
-  // 5. Test jednostkowy logiki grupowania kategorii
+  // 6. Test jednostkowy logiki grupowania kategorii
   const sampleCategories = [
     {
       id: 'Microsoft',
@@ -3138,6 +3152,40 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.equal(groupOsData.sections[0].categories[0].id, 'Microsoft');
   assert.equal(groupOsData.sections[1].header, 'LINUX');
   assert.equal(groupOsData.sections[1].categories[0].id, 'Linux');
+
+  // 7. Test sanityzacji danych wejściowych POST /api/category-groups
+  function sanitizeGroupPayload(rawGroups) {
+    const sanitizedGroups = [];
+    for (const g of rawGroups) {
+      const title = String(g.title || '').trim().slice(0, 50);
+      if (!title) continue;
+      const id = String(g.id || 'group_test').trim().slice(0, 50);
+      const sections = [];
+      if (Array.isArray(g.sections)) {
+        for (const s of g.sections) {
+          const header = String(s.header || '').trim().slice(0, 50);
+          const match = String(s.match || '').trim().slice(0, 100);
+          if (header && match) {
+            sections.push({ header, match });
+          }
+        }
+      }
+      sanitizedGroups.push({ id, title, sections });
+    }
+    return sanitizedGroups;
+  }
+
+  const payloadToTest = [
+    { id: 'custom_sec', title: '  BEZPIECZEŃSTWO  ', sections: [{ header: '  SIEM  ', match: '  siem|soc  ' }, { header: '', match: 'invalid' }] },
+    { title: '', sections: [] } // pusta grupa powinna zostać odrzucona
+  ];
+  const sanitized = sanitizeGroupPayload(payloadToTest);
+  assert.equal(sanitized.length, 1);
+  assert.equal(sanitized[0].id, 'custom_sec');
+  assert.equal(sanitized[0].title, 'BEZPIECZEŃSTWO');
+  assert.equal(sanitized[0].sections.length, 1);
+  assert.equal(sanitized[0].sections[0].header, 'SIEM');
+  assert.equal(sanitized[0].sections[0].match, 'siem|soc');
 });
 
 

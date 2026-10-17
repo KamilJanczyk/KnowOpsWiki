@@ -1101,33 +1101,78 @@ const server = http.createServer(async (req, res) => {
       return sendJson(200, { categories: [] });
     }
 
-    if (normPath === '/api/category-groups' && req.method === 'GET') {
+    if (normPath === '/api/category-groups') {
       const groupsFile = path.join(DATA_DIR, 'category_groups.json');
-      if (fs.existsSync(groupsFile)) {
+
+      if (req.method === 'GET') {
+        if (fs.existsSync(groupsFile)) {
+          try {
+            const groups = JSON.parse(fs.readFileSync(groupsFile, 'utf8'));
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            return sendJson(200, groups);
+          } catch (e) {
+            console.error('[Wiki API] Błąd odczytu category_groups.json:', e);
+          }
+        }
+        const defaultGroups = [
+          {
+            id: "group_os",
+            title: "OS",
+            sections: [
+              { match: "microsoft|windows", header: "WINDOWS" },
+              { match: "linux", header: "LINUX" }
+            ]
+          }
+        ];
         try {
-          const groups = JSON.parse(fs.readFileSync(groupsFile, 'utf8'));
-          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-          return sendJson(200, groups);
-        } catch (e) {
-          console.error('[Wiki API] Błąd odczytu category_groups.json:', e);
-        }
+          if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+          fs.writeFileSync(groupsFile, JSON.stringify(defaultGroups, null, 2), 'utf8');
+        } catch (e) {}
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        return sendJson(200, defaultGroups);
       }
-      const defaultGroups = [
-        {
-          id: "group_os",
-          title: "OS",
-          sections: [
-            { match: "microsoft|windows", header: "WINDOWS" },
-            { match: "linux", header: "LINUX" }
-          ]
+
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const rawGroups = Array.isArray(body) ? body : (body && Array.isArray(body.groups) ? body.groups : null);
+        if (!rawGroups) {
+          return sendJson(400, { error: 'Oczekiwano tablicy grup w formacie JSON.' });
         }
-      ];
-      try {
-        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-        fs.writeFileSync(groupsFile, JSON.stringify(defaultGroups, null, 2), 'utf8');
-      } catch (e) {}
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-      return sendJson(200, defaultGroups);
+
+        const sanitizedGroups = [];
+        for (const g of rawGroups) {
+          const title = String(g.title || '').trim().slice(0, 50);
+          if (!title) continue;
+          const id = String(g.id || `group_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`).trim().slice(0, 50);
+          const sections = [];
+          if (Array.isArray(g.sections)) {
+            for (const s of g.sections) {
+              const header = String(s.header || '').trim().slice(0, 50);
+              const match = String(s.match || '').trim().slice(0, 100);
+              if (header && match) {
+                sections.push({ header, match });
+              }
+            }
+          }
+          sanitizedGroups.push({ id, title, sections });
+        }
+
+        if (!fs.existsSync(DATA_DIR)) {
+          fs.mkdirSync(DATA_DIR, { recursive: true });
+        }
+        atomicWriteFile(groupsFile, JSON.stringify(sanitizedGroups, null, 2), 'utf8');
+
+        // Automatyczna aktualizacja navigation.json
+        const navData = generateNavigation();
+        console.log(`[Wiki API] Zaktualizowano konfigurację grup kategorii (${sanitizedGroups.length} grup)`);
+
+        return sendJson(200, {
+          success: true,
+          groups: sanitizedGroups,
+          navigation: navData
+        });
+      }
     }
 
     if (normPath === '/api/rescan' && (req.method === 'POST' || req.method === 'GET')) {

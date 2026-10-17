@@ -4993,11 +4993,341 @@ function renderAdminCenter() {
             <button class="btn-action" style="width:100%; background:var(--sw-gold); border:1px solid #ca8a04; color:#000000; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openImportFileModal()" title="Importuj pliki MD/HTML lub pobierz ze strony URL">Importuj Plik / Pobierz z URL</button>
           </div>
         </div>
+
+        <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <h3 style="color:#c084fc; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Układ Menu i Grupy Kategorii</h3>
+            <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Konfiguracja łączenia kategorii bazy wiedzy w zwarte grupy menu górnego (np. grupa OS scalająca Microsoft i Linux) oraz definiowanie belek sekcyjnych.</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn-action" style="width:100%; background:#581c87; border:1px solid #9333ea; color:#f3e8ff; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="window.openCategoryGroupsModal()" title="Zarządzaj łączeniem kategorii w grupy menu górnego">Zarządzaj Grupami Menu Górnego</button>
+          </div>
+        </div>
       </div>
     </div>
   `;
 }
 window.renderAdminCenter = renderAdminCenter;
+
+// ================= ZARZĄDZANIE GRUPAMI KATEGORII MENU GÓRNEGO ================= //
+window.openCategoryGroupsModal = async function() {
+  const modal = document.getElementById('categoryGroupsModalOverlay');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  await window.loadCategoryGroupsAndRenderList();
+};
+
+window.closeCategoryGroupsModal = function() {
+  const modal = document.getElementById('categoryGroupsModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
+
+window.loadCategoryGroupsAndRenderList = async function() {
+  try {
+    const res = await fetch('/api/category-groups?t=' + Date.now());
+    if (res.ok) {
+      const groups = await res.json();
+      if (Array.isArray(groups)) {
+        if (!navigationData) navigationData = {};
+        navigationData.categoryGroups = groups;
+      }
+    }
+  } catch (e) {
+    console.warn('[CategoryGroups] Błąd pobierania grup:', e);
+  }
+  window.renderCategoryGroupsList();
+};
+
+window.renderCategoryGroupsList = function() {
+  const body = document.getElementById('categoryGroupsModalBody');
+  const footer = document.getElementById('categoryGroupsModalFooter');
+  if (!body) return;
+
+  const groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
+
+  let html = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div>
+        <span style="font-size:0.8rem; color:#a1a1aa;">Zdefiniowane grupy w górnym pasku nawigacyjnym: <strong style="color:var(--sw-gold);">${groups.length}</strong></span>
+      </div>
+      <button type="button" class="btn-action" onclick="window.showEditCategoryGroupForm('')" style="font-size:0.75rem; padding:6px 14px;">
+        + Utwórz Nową Grupę
+      </button>
+    </div>
+  `;
+
+  if (groups.length === 0) {
+    html += `
+      <div style="background:#141416; border:1px dashed #3f3f46; border-radius:6px; padding:24px; text-align:center; color:#888; font-size:0.8rem;">
+        Brak skonfigurowanych grup kategorii.<br>
+        Wszystkie kategorie z bazy wiedzy są wyświetlane jako pojedyncze kafelki w menu górnym.
+      </div>
+    `;
+  } else {
+    html += `<div style="display:flex; flex-direction:column; gap:12px;">`;
+    for (const grp of groups) {
+      const gid = escapeHtml(grp.id || '');
+      const gTitle = escapeHtml(grp.title || 'Bez nazwy');
+      const sections = grp.sections || [];
+
+      let sectionsSummaryHtml = '';
+      if (sections.length === 0) {
+        sectionsSummaryHtml = `<span style="color:#71717a; font-style:italic;">Brak zdefiniowanych sekcji</span>`;
+      } else {
+        sectionsSummaryHtml = sections.map(s => `
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#1c1c1f; border:1px solid #27272a; padding:3px 8px; border-radius:4px; font-size:0.7rem;">
+            <strong style="color:var(--sw-gold); font-family:monospace;">${escapeHtml(s.header)}</strong>
+            <span style="color:#71717a;">-&gt;</span>
+            <span style="color:#d4d4d8;">wzorzec: <code style="color:#93c5fd;">${escapeHtml(s.match)}</code></span>
+          </div>
+        `).join(' ');
+      }
+
+      html += `
+        <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+              <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">Kafelek: <span style="color:var(--sw-gold);">${gTitle}</span></span>
+              <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">ID: ${gid}</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              ${sectionsSummaryHtml}
+            </div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn-secondary" onclick="window.showEditCategoryGroupForm('${gid}')" style="font-size:0.7rem; padding:4px 10px;">Edytuj</button>
+            <button type="button" class="btn-danger" onclick="window.deleteCategoryGroup('${gid}')" style="font-size:0.7rem; padding:4px 10px;">Usuń</button>
+          </div>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  body.innerHTML = html;
+  if (footer) {
+    footer.innerHTML = `<button type="button" class="btn-secondary" onclick="window.closeCategoryGroupsModal()">Zamknij</button>`;
+  }
+};
+
+window.showEditCategoryGroupForm = function(groupId) {
+  const body = document.getElementById('categoryGroupsModalBody');
+  const footer = document.getElementById('categoryGroupsModalFooter');
+  if (!body) return;
+
+  const groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
+  const existing = groupId ? groups.find(g => g.id === groupId) : null;
+
+  const currentTitle = existing ? existing.title : '';
+  const currentSections = existing ? (existing.sections || []) : [
+    { header: 'WINDOWS', match: 'microsoft|windows' },
+    { header: 'LINUX', match: 'linux' }
+  ];
+
+  let html = `
+    <form id="categoryGroupEditForm" onsubmit="window.saveCategoryGroup(event, '${escapeHtml(groupId || '')}')" style="display:flex; flex-direction:column; gap:16px;">
+      <div style="background:#18181b; border:1px solid #27272a; padding:14px; border-radius:6px;">
+        <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--sw-gold); margin-bottom:6px; text-transform:uppercase;">
+          Nazwa Kafelka w Górnym Pasku:
+        </label>
+        <input type="text" id="grpTitleInput" value="${escapeHtml(currentTitle)}" placeholder="np. OS, Sieci, Bazy Danych" required style="width:100%; max-width:320px; background:#111; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+        <p style="font-size:0.72rem; color:#888; margin:4px 0 0 0;">Taki napis pojawi się na przycisku w nagłówku aplikacji.</p>
+      </div>
+
+      <div style="background:#18181b; border:1px solid #27272a; padding:14px; border-radius:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div>
+            <label style="font-size:0.75rem; font-weight:700; color:var(--sw-gold); text-transform:uppercase;">
+              Sekcje i Belki Nieklikalne w Menu:
+            </label>
+            <p style="font-size:0.72rem; color:#888; margin:2px 0 0 0;">Każda sekcja tworzy nieklikalną belkę nagłówkową i przypisuje do niej działy z wybranej kategorii.</p>
+          </div>
+          <button type="button" class="btn-secondary" onclick="window.addCategoryGroupSectionRow()" style="font-size:0.7rem; padding:4px 10px;">
+            + Dodaj Sekcję
+          </button>
+        </div>
+
+        <div id="groupSectionsContainer" style="display:flex; flex-direction:column; gap:10px;">
+          <!-- Wiersze sekcji -->
+        </div>
+      </div>
+    </form>
+  `;
+
+  body.innerHTML = html;
+
+  // Wstaw wiersze sekcji
+  currentSections.forEach(s => {
+    window.addCategoryGroupSectionRow(s.header, s.match);
+  });
+
+  if (footer) {
+    footer.innerHTML = `
+      <button type="submit" form="categoryGroupEditForm" class="btn-action" style="padding:6px 14px; font-size:0.75rem;">Zapisz Zmiany</button>
+      <button type="button" class="btn-secondary" onclick="window.renderCategoryGroupsList()" style="padding:6px 12px; font-size:0.75rem;">Anuluj</button>
+    `;
+  }
+};
+
+window.addCategoryGroupSectionRow = function(headerVal = '', matchVal = '') {
+  const container = document.getElementById('groupSectionsContainer');
+  if (!container) return;
+
+  const availableCats = (navigationData && Array.isArray(navigationData.categories))
+    ? navigationData.categories.filter(c => c.id !== 'kanban_board')
+    : [];
+
+  const row = document.createElement('div');
+  row.className = 'grp-section-row';
+  row.style.cssText = 'background:#111; border:1px solid #333; border-radius:4px; padding:10px; display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;';
+
+  let catOptionsHtml = `<option value="">-- Wybierz kategorię lub wpisz wzorzec --</option>`;
+  for (const c of availableCats) {
+    const isSelected = matchVal && (matchVal.toLowerCase() === c.id.toLowerCase() || new RegExp(matchVal, 'i').test(c.id));
+    catOptionsHtml += `<option value="${escapeHtml(c.id)}" ${isSelected ? 'selected' : ''}>[Kategoria] ${escapeHtml(c.title)} (${escapeHtml(c.id)})</option>`;
+  }
+
+  row.innerHTML = `
+    <div style="flex:1; min-width:160px;">
+      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Tytuł Belki (Nagłówek):</label>
+      <input type="text" class="grp-sec-header" value="${escapeHtml(headerVal)}" placeholder="np. WINDOWS, LINUX, CISCO" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:5px 8px; border-radius:3px; font-size:0.75rem; box-sizing:border-box;">
+    </div>
+    <div style="flex:1; min-width:170px;">
+      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wybierz Kategorię z Bazy:</label>
+      <select class="grp-sec-cat-select" onchange="window.onGrpSecCatChange(this)" style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:5px 8px; border-radius:3px; font-size:0.75rem; box-sizing:border-box;">
+        ${catOptionsHtml}
+      </select>
+    </div>
+    <div style="flex:1; min-width:140px;">
+      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wzorzec / Identyfikator (match):</label>
+      <input type="text" class="grp-sec-match" value="${escapeHtml(matchVal)}" placeholder="np. microsoft|windows" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#93c5fd; padding:5px 8px; border-radius:3px; font-size:0.75rem; font-family:monospace; box-sizing:border-box;">
+    </div>
+    <div>
+      <button type="button" class="btn-danger" onclick="this.closest('.grp-section-row').remove()" style="font-size:0.7rem; padding:4px 8px;" title="Usuń tę sekcję">Usuń</button>
+    </div>
+  `;
+
+  container.appendChild(row);
+};
+
+window.onGrpSecCatChange = function(selectEl) {
+  const row = selectEl.closest('.grp-section-row');
+  if (!row) return;
+  const matchInput = row.querySelector('.grp-sec-match');
+  const headerInput = row.querySelector('.grp-sec-header');
+  const selectedCat = selectEl.value;
+
+  if (selectedCat && matchInput) {
+    if (!matchInput.value || matchInput.value === selectEl.dataset.prevCat) {
+      matchInput.value = selectedCat;
+    }
+    if (headerInput && !headerInput.value) {
+      headerInput.value = selectedCat.toUpperCase().replace(/^\d+[_\s-]+/, '');
+    }
+  }
+  selectEl.dataset.prevCat = selectedCat;
+};
+
+window.saveCategoryGroup = async function(event, groupId) {
+  if (event) event.preventDefault();
+
+  const titleInput = document.getElementById('grpTitleInput');
+  const groupTitle = titleInput ? titleInput.value.trim() : '';
+  if (!groupTitle) {
+    alert('Nazwa kafelka w górnym pasku jest wymagana.');
+    return;
+  }
+
+  const rows = document.querySelectorAll('.grp-section-row');
+  const sections = [];
+  rows.forEach(r => {
+    const hInput = r.querySelector('.grp-sec-header');
+    const mInput = r.querySelector('.grp-sec-match');
+    const header = hInput ? hInput.value.trim() : '';
+    const match = mInput ? mInput.value.trim() : '';
+    if (header && match) {
+      sections.push({ header, match });
+    }
+  });
+
+  if (sections.length === 0) {
+    alert('Zdefiniuj przynajmniej jedną sekcję (belkę i przypisaną kategorię).');
+    return;
+  }
+
+  let groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? [...navigationData.categoryGroups] : [];
+  const targetId = groupId || `group_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+
+  const updatedEntry = {
+    id: targetId,
+    title: groupTitle,
+    sections
+  };
+
+  const existingIdx = groups.findIndex(g => g.id === targetId);
+  if (existingIdx !== -1) {
+    groups[existingIdx] = updatedEntry;
+  } else {
+    groups.push(updatedEntry);
+  }
+
+  try {
+    const res = await fetch('/api/category-groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ groups })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu grup kategorii');
+    }
+
+    if (!navigationData) navigationData = {};
+    navigationData.categoryGroups = data.groups || groups;
+    if (navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    window.renderCategoryGroupsList();
+  } catch (err) {
+    alert('Nie udało się zapisać grupy kategorii: ' + err.message);
+  }
+};
+
+window.deleteCategoryGroup = async function(groupId) {
+  if (!confirm('Czy na pewno chcesz usunąć tę grupę? Kategorie wrócą do wyświetlania pojedynczo w górnym menu.')) {
+    return;
+  }
+
+  let groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? [...navigationData.categoryGroups] : [];
+  groups = groups.filter(g => g.id !== groupId);
+
+  try {
+    const res = await fetch('/api/category-groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ groups })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu po usunięciu grupy');
+    }
+
+    if (!navigationData) navigationData = {};
+    navigationData.categoryGroups = data.groups || groups;
+    if (navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    window.renderCategoryGroupsList();
+  } catch (err) {
+    alert('Nie udało się usunąć grupy: ' + err.message);
+  }
+};
 
 
 function buildRecursiveFolderOptions(items, prefix = '&nbsp;&nbsp;&nbsp;&nbsp;') {
