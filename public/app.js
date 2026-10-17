@@ -515,7 +515,40 @@ function renderTopCategories(categories) {
   const topNav = document.getElementById('topCatNav');
   if (!topNav) return;
 
+  const categoryGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
+
+  // 1. Zmapuj grupy i znajdź przypisane kategorie
+  const catToGroupMap = new Map(); // cat.id -> { group, header }
+  const groupDataMap = new Map();  // group.id -> { group, sections: [ { header, categories: [...] } ] }
+
+  for (const grp of categoryGroups) {
+    if (!grp.sections || !Array.isArray(grp.sections)) continue;
+    const gEntry = { group: grp, sections: [] };
+
+    for (const sec of grp.sections) {
+      if (!sec.match) continue;
+      const reg = new RegExp(sec.match, 'i');
+      const matchedCats = categories.filter(c => reg.test(c.id) || reg.test(c.title));
+
+      for (const mc of matchedCats) {
+        catToGroupMap.set(mc.id, { group: grp, header: sec.header });
+      }
+
+      gEntry.sections.push({
+        header: sec.header || '',
+        categories: matchedCats
+      });
+    }
+
+    const totalSubcats = gEntry.sections.reduce((acc, s) => acc + s.categories.reduce((a2, c) => a2 + (c.subcategories || []).length, 0), 0);
+    if (totalSubcats > 0) {
+      groupDataMap.set(grp.id, gEntry);
+    }
+  }
+
+  const renderedGroupIds = new Set();
   let html = '';
+
   for (const cat of categories) {
     const isKanban = cat.id === 'kanban_board';
     const subcategories = cat.subcategories || [];
@@ -527,7 +560,71 @@ function renderTopCategories(categories) {
           <span>${cat.title}</span>
         </a>
       </li>`;
-    } else if (subcategories.length > 0) {
+      continue;
+    }
+
+    // Sprawdź czy kategoria należy do zdefiniowanej grupy (np. OS)
+    const groupInfo = catToGroupMap.get(cat.id);
+    if (groupInfo) {
+      const grp = groupInfo.group;
+      if (renderedGroupIds.has(grp.id)) {
+        // Ta grupa została już wyrenderowana w miejscu pierwszej z przypisanych kategorii
+        continue;
+      }
+      renderedGroupIds.add(grp.id);
+
+      const gData = groupDataMap.get(grp.id);
+      if (!gData) continue;
+
+      const allGroupCatIds = [];
+      gData.sections.forEach(s => s.categories.forEach(c => allGroupCatIds.push(c.id)));
+      const isGroupActive = allGroupCatIds.includes(currentCategory);
+
+      let dropdownSectionsHtml = '';
+      for (const sec of gData.sections) {
+        if (!sec.categories || sec.categories.length === 0) continue;
+
+        let secItemsHtml = '';
+        for (const sCat of sec.categories) {
+          const sSubs = sCat.subcategories || [];
+          for (const sub of sSubs) {
+            const directFile = sub.files && sub.files.find(f => {
+              const fileDir = f.relPath.substring(0, f.relPath.lastIndexOf('/'));
+              return fileDir === sub.relPath;
+            });
+            const firstFile = directFile ? directFile.relPath : (sub.files && sub.files.length > 0 ? sub.files[0].relPath : '');
+            const subHref = firstFile ? `#/${firstFile}` : `#/${sCat.id}/${sub.id}`;
+
+            secItemsHtml += `
+              <a href="${subHref}" class="top-dropdown-item font-semibold" onclick="selectCategory('${sCat.id}', '${sub.id}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${sub.relPath}')" style="display: flex; align-items: center; gap: 6px;">
+                ${sub.title}
+              </a>
+            `;
+          }
+        }
+
+        if (secItemsHtml) {
+          dropdownSectionsHtml += `
+            <div class="top-dropdown-section-header">${escapeHtml(sec.header)}</div>
+            ${secItemsHtml}
+          `;
+        }
+      }
+
+      html += `<li class="top-cat-item ${isGroupActive ? 'active' : ''}">
+        <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
+          <span>${grp.title}</span>
+          <span class="arrow">v</span>
+        </a>
+        <div class="top-dropdown-menu">
+          ${dropdownSectionsHtml}
+        </div>
+      </li>`;
+      continue;
+    }
+
+    // Standardowa kategoria pojedyncza (niezgrupowana)
+    if (subcategories.length > 0) {
       html += `<li class="top-cat-item ${isActive ? 'active' : ''}">
         <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
           <span>${cat.title}</span>

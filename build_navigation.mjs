@@ -280,7 +280,32 @@ export function generateNavigation() {
     count: tagCountMap[t]
   }));
 
-  const navigationData = { categories: availableCategories, allTags };
+  const categoryGroupsFile = path.join(dataDir, 'category_groups.json');
+  let categoryGroups = [];
+  if (fs.existsSync(categoryGroupsFile)) {
+    try {
+      categoryGroups = JSON.parse(fs.readFileSync(categoryGroupsFile, 'utf8'));
+    } catch (e) {
+      console.warn('[Wiki Build] Błąd odczytu category_groups.json:', e.message);
+    }
+  } else {
+    categoryGroups = [
+      {
+        id: "group_os",
+        title: "OS",
+        sections: [
+          { match: "microsoft|windows", header: "WINDOWS" },
+          { match: "linux", header: "LINUX" }
+        ]
+      }
+    ];
+    try {
+      if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(categoryGroupsFile, JSON.stringify(categoryGroups, null, 2), 'utf8');
+    } catch (e) {}
+  }
+
+  const navigationData = { categories: availableCategories, allTags, categoryGroups };
   const navJsonPath = path.join(docsDir, 'navigation.json');
   const tmpPath = `${navJsonPath}.tmp.${Date.now()}`;
   fs.writeFileSync(tmpPath, JSON.stringify(navigationData, null, 2), 'utf-8');

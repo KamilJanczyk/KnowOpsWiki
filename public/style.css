@@ -142,6 +142,24 @@
     .top-dropdown-item:last-child { border-bottom: none; }
     .top-dropdown-item:hover { background-color: #222222; color: var(--sw-gold); }
 
+    .top-dropdown-section-header {
+      padding: 5px 10px;
+      background-color: #1a1a1e;
+      color: var(--sw-gold);
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-top: 1px solid #27272a;
+      border-bottom: 1px solid #27272a;
+      cursor: default;
+      user-select: none;
+      pointer-events: none;
+    }
+    .top-dropdown-section-header:first-child {
+      border-top: none;
+    }
+
     /* Right Action Bar */
     .header-actions {
       display: flex;

@@ -3055,6 +3055,91 @@ test('56. Edytor Markdown & Klawisz Tab: weryfikacja wstawiania prawdziwego znak
   assert.equal(testRemoveTab('hello', 1), 'hello');
 });
 
+test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfikacja konfiguracji, belki sekcyjnej i mapowania działów', () => {
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const buildNavMjs = fs.readFileSync(path.resolve('build_navigation.mjs'), 'utf8');
+
+  // 1. Weryfikacja pliku konfiguracyjnego
+  const groupsFile = path.resolve('data/category_groups.json');
+  assert.equal(fs.existsSync(groupsFile), true, 'Brak pliku data/category_groups.json');
+  const groups = JSON.parse(fs.readFileSync(groupsFile, 'utf8'));
+  assert.equal(Array.isArray(groups), true);
+  const osGroup = groups.find(g => g.id === 'group_os');
+  assert.equal(Boolean(osGroup), true, 'Brak grupy group_os w data/category_groups.json');
+  assert.equal(osGroup.title, 'OS');
+  assert.equal(osGroup.sections.length >= 2, true);
+
+  // 2. Weryfikacja integracji w server.mjs i build_navigation.mjs
+  assert.equal(serverMjs.includes("normPath === '/api/category-groups'"), true, 'Brak /api/category-groups w server.mjs');
+  assert.equal(buildNavMjs.includes('category_groups.json'), true, 'Brak category_groups.json w build_navigation.mjs');
+
+  // 3. Weryfikacja styli belki nieklikalnej w style.css
+  assert.equal(styleCss.includes('.top-dropdown-section-header'), true, 'Brak .top-dropdown-section-header w style.css');
+  assert.equal(styleCss.includes('pointer-events: none'), true, 'Brak pointer-events: none w style.css dla sekcji');
+
+  // 4. Weryfikacja logiki w app.js
+  assert.equal(appJs.includes('categoryGroups'), true, 'Brak obsługi categoryGroups w app.js');
+  assert.equal(appJs.includes('top-dropdown-section-header'), true, 'Brak top-dropdown-section-header w app.js');
+
+  // 5. Test jednostkowy logiki grupowania kategorii
+  const sampleCategories = [
+    {
+      id: 'Microsoft',
+      title: 'Microsoft',
+      subcategories: [
+        { id: 'Active_Directory', title: 'Active Directory', relPath: 'Microsoft/Active_Directory' },
+        { id: 'AAD', title: 'AAD', relPath: 'Microsoft/AAD' }
+      ]
+    },
+    {
+      id: 'Linux',
+      title: 'Linux',
+      subcategories: [
+        { id: 'Debian', title: 'Debian', relPath: 'Linux/Debian' },
+        { id: 'Ubuntu', title: 'Ubuntu', relPath: 'Linux/Ubuntu' }
+      ]
+    },
+    {
+      id: 'Fortinet',
+      title: 'Fortinet',
+      subcategories: [
+        { id: 'FortiGate', title: 'FortiGate', relPath: 'Fortinet/FortiGate' }
+      ]
+    }
+  ];
+
+  function testMapCategoriesToGroups(cats, grps) {
+    const catToGroup = new Map();
+    const gData = new Map();
+
+    for (const grp of grps) {
+      const entry = { group: grp, sections: [] };
+      for (const sec of grp.sections) {
+        const reg = new RegExp(sec.match, 'i');
+        const matched = cats.filter(c => reg.test(c.id) || reg.test(c.title));
+        matched.forEach(m => catToGroup.set(m.id, grp.id));
+        entry.sections.push({ header: sec.header, categories: matched });
+      }
+      gData.set(grp.id, entry);
+    }
+
+    return { catToGroup, gData };
+  }
+
+  const mapped = testMapCategoriesToGroups(sampleCategories, groups);
+  assert.equal(mapped.catToGroup.get('Microsoft'), 'group_os');
+  assert.equal(mapped.catToGroup.get('Linux'), 'group_os');
+  assert.equal(mapped.catToGroup.has('Fortinet'), false);
+
+  const groupOsData = mapped.gData.get('group_os');
+  assert.equal(groupOsData.sections[0].header, 'WINDOWS');
+  assert.equal(groupOsData.sections[0].categories[0].id, 'Microsoft');
+  assert.equal(groupOsData.sections[1].header, 'LINUX');
+  assert.equal(groupOsData.sections[1].categories[0].id, 'Linux');
+});
+
 
 
 

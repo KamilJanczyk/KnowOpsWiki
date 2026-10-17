@@ -1101,6 +1101,35 @@ const server = http.createServer(async (req, res) => {
       return sendJson(200, { categories: [] });
     }
 
+    if (normPath === '/api/category-groups' && req.method === 'GET') {
+      const groupsFile = path.join(DATA_DIR, 'category_groups.json');
+      if (fs.existsSync(groupsFile)) {
+        try {
+          const groups = JSON.parse(fs.readFileSync(groupsFile, 'utf8'));
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+          return sendJson(200, groups);
+        } catch (e) {
+          console.error('[Wiki API] Błąd odczytu category_groups.json:', e);
+        }
+      }
+      const defaultGroups = [
+        {
+          id: "group_os",
+          title: "OS",
+          sections: [
+            { match: "microsoft|windows", header: "WINDOWS" },
+            { match: "linux", header: "LINUX" }
+          ]
+        }
+      ];
+      try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(groupsFile, JSON.stringify(defaultGroups, null, 2), 'utf8');
+      } catch (e) {}
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      return sendJson(200, defaultGroups);
+    }
+
     if (normPath === '/api/rescan' && (req.method === 'POST' || req.method === 'GET')) {
       console.log('[Wiki API] Ręczne odświeżenie i skanowanie bazy wiedzy...');
       const rescanResult = await rebuildWiki();
