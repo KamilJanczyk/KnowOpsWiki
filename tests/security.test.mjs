@@ -3227,11 +3227,14 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.equal(buildNavCode.includes("path.join(dataDir, 'top_nav_order.json')"), true);
   assert.equal(buildNavCode.includes("topNavOrder"), true);
 
-  // Frontend funkcje przesuwania i segregacji
+  // Frontend funkcje przesuwania i segregacji oraz obsługa zakładek
   assert.equal(appJsCode.includes("window.moveSectionRow = function"), true);
   assert.equal(appJsCode.includes("window.moveTopNavTile = async function"), true);
   assert.equal(appJsCode.includes("window.resetTopNavOrder = async function"), true);
+  assert.equal(appJsCode.includes("window.switchCategoryGroupsModalTab = function"), true);
   assert.equal(appJsCode.includes("getTopNavTiles"), true);
+  assert.equal(appJsCode.includes("1. Kolejność kafelków"), true);
+  assert.equal(appJsCode.includes("2. Grupy menu"), true);
   assert.equal(appJsCode.includes("Kolejność kafelków na pasku górnym (ręczna segregacja)"), true);
 
   // Symulacja sortowania kafelków wg własnego topNavOrder

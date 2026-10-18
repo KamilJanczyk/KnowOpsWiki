@@ -5258,6 +5258,13 @@ window.loadCategoryGroupsAndRenderList = async function() {
   window.renderCategoryGroupsList();
 };
 
+window.categoryGroupsModalActiveTab = 'order';
+
+window.switchCategoryGroupsModalTab = function(tabName) {
+  window.categoryGroupsModalActiveTab = tabName;
+  window.renderCategoryGroupsList();
+};
+
 window.renderCategoryGroupsList = function() {
   const body = document.getElementById('categoryGroupsModalBody');
   const footer = document.getElementById('categoryGroupsModalFooter');
@@ -5317,118 +5324,134 @@ window.renderCategoryGroupsList = function() {
     });
   }
 
+  const activeTab = window.categoryGroupsModalActiveTab || 'order';
+
   let html = `
-    <!-- SEKCJA 1: Zdefiniowane grupy menu -->
-    <div style="margin-bottom:24px; padding-bottom:18px; border-bottom:1px solid #27272a;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div>
-          <h4 style="margin:0 0 4px 0; font-size:0.88rem; color:var(--sw-gold); text-transform:uppercase;">1. Grupy menu górnego (definiowanie kafelków i sekcji)</h4>
-          <span style="font-size:0.75rem; color:#a1a1aa;">Zdefiniowane grupy łączące wiele działów: <strong style="color:#ffffff;">${groups.length}</strong></span>
-        </div>
-        <button type="button" class="btn-action" onclick="window.showEditCategoryGroupForm('')" style="font-size:0.72rem; padding:6px 12px;">
-          + Dodaj nową grupę
-        </button>
-      </div>
+    <!-- Nawigacja zakładek -->
+    <div style="display:flex; gap:8px; border-bottom:1px solid #27272a; margin-bottom:18px;">
+      <button type="button" class="btn-secondary" onclick="window.switchCategoryGroupsModalTab('order')" style="background:${activeTab === 'order' ? '#27272a' : 'transparent'}; border:1px solid ${activeTab === 'order' ? 'var(--sw-gold)' : '#27272a'}; border-bottom:none; border-radius:6px 6px 0 0; color:${activeTab === 'order' ? 'var(--sw-gold)' : '#a1a1aa'}; font-size:0.8rem; font-weight:700; padding:9px 20px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">
+        1. Kolejność kafelków (${allTiles.length})
+      </button>
+      <button type="button" class="btn-secondary" onclick="window.switchCategoryGroupsModalTab('groups')" style="background:${activeTab === 'groups' ? '#27272a' : 'transparent'}; border:1px solid ${activeTab === 'groups' ? 'var(--sw-gold)' : '#27272a'}; border-bottom:none; border-radius:6px 6px 0 0; color:${activeTab === 'groups' ? 'var(--sw-gold)' : '#a1a1aa'}; font-size:0.8rem; font-weight:700; padding:9px 20px; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">
+        2. Grupy menu (${groups.length})
+      </button>
+    </div>
   `;
 
-  if (groups.length === 0) {
+  if (activeTab === 'order') {
+    // ZAKŁADKA 1: Ręczna segregacja kafelków paska górnego
     html += `
-      <div style="background:#141416; border:1px dashed #3f3f46; border-radius:6px; padding:18px; text-align:center; color:#888; font-size:0.78rem;">
-        Brak skonfigurowanych grup kategorii. Wszystkie kategorie z bazy wiedzy są wyświetlane jako pojedyncze kafelki.
-      </div>
-    `;
-  } else {
-    html += `<div style="display:flex; flex-direction:column; gap:10px;">`;
-    for (let idx = 0; idx < groups.length; idx++) {
-      const grp = groups[idx];
-      const gid = escapeHtml(grp.id || '');
-      const gTitle = escapeHtml(grp.title || 'Bez nazwy');
-      const sections = grp.sections || [];
-
-      let sectionsSummaryHtml = '';
-      if (sections.length === 0) {
-        sectionsSummaryHtml = `<span style="color:#71717a; font-style:italic;">Brak zdefiniowanych sekcji</span>`;
-      } else {
-        sectionsSummaryHtml = sections.map(s => `
-          <div style="display:inline-flex; align-items:center; gap:6px; background:#1c1c1f; border:1px solid #27272a; padding:3px 8px; border-radius:4px; font-size:0.7rem;">
-            <strong style="color:var(--sw-gold); font-family:monospace;">${escapeHtml(s.header)}</strong>
-            <span style="color:#71717a;">-&gt;</span>
-            <span style="color:#d4d4d8;">wzorzec: <code style="color:#93c5fd;">${escapeHtml(s.match)}</code></span>
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div>
+            <h4 style="margin:0 0 4px 0; font-size:0.88rem; color:var(--sw-gold); text-transform:uppercase;">Kolejność kafelków na pasku górnym (ręczna segregacja)</h4>
+            <p style="font-size:0.75rem; color:#a1a1aa; margin:0;">Zmieniaj kolejność kafelków przyciskami Góra i Dół. Kolejność na liście odpowiada kolejności od lewej do prawej na górnym pasku.</p>
           </div>
-        `).join(' ');
+          <button type="button" class="btn-secondary" onclick="window.resetTopNavOrder()" style="font-size:0.72rem; padding:6px 12px;" title="Przywróć domyślny układ menu">
+            Przywróć domyślną kolejność
+          </button>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px;">
+    `;
+
+    for (let idx = 0; idx < allTiles.length; idx++) {
+      const tile = allTiles[idx];
+      const tid = escapeHtml(tile.id);
+      const tTitle = escapeHtml(tile.title);
+
+      let badgeHtml = '';
+      if (tile.type === 'kanban') {
+        badgeHtml = `<span style="background:#1e3a5f; color:#93c5fd; font-size:0.65rem; padding:2px 6px; border-radius:3px; font-weight:600;">Pulpit / Kanban</span>`;
+      } else if (tile.type === 'group') {
+        badgeHtml = `<span style="background:#4c1d95; color:#e9d5ff; font-size:0.65rem; padding:2px 6px; border-radius:3px; font-weight:600;">Grupa menu (${tile.sectionsCount} sekcji)</span>`;
+      } else {
+        badgeHtml = `<span style="background:#14532d; color:#86efac; font-size:0.65rem; padding:2px 6px; border-radius:3px; font-weight:600;">Kategoria bazy wiedzy</span>`;
       }
 
       html += `
-        <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <div>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-              <span style="font-size:0.88rem; font-weight:700; color:#ffffff;">Kafelek: <span style="color:var(--sw-gold);">${gTitle}</span></span>
-              <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">ID: ${gid}</span>
-            </div>
-            <div style="display:flex; flex-wrap:wrap; gap:6px;">
-              ${sectionsSummaryHtml}
-            </div>
+        <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:8px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+            <span style="font-size:0.78rem; color:#71717a; font-family:monospace; width:26px;">${idx + 1}.</span>
+            <span style="font-size:0.88rem; font-weight:700; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tTitle}</span>
+            ${badgeHtml}
           </div>
           <div style="display:flex; gap:6px; align-items:center;">
-            <button type="button" class="btn-secondary" onclick="window.showEditCategoryGroupForm('${gid}')" style="font-size:0.7rem; padding:4px 10px;">Edytuj</button>
-            <button type="button" class="btn-danger" onclick="window.deleteCategoryGroup('${gid}')" style="font-size:0.7rem; padding:4px 10px;">Usuń</button>
+            <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', -1)" style="font-size:0.72rem; padding:4px 10px; ${idx === 0 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === 0 ? 'disabled' : ''} title="Przesuń kafelek w lewo w menu górnym">Góra</button>
+            <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', 1)" style="font-size:0.72rem; padding:4px 10px; ${idx === allTiles.length - 1 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === allTiles.length - 1 ? 'disabled' : ''} title="Przesuń kafelek w prawo w menu górnym">Dół</button>
           </div>
         </div>
       `;
     }
-    html += `</div>`;
-  }
-  html += `</div>`;
-
-  // SEKCJA 2: Ręczna segregacja kafelków paska górnego
-  html += `
-    <div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div>
-          <h4 style="margin:0 0 4px 0; font-size:0.88rem; color:var(--sw-gold); text-transform:uppercase;">2. Kolejność kafelków na pasku górnym (ręczna segregacja)</h4>
-          <p style="font-size:0.75rem; color:#a1a1aa; margin:0;">Zmieniaj kolejność kafelków przyciskami Góra i Dół. Zmiany są natychmiast widoczne w menu górnym.</p>
-        </div>
-        <button type="button" class="btn-secondary" onclick="window.resetTopNavOrder()" style="font-size:0.7rem; padding:4px 10px;" title="Przywróć domyślny układ menu">
-          Przywróć domyślną kolejność
-        </button>
-      </div>
-
-      <div style="display:flex; flex-direction:column; gap:6px;">
-  `;
-
-  for (let idx = 0; idx < allTiles.length; idx++) {
-    const tile = allTiles[idx];
-    const tid = escapeHtml(tile.id);
-    const tTitle = escapeHtml(tile.title);
-
-    let badgeHtml = '';
-    if (tile.type === 'kanban') {
-      badgeHtml = `<span style="background:#1e3a5f; color:#93c5fd; font-size:0.65rem; padding:2px 6px; border-radius:3px; font-weight:600;">Pulpit / Kanban</span>`;
-    } else if (tile.type === 'group') {
-      badgeHtml = `<span style="background:#4c1d95; color:#e9d5ff; font-size:0.65rem; padding:2px 6px; border-radius:3px; font-weight:600;">Grupa menu (${tile.sectionsCount} sekcji)</span>`;
-    } else {
-      badgeHtml = `<span style="background:#14532d; color:#86efac; font-size:0.65rem; padding:2px 6px; border-radius:3px; font-weight:600;">Kategoria bazy wiedzy</span>`;
-    }
 
     html += `
-      <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:8px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
-        <div style="display:flex; align-items:center; gap:12px; min-width:0;">
-          <span style="font-size:0.78rem; color:#71717a; font-family:monospace; width:26px;">${idx + 1}.</span>
-          <span style="font-size:0.88rem; font-weight:700; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tTitle}</span>
-          ${badgeHtml}
-        </div>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', -1)" style="font-size:0.72rem; padding:4px 10px; ${idx === 0 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === 0 ? 'disabled' : ''} title="Przesuń kafelek w lewo w menu górnym">Góra</button>
-          <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', 1)" style="font-size:0.72rem; padding:4px 10px; ${idx === allTiles.length - 1 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === allTiles.length - 1 ? 'disabled' : ''} title="Przesuń kafelek w prawo w menu górnym">Dół</button>
         </div>
       </div>
     `;
-  }
+  } else {
+    // ZAKŁADKA 2: Zdefiniowane grupy menu
+    html += `
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div>
+            <h4 style="margin:0 0 4px 0; font-size:0.88rem; color:var(--sw-gold); text-transform:uppercase;">Grupy menu górnego (definiowanie kafelków i sekcji)</h4>
+            <span style="font-size:0.75rem; color:#a1a1aa;">Zdefiniowane grupy łączące wiele działów w jeden kafelek: <strong style="color:#ffffff;">${groups.length}</strong></span>
+          </div>
+          <button type="button" class="btn-action" onclick="window.showEditCategoryGroupForm('')" style="font-size:0.72rem; padding:6px 14px;">
+            + Dodaj nową grupę
+          </button>
+        </div>
+    `;
 
-  html += `
-      </div>
-    </div>
-  `;
+    if (groups.length === 0) {
+      html += `
+        <div style="background:#141416; border:1px dashed #3f3f46; border-radius:6px; padding:24px; text-align:center; color:#888; font-size:0.8rem;">
+          Brak skonfigurowanych grup kategorii. Wszystkie kategorie z bazy wiedzy są wyświetlane jako pojedyncze kafelki.
+        </div>
+      `;
+    } else {
+      html += `<div style="display:flex; flex-direction:column; gap:10px;">`;
+      for (let idx = 0; idx < groups.length; idx++) {
+        const grp = groups[idx];
+        const gid = escapeHtml(grp.id || '');
+        const gTitle = escapeHtml(grp.title || 'Bez nazwy');
+        const sections = grp.sections || [];
+
+        let sectionsSummaryHtml = '';
+        if (sections.length === 0) {
+          sectionsSummaryHtml = `<span style="color:#71717a; font-style:italic;">Brak zdefiniowanych sekcji</span>`;
+        } else {
+          sectionsSummaryHtml = sections.map(s => `
+            <div style="display:inline-flex; align-items:center; gap:6px; background:#1c1c1f; border:1px solid #27272a; padding:3px 8px; border-radius:4px; font-size:0.7rem;">
+              <strong style="color:var(--sw-gold); font-family:monospace;">${escapeHtml(s.header)}</strong>
+              <span style="color:#71717a;">-&gt;</span>
+              <span style="color:#d4d4d8;">wzorzec: <code style="color:#93c5fd;">${escapeHtml(s.match)}</code></span>
+            </div>
+          `).join(' ');
+        }
+
+        html += `
+          <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">Kafelek: <span style="color:var(--sw-gold);">${gTitle}</span></span>
+                <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">ID: ${gid}</span>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                ${sectionsSummaryHtml}
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" class="btn-secondary" onclick="window.showEditCategoryGroupForm('${gid}')" style="font-size:0.72rem; padding:5px 12px;">Edytuj</button>
+              <button type="button" class="btn-danger" onclick="window.deleteCategoryGroup('${gid}')" style="font-size:0.72rem; padding:5px 12px;">Usuń</button>
+            </div>
+          </div>
+        `;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
 
   body.innerHTML = html;
   if (footer) {
@@ -5437,6 +5460,7 @@ window.renderCategoryGroupsList = function() {
 };
 
 window.showEditCategoryGroupForm = function(groupId) {
+  window.categoryGroupsModalActiveTab = 'groups';
   const body = document.getElementById('categoryGroupsModalBody');
   const footer = document.getElementById('categoryGroupsModalFooter');
   if (!body) return;
