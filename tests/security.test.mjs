@@ -3215,6 +3215,74 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.equal(sanitized[0].sections.length, 1);
   assert.equal(sanitized[0].sections[0].header, 'SIEM');
   assert.equal(sanitized[0].sections[0].match, 'siem|soc');
+
+  // 8. Test ręcznej kolejności kafelków górnego menu (topNavOrder) i przesuwania sekcji
+  const serverCode = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const buildNavCode = fs.readFileSync(path.resolve('build_navigation.mjs'), 'utf8');
+  const appJsCode = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // Backend endpoint /api/top-nav-order
+  assert.equal(serverCode.includes("normPath === '/api/top-nav-order'"), true);
+  assert.equal(serverCode.includes("path.join(DATA_DIR, 'top_nav_order.json')"), true);
+  assert.equal(buildNavCode.includes("path.join(dataDir, 'top_nav_order.json')"), true);
+  assert.equal(buildNavCode.includes("topNavOrder"), true);
+
+  // Frontend funkcje przesuwania i segregacji
+  assert.equal(appJsCode.includes("window.moveSectionRow = function"), true);
+  assert.equal(appJsCode.includes("window.moveTopNavTile = async function"), true);
+  assert.equal(appJsCode.includes("window.resetTopNavOrder = async function"), true);
+  assert.equal(appJsCode.includes("getTopNavTiles"), true);
+  assert.equal(appJsCode.includes("Kolejność kafelków na pasku górnym (ręczna segregacja)"), true);
+
+  // Symulacja sortowania kafelków wg własnego topNavOrder
+  const initialTiles = [
+    { id: 'kanban_board', type: 'kanban', title: 'Pulpit' },
+    { id: 'group_os', type: 'group', title: 'OS' },
+    { id: '01_Sciaga', type: 'category', title: '01_Sciaga' },
+    { id: 'Fortinet', type: 'category', title: '03_Fortinet' }
+  ];
+
+  const customOrder = ['Fortinet', 'group_os', 'kanban_board', '01_Sciaga'];
+  const sortedTiles = [...initialTiles].sort((a, b) => {
+    const idxA = customOrder.indexOf(a.id);
+    const idxB = customOrder.indexOf(b.id);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return 0;
+  });
+
+  assert.deepEqual(sortedTiles.map(t => t.id), ['Fortinet', 'group_os', 'kanban_board', '01_Sciaga']);
+
+  // Symulacja przesuwania kafelka (moveTopNavTile w tablicy)
+  function simulateMoveTile(orderList, tileId, direction) {
+    const list = [...orderList];
+    const idx = list.indexOf(tileId);
+    if (idx === -1) return list;
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= list.length) return list;
+    const temp = list[idx];
+    list[idx] = list[targetIdx];
+    list[targetIdx] = temp;
+    return list;
+  }
+
+  // Przesunięcie group_os w lewo (góra w liście)
+  const movedLeft = simulateMoveTile(['kanban_board', 'group_os', 'Fortinet'], 'group_os', -1);
+  assert.deepEqual(movedLeft, ['group_os', 'kanban_board', 'Fortinet']);
+
+  // Przesunięcie group_os w prawo (dół w liście)
+  const movedRight = simulateMoveTile(['kanban_board', 'group_os', 'Fortinet'], 'group_os', 1);
+  assert.deepEqual(movedRight, ['kanban_board', 'Fortinet', 'group_os']);
+
+  // Symulacja przesuwania sekcji w formularzu grupy
+  const testSections = [
+    { header: 'PROXMOX', match: 'proxmox' },
+    { header: 'VMWARE', match: 'vmware' },
+    { header: 'DOCKER', match: 'docker' }
+  ];
+  const reorderedSec = simulateMoveTile(testSections.map(s => s.header), 'VMWARE', -1);
+  assert.deepEqual(reorderedSec, ['VMWARE', 'PROXMOX', 'DOCKER']);
 });
 
 

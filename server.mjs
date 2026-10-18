@@ -1175,6 +1175,51 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (normPath === '/api/top-nav-order') {
+      const orderFile = path.join(DATA_DIR, 'top_nav_order.json');
+
+      if (req.method === 'GET') {
+        if (fs.existsSync(orderFile)) {
+          try {
+            const order = JSON.parse(fs.readFileSync(orderFile, 'utf8'));
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            return sendJson(200, { order: Array.isArray(order) ? order : [] });
+          } catch (e) {
+            console.error('[Wiki API] Błąd odczytu top_nav_order.json:', e);
+          }
+        }
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        return sendJson(200, { order: [] });
+      }
+
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const rawOrder = Array.isArray(body) ? body : (body && Array.isArray(body.order) ? body.order : null);
+        if (!rawOrder) {
+          return sendJson(400, { error: 'Oczekiwano tablicy identyfikatorów kafelków w formacie JSON.' });
+        }
+
+        const sanitizedOrder = rawOrder
+          .map(item => String(item || '').trim().slice(0, 80))
+          .filter(Boolean);
+
+        if (!fs.existsSync(DATA_DIR)) {
+          fs.mkdirSync(DATA_DIR, { recursive: true });
+        }
+        atomicWriteFile(orderFile, JSON.stringify(sanitizedOrder, null, 2), 'utf8');
+
+        const navData = generateNavigation();
+        console.log(`[Wiki API] Zaktualizowano kolejność kafelków górnego menu (${sanitizedOrder.length} pozycji)`);
+
+        return sendJson(200, {
+          success: true,
+          order: sanitizedOrder,
+          navigation: navData
+        });
+      }
+    }
+
     if (normPath === '/api/rescan' && (req.method === 'POST' || req.method === 'GET')) {
       console.log('[Wiki API] Ręczne odświeżenie i skanowanie bazy wiedzy...');
       const rescanResult = await rebuildWiki();

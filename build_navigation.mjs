@@ -305,7 +305,18 @@ export function generateNavigation() {
     } catch (e) {}
   }
 
-  const navigationData = { categories: availableCategories, allTags, categoryGroups };
+  const topNavOrderFile = path.join(dataDir, 'top_nav_order.json');
+  let topNavOrder = [];
+  if (fs.existsSync(topNavOrderFile)) {
+    try {
+      const parsedOrder = JSON.parse(fs.readFileSync(topNavOrderFile, 'utf8'));
+      if (Array.isArray(parsedOrder)) topNavOrder = parsedOrder;
+    } catch (e) {
+      console.warn('[Wiki Build] Błąd odczytu top_nav_order.json:', e.message);
+    }
+  }
+
+  const navigationData = { categories: availableCategories, allTags, categoryGroups, topNavOrder };
   const navJsonPath = path.join(docsDir, 'navigation.json');
   const tmpPath = `${navJsonPath}.tmp.${Date.now()}`;
   fs.writeFileSync(tmpPath, JSON.stringify(navigationData, null, 2), 'utf-8');
