@@ -546,84 +546,76 @@ function renderTopCategories(categories) {
     }
   }
 
-  const renderedGroupIds = new Set();
   let html = '';
 
-  for (const cat of categories) {
-    const isKanban = cat.id === 'kanban_board';
-    const subcategories = cat.subcategories || [];
-    const isActive = cat.id === currentCategory;
+  // 1. Pulpit (zawsze pierwszy)
+  const kanbanCat = categories.find(c => c.id === 'kanban_board');
+  if (kanbanCat) {
+    const isKanbanActive = currentCategory === 'kanban_board';
+    html += `<li class="top-cat-item ${isKanbanActive ? 'active' : ''}">
+      <a href="#/kanban" class="top-cat-link" onclick="selectCategory('${kanbanCat.id}', '')">
+        <span>${kanbanCat.title}</span>
+      </a>
+    </li>`;
+  }
 
-    if (isKanban) {
-      html += `<li class="top-cat-item ${isActive ? 'active' : ''}">
-        <a href="#/kanban" class="top-cat-link" onclick="selectCategory('${cat.id}', '')">
-          <span>${cat.title}</span>
-        </a>
-      </li>`;
-      continue;
-    }
+  // 2. Kafelki grup (zdefiniowane w układzie menu) - idą jako pierwsze zaraz po Pulpicie
+  for (const grp of categoryGroups) {
+    const gData = groupDataMap.get(grp.id);
+    if (!gData) continue;
 
-    // Sprawdź czy kategoria należy do zdefiniowanej grupy (np. OS)
-    const groupInfo = catToGroupMap.get(cat.id);
-    if (groupInfo) {
-      const grp = groupInfo.group;
-      if (renderedGroupIds.has(grp.id)) {
-        // Ta grupa została już wyrenderowana w miejscu pierwszej z przypisanych kategorii
-        continue;
-      }
-      renderedGroupIds.add(grp.id);
+    const allGroupCatIds = [];
+    gData.sections.forEach(s => s.categories.forEach(c => allGroupCatIds.push(c.id)));
+    const isGroupActive = allGroupCatIds.includes(currentCategory);
 
-      const gData = groupDataMap.get(grp.id);
-      if (!gData) continue;
+    let dropdownSectionsHtml = '';
+    for (const sec of gData.sections) {
+      if (!sec.categories || sec.categories.length === 0) continue;
 
-      const allGroupCatIds = [];
-      gData.sections.forEach(s => s.categories.forEach(c => allGroupCatIds.push(c.id)));
-      const isGroupActive = allGroupCatIds.includes(currentCategory);
+      let secItemsHtml = '';
+      for (const sCat of sec.categories) {
+        const sSubs = sCat.subcategories || [];
+        for (const sub of sSubs) {
+          const directFile = sub.files && sub.files.find(f => {
+            const fileDir = f.relPath.substring(0, f.relPath.lastIndexOf('/'));
+            return fileDir === sub.relPath;
+          });
+          const firstFile = directFile ? directFile.relPath : (sub.files && sub.files.length > 0 ? sub.files[0].relPath : '');
+          const subHref = firstFile ? `#/${firstFile}` : `#/${sCat.id}/${sub.id}`;
 
-      let dropdownSectionsHtml = '';
-      for (const sec of gData.sections) {
-        if (!sec.categories || sec.categories.length === 0) continue;
-
-        let secItemsHtml = '';
-        for (const sCat of sec.categories) {
-          const sSubs = sCat.subcategories || [];
-          for (const sub of sSubs) {
-            const directFile = sub.files && sub.files.find(f => {
-              const fileDir = f.relPath.substring(0, f.relPath.lastIndexOf('/'));
-              return fileDir === sub.relPath;
-            });
-            const firstFile = directFile ? directFile.relPath : (sub.files && sub.files.length > 0 ? sub.files[0].relPath : '');
-            const subHref = firstFile ? `#/${firstFile}` : `#/${sCat.id}/${sub.id}`;
-
-            secItemsHtml += `
-              <a href="${subHref}" class="top-dropdown-item font-semibold" onclick="selectCategory('${sCat.id}', '${sub.id}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${sub.relPath}')" style="display: flex; align-items: center; gap: 6px;">
-                ${sub.title}
-              </a>
-            `;
-          }
-        }
-
-        if (secItemsHtml) {
-          dropdownSectionsHtml += `
-            <div class="top-dropdown-section-header">${escapeHtml(sec.header)}</div>
-            ${secItemsHtml}
+          secItemsHtml += `
+            <a href="${subHref}" class="top-dropdown-item font-semibold" onclick="selectCategory('${sCat.id}', '${sub.id}')" ondragover="window.handleSidebarDragOver(event)" ondragleave="window.handleSidebarDragLeave(event)" ondrop="window.handleSidebarDrop(event, '${sub.relPath}')" style="display: flex; align-items: center; gap: 6px;">
+              ${sub.title}
+            </a>
           `;
         }
       }
 
-      html += `<li class="top-cat-item ${isGroupActive ? 'active' : ''}">
-        <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
-          <span>${grp.title}</span>
-          <span class="arrow">v</span>
-        </a>
-        <div class="top-dropdown-menu">
-          ${dropdownSectionsHtml}
-        </div>
-      </li>`;
-      continue;
+      if (secItemsHtml) {
+        dropdownSectionsHtml += `
+          <div class="top-dropdown-section-header">${escapeHtml(sec.header)}</div>
+          ${secItemsHtml}
+        `;
+      }
     }
 
-    // Standardowa kategoria pojedyncza (niezgrupowana)
+    html += `<li class="top-cat-item ${isGroupActive ? 'active' : ''}">
+      <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
+        <span>${grp.title}</span>
+        <span class="arrow">v</span>
+      </a>
+      <div class="top-dropdown-menu">
+        ${dropdownSectionsHtml}
+      </div>
+    </li>`;
+  }
+
+  // 3. Pozostałe niezgrupowane kategorie (posortowane numerycznie i alfabetycznie z bazy wiedzy)
+  const standaloneCats = categories.filter(c => c.id !== 'kanban_board' && !catToGroupMap.has(c.id));
+  for (const cat of standaloneCats) {
+    const subcategories = cat.subcategories || [];
+    const isActive = cat.id === currentCategory;
+
     if (subcategories.length > 0) {
       html += `<li class="top-cat-item ${isActive ? 'active' : ''}">
         <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
@@ -649,6 +641,7 @@ function renderTopCategories(categories) {
       </li>`;
     }
   }
+
   topNav.innerHTML = html;
 }
 
@@ -4947,60 +4940,60 @@ function renderAdminCenter() {
   contentArea.innerHTML = `
     <div class="admin-center-box" style="max-width:960px; line-height:1.6;">
       <div style="background:#111113; border:1px solid #27272a; padding:24px; border-radius:8px; margin-bottom:20px;">
-        <h2 style="color:var(--sw-gold); font-size:1.2rem; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">CENTRUM ADMINISTRACYJNE I KONSERWACJA BAZY WIEDZY</h2>
+        <h2 style="color:var(--sw-gold); font-size:1.2rem; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">Centrum administracyjne i konserwacja bazy wiedzy</h2>
         <p style="font-size:0.84rem; color:#a1a1aa; margin-bottom:0;">Zarządzanie bezpieczeństwem danych, kopiami zapasowymi, archiwizacją, koszem usuniętych dokumentów oraz integralnością struktury plików bazy KnowOps.</p>
       </div>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px;">
         <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
           <div>
-            <h3 style="color:#60a5fa; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Kopie Zapasowe i Bezpieczeństwo</h3>
+            <h3 style="color:#60a5fa; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Kopie zapasowe i bezpieczeństwo</h3>
             <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Zarządzanie archiwami całej bazy wiedzy. Możliwość natychmiastowego pobrania pełnego archiwum ZIP lub inspekcji 7 rotacyjnych migawek generowanych przez automatyczny harmonogram serwera.</p>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <button class="btn-action" style="width:100%; background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="downloadWikiZip()" title="Pobierz całą bazę wiedzy jako archiwum ZIP">Kopia ZIP (Baza i Media)</button>
-            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #1e3a5f; color:#93c5fd; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openBackupsModal()" title="Zarządzanie rotacyjnymi kopiami zapasowymi">Kopie Auto (Retencja 7)</button>
+            <button class="btn-action" style="width:100%; background:#1e3a8a; border:1px solid #3b82f6; color:#ffffff; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="downloadWikiZip()" title="Pobierz całą bazę wiedzy jako archiwum ZIP">Kopia ZIP (baza i media)</button>
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #1e3a5f; color:#93c5fd; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openBackupsModal()" title="Zarządzanie rotacyjnymi kopiami zapasowymi">Kopie automatyczne (retencja 7)</button>
           </div>
         </div>
 
         <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
           <div>
-            <h3 style="color:#f87171; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Konserwacja i Kosz Bazy</h3>
+            <h3 style="color:#f87171; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Konserwacja i kosz bazy wiedzy</h3>
             <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Narzędzia retencji i czyszczenia. Przeglądanie kosza usuniętych artykułów i folderów oraz automatyczna detekcja i przenoszenie osieroconych plików graficznych do strefy kwarantanny.</p>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #451a1a; color:#fca5a5; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openTrashDocumentsModal()" title="Kosz bazy wiedzy (przywracanie usuniętych stron i folderów)">Kosz Wiki (Dokumenty i Foldery)</button>
-            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#e4e4e7; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openOrphanedImagesModal()" title="Skanuj i usuń nieużywane grafiki">Oczyść Osierocone Grafiki</button>
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #451a1a; color:#fca5a5; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openTrashDocumentsModal()" title="Kosz bazy wiedzy (przywracanie usuniętych stron i folderów)">Kosz bazy wiedzy (dokumenty i foldery)</button>
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#e4e4e7; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openOrphanedImagesModal()" title="Skanuj i usuń nieużywane grafiki">Oczyść osierocone grafiki</button>
           </div>
         </div>
 
         <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
           <div>
-            <h3 style="color:#34d399; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Integralność i Nazewnictwo</h3>
+            <h3 style="color:#34d399; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Integralność i nazewnictwo</h3>
             <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Automatyczna analiza i weryfikacja spójności fizycznych nazw plików Markdown z nagłówkami H1 pierwszego poziomu. Wykrywanie niezgodności oraz masowa aktualizacja.</p>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #059669; color:#6ee7b7; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openSyncFilenamesModal()" title="Porównaj i zsynchronizuj nazwy plików Markdown z nagłówkami H1">Uporządkuj Nazwy Plików z H1</button>
+            <button class="btn-action" style="width:100%; background:#18181b; border:1px solid #059669; color:#6ee7b7; font-weight:600; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openSyncFilenamesModal()" title="Porównaj i zsynchronizuj nazwy plików Markdown z nagłówkami H1">Uporządkuj nazwy plików z H1</button>
           </div>
         </div>
 
         <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
           <div>
-            <h3 style="color:var(--sw-gold); font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Import i Zasilanie Treścią</h3>
+            <h3 style="color:var(--sw-gold); font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Import i zasilanie treścią</h3>
             <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Importowanie plików Markdown oraz HTML z dysku lokalnego lub pobieranie artykułów z zewnętrznych adresów URL z automatyczną konwersją i sanityzacją anty-SSRF.</p>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <button class="btn-action" style="width:100%; background:var(--sw-gold); border:1px solid #ca8a04; color:#000000; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openImportFileModal()" title="Importuj pliki MD/HTML lub pobierz ze strony URL">Importuj Plik / Pobierz z URL</button>
+            <button class="btn-action" style="width:100%; background:var(--sw-gold); border:1px solid #ca8a04; color:#000000; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="openImportFileModal()" title="Importuj pliki MD/HTML lub pobierz ze strony URL">Importuj plik / pobierz z adresu URL</button>
           </div>
         </div>
 
         <div style="background:#111113; border:1px solid #27272a; border-radius:8px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
           <div>
-            <h3 style="color:#c084fc; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Układ Menu i Grupy Kategorii</h3>
-            <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Konfiguracja łączenia kategorii bazy wiedzy w zwarte grupy menu górnego (np. grupa OS scalająca Microsoft i Linux) oraz definiowanie belek sekcyjnych.</p>
+            <h3 style="color:#c084fc; font-size:0.95rem; font-weight:700; margin-bottom:10px; border-bottom:1px solid #27272a; padding-bottom:8px;">Układ menu i grupy kategorii</h3>
+            <p style="font-size:0.8rem; color:#d4d4d8; margin-bottom:16px;">Konfiguracja łączenia kategorii bazy wiedzy w zwarte grupy menu górnego (np. grupa OS łącząca systemy Microsoft oraz Linux) oraz definiowanie belek sekcyjnych.</p>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <button class="btn-action" style="width:100%; background:#581c87; border:1px solid #9333ea; color:#f3e8ff; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="window.openCategoryGroupsModal()" title="Zarządzaj łączeniem kategorii w grupy menu górnego">Zarządzaj Grupami Menu Górnego</button>
+            <button class="btn-action" style="width:100%; background:#581c87; border:1px solid #9333ea; color:#f3e8ff; font-weight:700; font-size:0.75rem; padding:8px 12px; border-radius:4px; cursor:pointer;" onclick="window.openCategoryGroupsModal()" title="Zarządzaj grupami menu górnego">Zarządzaj grupami menu górnego</button>
           </div>
         </div>
       </div>
@@ -5010,6 +5003,42 @@ function renderAdminCenter() {
 window.renderAdminCenter = renderAdminCenter;
 
 // ================= ZARZĄDZANIE GRUPAMI KATEGORII MENU GÓRNEGO ================= //
+window.moveCategoryGroup = async function(groupId, direction) {
+  let groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? [...navigationData.categoryGroups] : [];
+  const idx = groups.findIndex(g => g.id === groupId);
+  if (idx === -1) return;
+
+  const targetIdx = idx + direction;
+  if (targetIdx < 0 || targetIdx >= groups.length) return;
+
+  const temp = groups[idx];
+  groups[idx] = groups[targetIdx];
+  groups[targetIdx] = temp;
+
+  try {
+    const res = await fetch('/api/category-groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ groups })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu kolejności grup');
+    }
+    if (!navigationData) navigationData = {};
+    navigationData.categoryGroups = data.groups || groups;
+    if (navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    window.renderCategoryGroupsList();
+  } catch (err) {
+    alert('Nie udało się zapisać nowej kolejności grup: ' + err.message);
+  }
+};
+
 window.openCategoryGroupsModal = async function() {
   const modal = document.getElementById('categoryGroupsModalOverlay');
   if (!modal) return;
@@ -5051,7 +5080,7 @@ window.renderCategoryGroupsList = function() {
         <span style="font-size:0.8rem; color:#a1a1aa;">Zdefiniowane grupy w górnym pasku nawigacyjnym: <strong style="color:var(--sw-gold);">${groups.length}</strong></span>
       </div>
       <button type="button" class="btn-action" onclick="window.showEditCategoryGroupForm('')" style="font-size:0.75rem; padding:6px 14px;">
-        + Utwórz Nową Grupę
+        + Dodaj nową grupę
       </button>
     </div>
   `;
@@ -5065,7 +5094,8 @@ window.renderCategoryGroupsList = function() {
     `;
   } else {
     html += `<div style="display:flex; flex-direction:column; gap:12px;">`;
-    for (const grp of groups) {
+    for (let idx = 0; idx < groups.length; idx++) {
+      const grp = groups[idx];
       const gid = escapeHtml(grp.id || '');
       const gTitle = escapeHtml(grp.title || 'Bez nazwy');
       const sections = grp.sections || [];
@@ -5078,7 +5108,7 @@ window.renderCategoryGroupsList = function() {
           <div style="display:inline-flex; align-items:center; gap:6px; background:#1c1c1f; border:1px solid #27272a; padding:3px 8px; border-radius:4px; font-size:0.7rem;">
             <strong style="color:var(--sw-gold); font-family:monospace;">${escapeHtml(s.header)}</strong>
             <span style="color:#71717a;">-&gt;</span>
-            <span style="color:#d4d4d8;">wzorzec: <code style="color:#93c5fd;">${escapeHtml(s.match)}</code></span>
+            <span style="color:#d4d4d8;">wzorzec dopasowania: <code style="color:#93c5fd;">${escapeHtml(s.match)}</code></span>
           </div>
         `).join(' ');
       }
@@ -5088,13 +5118,15 @@ window.renderCategoryGroupsList = function() {
           <div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
               <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">Kafelek: <span style="color:var(--sw-gold);">${gTitle}</span></span>
-              <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">ID: ${gid}</span>
+              <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">Identyfikator: ${gid}</span>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:6px;">
               ${sectionsSummaryHtml}
             </div>
           </div>
-          <div style="display:flex; gap:6px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button type="button" class="btn-secondary" onclick="window.moveCategoryGroup('${gid}', -1)" style="font-size:0.7rem; padding:4px 8px; ${idx === 0 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === 0 ? 'disabled' : ''} title="Przesuń grupę w lewo w menu górnym">Góra</button>
+            <button type="button" class="btn-secondary" onclick="window.moveCategoryGroup('${gid}', 1)" style="font-size:0.7rem; padding:4px 8px; ${idx === groups.length - 1 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === groups.length - 1 ? 'disabled' : ''} title="Przesuń grupę w prawo w menu górnym">Dół</button>
             <button type="button" class="btn-secondary" onclick="window.showEditCategoryGroupForm('${gid}')" style="font-size:0.7rem; padding:4px 10px;">Edytuj</button>
             <button type="button" class="btn-danger" onclick="window.deleteCategoryGroup('${gid}')" style="font-size:0.7rem; padding:4px 10px;">Usuń</button>
           </div>
@@ -5103,7 +5135,6 @@ window.renderCategoryGroupsList = function() {
     }
     html += `</div>`;
   }
-
   body.innerHTML = html;
   if (footer) {
     footer.innerHTML = `<button type="button" class="btn-secondary" onclick="window.closeCategoryGroupsModal()">Zamknij</button>`;
@@ -5128,22 +5159,22 @@ window.showEditCategoryGroupForm = function(groupId) {
     <form id="categoryGroupEditForm" onsubmit="window.saveCategoryGroup(event, '${escapeHtml(groupId || '')}')" style="display:flex; flex-direction:column; gap:16px;">
       <div style="background:#18181b; border:1px solid #27272a; padding:14px; border-radius:6px;">
         <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--sw-gold); margin-bottom:6px; text-transform:uppercase;">
-          Nazwa Kafelka w Górnym Pasku:
+          Nazwa kafelka w górnym pasku:
         </label>
-        <input type="text" id="grpTitleInput" value="${escapeHtml(currentTitle)}" placeholder="np. OS, Sieci, Bazy Danych" required style="width:100%; max-width:320px; background:#111; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
-        <p style="font-size:0.72rem; color:#888; margin:4px 0 0 0;">Taki napis pojawi się na przycisku w nagłówku aplikacji.</p>
+        <input type="text" id="grpTitleInput" value="${escapeHtml(currentTitle)}" placeholder="np. OS, Sieci, Bazy danych" required style="width:100%; max-width:320px; background:#111; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+        <p style="font-size:0.72rem; color:#888; margin:4px 0 0 0;">Taka nazwa pojawi się na przycisku w menu górnym aplikacji.</p>
       </div>
 
       <div style="background:#18181b; border:1px solid #27272a; padding:14px; border-radius:6px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
           <div>
             <label style="font-size:0.75rem; font-weight:700; color:var(--sw-gold); text-transform:uppercase;">
-              Sekcje i Belki Nieklikalne w Menu:
+              Sekcje i belki nagłówkowe w menu:
             </label>
-            <p style="font-size:0.72rem; color:#888; margin:2px 0 0 0;">Każda sekcja tworzy nieklikalną belkę nagłówkową i przypisuje do niej działy z wybranej kategorii.</p>
+            <p style="font-size:0.72rem; color:#888; margin:2px 0 0 0;">Każda sekcja tworzy belkę nagłówkową i przypisuje do niej działy z wybranej kategorii.</p>
           </div>
           <button type="button" class="btn-secondary" onclick="window.addCategoryGroupSectionRow()" style="font-size:0.7rem; padding:4px 10px;">
-            + Dodaj Sekcję
+            + Dodaj sekcję
           </button>
         </div>
 
@@ -5163,7 +5194,7 @@ window.showEditCategoryGroupForm = function(groupId) {
 
   if (footer) {
     footer.innerHTML = `
-      <button type="submit" form="categoryGroupEditForm" class="btn-action" style="padding:6px 14px; font-size:0.75rem;">Zapisz Zmiany</button>
+      <button type="submit" form="categoryGroupEditForm" class="btn-action" style="padding:6px 14px; font-size:0.75rem;">Zapisz zmiany</button>
       <button type="button" class="btn-secondary" onclick="window.renderCategoryGroupsList()" style="padding:6px 12px; font-size:0.75rem;">Anuluj</button>
     `;
   }
@@ -5189,17 +5220,17 @@ window.addCategoryGroupSectionRow = function(headerVal = '', matchVal = '') {
 
   row.innerHTML = `
     <div style="flex:1; min-width:160px;">
-      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Tytuł Belki (Nagłówek):</label>
+      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Tytuł belki (nagłówek):</label>
       <input type="text" class="grp-sec-header" value="${escapeHtml(headerVal)}" placeholder="np. WINDOWS, LINUX, CISCO" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:5px 8px; border-radius:3px; font-size:0.75rem; box-sizing:border-box;">
     </div>
     <div style="flex:1; min-width:170px;">
-      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wybierz Kategorię z Bazy:</label>
+      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wybierz kategorię z bazy wiedzy:</label>
       <select class="grp-sec-cat-select" onchange="window.onGrpSecCatChange(this)" style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:5px 8px; border-radius:3px; font-size:0.75rem; box-sizing:border-box;">
         ${catOptionsHtml}
       </select>
     </div>
     <div style="flex:1; min-width:140px;">
-      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wzorzec / Identyfikator (match):</label>
+      <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wzorzec dopasowania (match):</label>
       <input type="text" class="grp-sec-match" value="${escapeHtml(matchVal)}" placeholder="np. microsoft|windows" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#93c5fd; padding:5px 8px; border-radius:3px; font-size:0.75rem; font-family:monospace; box-sizing:border-box;">
     </div>
     <div>

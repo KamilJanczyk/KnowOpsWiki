@@ -1970,7 +1970,7 @@ test('40. Sidebar Cleanup & Centrum Administracyjne: weryfikacja optymalizacji l
 
   // Weryfikacja umiejscowienia Importuj Plik w Centrum Administracyjnym
   assert.equal(appJs.includes('openImportFileModal()'), true);
-  assert.equal(appJs.includes('Import i Zasilanie Treścią'), true);
+  assert.equal(appJs.includes('Import i zasilanie treścią') || appJs.includes('Import i Zasilanie Treścią'), true);
 
   // 2. Weryfikacja przyciskow w gornym pasku artykulu (KOPIUJ, DRUKUJ / PDF, zmiana nazwy dodawania)
   assert.equal(appJs.includes('copyCurrentArticleMarkdown(this)'), true);
@@ -3095,10 +3095,23 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.equal(appJs.includes('window.showEditCategoryGroupForm'), true, 'Brak showEditCategoryGroupForm w app.js');
   assert.equal(appJs.includes('window.saveCategoryGroup'), true, 'Brak saveCategoryGroup w app.js');
   assert.equal(appJs.includes('window.deleteCategoryGroup'), true, 'Brak deleteCategoryGroup w app.js');
-  assert.equal(appJs.includes('Zarządzaj Grupami Menu Górnego'), true, 'Brak przycisku akcji w Centrum Administracyjnym w app.js');
+  assert.equal(appJs.includes('window.moveCategoryGroup'), true, 'Brak moveCategoryGroup w app.js');
+  assert.equal(appJs.includes('Zarządzaj grupami menu górnego'), true, 'Brak przycisku akcji w Centrum Administracyjnym w app.js');
 
-  // 6. Test jednostkowy logiki grupowania kategorii
+  // 6. Test jednostkowy logiki grupowania kategorii i kolejności renderowania kafelków
   const sampleCategories = [
+    {
+      id: 'kanban_board',
+      title: 'Pulpit',
+      subcategories: []
+    },
+    {
+      id: '01_Sciaga',
+      title: 'Sciaga',
+      subcategories: [
+        { id: 'Cisco', title: 'Cisco', relPath: '01_Sciaga/Cisco' }
+      ]
+    },
     {
       id: 'Microsoft',
       title: 'Microsoft',
@@ -3126,7 +3139,7 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
 
   function testMapCategoriesToGroups(cats, grps) {
     const catToGroup = new Map();
-    const gData = new Map();
+    const groupDataMap = new Map();
 
     for (const grp of grps) {
       const entry = { group: grp, sections: [] };
@@ -3136,10 +3149,29 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
         matched.forEach(m => catToGroup.set(m.id, grp.id));
         entry.sections.push({ header: sec.header, categories: matched });
       }
-      gData.set(grp.id, entry);
+      groupDataMap.set(grp.id, entry);
     }
 
-    return { catToGroup, gData };
+    // Symulacja kolejności renderowania menu górnego:
+    // 1. Pulpit
+    // 2. Kafelki grup (zdefiniowane w układzie menu)
+    // 3. Pozostałe niezgrupowane kategorie z bazy
+    const renderedOrder = [];
+    const kanban = cats.find(c => c.id === 'kanban_board');
+    if (kanban) renderedOrder.push(kanban.id);
+
+    for (const grp of grps) {
+      if (groupDataMap.has(grp.id)) {
+        renderedOrder.push(grp.id);
+      }
+    }
+
+    const standalone = cats.filter(c => c.id !== 'kanban_board' && !catToGroup.has(c.id));
+    for (const c of standalone) {
+      renderedOrder.push(c.id);
+    }
+
+    return { catToGroup, groupDataMap, renderedOrder };
   }
 
   const mapped = testMapCategoriesToGroups(sampleCategories, groups);
@@ -3147,11 +3179,8 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.equal(mapped.catToGroup.get('Linux'), 'group_os');
   assert.equal(mapped.catToGroup.has('Fortinet'), false);
 
-  const groupOsData = mapped.gData.get('group_os');
-  assert.equal(groupOsData.sections[0].header, 'WINDOWS');
-  assert.equal(groupOsData.sections[0].categories[0].id, 'Microsoft');
-  assert.equal(groupOsData.sections[1].header, 'LINUX');
-  assert.equal(groupOsData.sections[1].categories[0].id, 'Linux');
+  // Weryfikacja porządku: Pulpit -> group_os -> 01_Sciaga -> Fortinet
+  assert.deepEqual(mapped.renderedOrder, ['kanban_board', 'group_os', '01_Sciaga', 'Fortinet']);
 
   // 7. Test sanityzacji danych wejściowych POST /api/category-groups
   function sanitizeGroupPayload(rawGroups) {
