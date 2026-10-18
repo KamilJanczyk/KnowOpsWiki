@@ -5411,15 +5411,15 @@ window.renderCategoryGroupsList = function() {
     }
 
     html += `
-      <div style="background:#141416; border:1px solid #27272a; border-radius:4px; padding:6px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-          <span style="font-size:0.75rem; color:#71717a; font-family:monospace; width:22px;">${idx + 1}.</span>
-          <span style="font-size:0.82rem; font-weight:700; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tTitle}</span>
+      <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:8px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+          <span style="font-size:0.78rem; color:#71717a; font-family:monospace; width:26px;">${idx + 1}.</span>
+          <span style="font-size:0.88rem; font-weight:700; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tTitle}</span>
           ${badgeHtml}
         </div>
-        <div style="display:flex; gap:4px; align-items:center;">
-          <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', -1)" style="font-size:0.7rem; padding:3px 8px; ${idx === 0 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === 0 ? 'disabled' : ''} title="Przesuń kafelek w lewo w menu górnym">Góra</button>
-          <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', 1)" style="font-size:0.7rem; padding:3px 8px; ${idx === allTiles.length - 1 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === allTiles.length - 1 ? 'disabled' : ''} title="Przesuń kafelek w prawo w menu górnym">Dół</button>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', -1)" style="font-size:0.72rem; padding:4px 10px; ${idx === 0 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === 0 ? 'disabled' : ''} title="Przesuń kafelek w lewo w menu górnym">Góra</button>
+          <button type="button" class="btn-secondary" onclick="window.moveTopNavTile('${tid}', 1)" style="font-size:0.72rem; padding:4px 10px; ${idx === allTiles.length - 1 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === allTiles.length - 1 ? 'disabled' : ''} title="Przesuń kafelek w prawo w menu górnym">Dół</button>
         </div>
       </div>
     `;
@@ -5456,7 +5456,7 @@ window.showEditCategoryGroupForm = function(groupId) {
         <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--sw-gold); margin-bottom:6px; text-transform:uppercase;">
           Nazwa kafelka w górnym pasku:
         </label>
-        <input type="text" id="grpTitleInput" value="${escapeHtml(currentTitle)}" placeholder="np. OS, Sieci, Bazy danych" required style="width:100%; max-width:320px; background:#111; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+        <input type="text" id="grpTitleInput" value="${escapeHtml(currentTitle)}" placeholder="np. OS, Sieci, Bazy danych" required style="width:100%; max-width:480px; background:#111; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
         <p style="font-size:0.72rem; color:#888; margin:4px 0 0 0;">Taka nazwa pojawi się na przycisku w menu górnym aplikacji.</p>
       </div>
 
@@ -5468,7 +5468,7 @@ window.showEditCategoryGroupForm = function(groupId) {
             </label>
             <p style="font-size:0.72rem; color:#888; margin:2px 0 0 0;">Każda sekcja tworzy belkę nagłówkową i przypisuje do niej działy z wybranej kategorii. Możesz zmieniać ich kolejność przyciskami Góra i Dół.</p>
           </div>
-          <button type="button" class="btn-secondary" onclick="window.addCategoryGroupSectionRow()" style="font-size:0.7rem; padding:4px 10px;">
+          <button type="button" class="btn-secondary" onclick="window.addCategoryGroupSectionRow()" style="font-size:0.72rem; padding:5px 12px;">
             + Dodaj sekcję
           </button>
         </div>
@@ -5514,24 +5514,24 @@ window.addCategoryGroupSectionRow = function(headerVal = '', matchVal = '') {
   }
 
   row.innerHTML = `
-    <div style="flex:1; min-width:160px;">
+    <div style="flex:1; min-width:180px;">
       <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Tytuł belki (nagłówek):</label>
-      <input type="text" class="grp-sec-header" value="${escapeHtml(headerVal)}" placeholder="np. WINDOWS, LINUX, PROXMOX" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:5px 8px; border-radius:3px; font-size:0.75rem; box-sizing:border-box;">
+      <input type="text" class="grp-sec-header" value="${escapeHtml(headerVal)}" placeholder="np. WINDOWS, LINUX, PROXMOX" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:3px; font-size:0.78rem; box-sizing:border-box;">
     </div>
-    <div style="flex:1; min-width:170px;">
+    <div style="flex:2; min-width:240px;">
       <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wybierz kategorię z bazy wiedzy:</label>
-      <select class="grp-sec-cat-select" onchange="window.onGrpSecCatChange(this)" style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:5px 8px; border-radius:3px; font-size:0.75rem; box-sizing:border-box;">
+      <select class="grp-sec-cat-select" onchange="window.onGrpSecCatChange(this)" style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:3px; font-size:0.78rem; box-sizing:border-box;">
         ${catOptionsHtml}
       </select>
     </div>
-    <div style="flex:1; min-width:140px;">
+    <div style="flex:1.5; min-width:200px;">
       <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Wzorzec dopasowania (match):</label>
-      <input type="text" class="grp-sec-match" value="${escapeHtml(matchVal)}" placeholder="np. proxmox|vmware" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#93c5fd; padding:5px 8px; border-radius:3px; font-size:0.75rem; font-family:monospace; box-sizing:border-box;">
+      <input type="text" class="grp-sec-match" value="${escapeHtml(matchVal)}" placeholder="np. proxmox|vmware" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#93c5fd; padding:6px 10px; border-radius:3px; font-size:0.78rem; font-family:monospace; box-sizing:border-box;">
     </div>
-    <div style="display:flex; gap:4px; align-items:center;">
-      <button type="button" class="btn-secondary" onclick="window.moveSectionRow(this, -1)" style="font-size:0.7rem; padding:4px 6px;" title="Przesuń tę sekcję w górę">Góra</button>
-      <button type="button" class="btn-secondary" onclick="window.moveSectionRow(this, 1)" style="font-size:0.7rem; padding:4px 6px;" title="Przesuń tę sekcję w dół">Dół</button>
-      <button type="button" class="btn-danger" onclick="this.closest('.grp-section-row').remove()" style="font-size:0.7rem; padding:4px 8px;" title="Usuń tę sekcję">Usuń</button>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button type="button" class="btn-secondary" onclick="window.moveSectionRow(this, -1)" style="font-size:0.72rem; padding:6px 10px;" title="Przesuń tę sekcję w górę">Góra</button>
+      <button type="button" class="btn-secondary" onclick="window.moveSectionRow(this, 1)" style="font-size:0.72rem; padding:6px 10px;" title="Przesuń tę sekcję w dół">Dół</button>
+      <button type="button" class="btn-danger" onclick="this.closest('.grp-section-row').remove()" style="font-size:0.72rem; padding:6px 10px;" title="Usuń tę sekcję">Usuń</button>
     </div>
   `;
 
