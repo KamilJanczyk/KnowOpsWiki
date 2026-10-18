@@ -5220,6 +5220,448 @@ window.resetTopNavOrder = async function() {
   }
 };
 
+/* ===== DRAG AND DROP DLA KAFELKÓW PASKA GÓRNEGO (ZAKŁADKA 1) ===== */
+window.reorderTopNavTiles = async function(fromTileId, toTileId, isAfter) {
+  if (!fromTileId || !toTileId || fromTileId === toTileId) return;
+
+  const categories = (navigationData && Array.isArray(navigationData.categories)) ? navigationData.categories : [];
+  const categoryGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
+
+  const catToGroupMap = new Map();
+  for (const grp of categoryGroups) {
+    if (!grp.sections || !Array.isArray(grp.sections)) continue;
+    for (const sec of grp.sections) {
+      if (!sec.match) continue;
+      const reg = new RegExp(sec.match, 'i');
+      for (const mc of categories) {
+        if (reg.test(mc.id) || reg.test(mc.title)) {
+          catToGroupMap.set(mc.id, grp.id);
+        }
+      }
+    }
+  }
+
+  const allTileIds = [];
+  const kanban = categories.find(c => c.id === 'kanban_board');
+  if (kanban) allTileIds.push(kanban.id);
+  for (const grp of categoryGroups) {
+    allTileIds.push(grp.id);
+  }
+  for (const cat of categories) {
+    if (cat.id !== 'kanban_board' && !catToGroupMap.has(cat.id)) {
+      allTileIds.push(cat.id);
+    }
+  }
+
+  let currentOrder = (navigationData && Array.isArray(navigationData.topNavOrder) && navigationData.topNavOrder.length > 0)
+    ? [...navigationData.topNavOrder]
+    : [...allTileIds];
+
+  for (const tid of allTileIds) {
+    if (!currentOrder.includes(tid)) {
+      currentOrder.push(tid);
+    }
+  }
+  currentOrder = currentOrder.filter(id => allTileIds.includes(id));
+
+  const fromIdx = currentOrder.indexOf(fromTileId);
+  const toIdx = currentOrder.indexOf(toTileId);
+  if (fromIdx === -1 || toIdx === -1) return;
+
+  const [movedItem] = currentOrder.splice(fromIdx, 1);
+  let targetIdx = currentOrder.indexOf(toTileId);
+  if (targetIdx === -1) {
+    currentOrder.push(movedItem);
+  } else {
+    if (isAfter) targetIdx += 1;
+    currentOrder.splice(targetIdx, 0, movedItem);
+  }
+
+  try {
+    const res = await fetch('/api/top-nav-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ order: currentOrder })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu kolejności kafelków');
+    }
+    if (!navigationData) navigationData = {};
+    if (data.navigation) {
+      navigationData = data.navigation;
+    } else {
+      navigationData.topNavOrder = data.order || currentOrder;
+    }
+    if (navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    window.renderCategoryGroupsList();
+  } catch (err) {
+    alert('Nie udało się zapisać kolejności kafelków: ' + err.message);
+  }
+};
+
+window.handleTopNavOrderDragStart = function(event, tileId) {
+  if (event.target && (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT')) {
+    event.preventDefault();
+    return;
+  }
+  window._draggedTopNavTileId = tileId;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', tileId);
+  }
+  const el = event.currentTarget || event.target;
+  if (el) el.classList.add('dragging');
+};
+
+window.handleTopNavOrderDragOver = function(event, targetTileId) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  const target = event.currentTarget;
+  if (!target || !target.classList.contains('top-nav-order-item')) return;
+  if (window._draggedTopNavTileId === targetTileId) return;
+
+  const rect = target.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  const isAfter = event.clientY > midY;
+
+  target.classList.remove('drag-over-top', 'drag-over-bottom');
+  if (isAfter) {
+    target.classList.add('drag-over-bottom');
+  } else {
+    target.classList.add('drag-over-top');
+  }
+};
+
+window.handleTopNavOrderDragLeave = function(event) {
+  const target = event.currentTarget;
+  if (target) {
+    target.classList.remove('drag-over-top', 'drag-over-bottom');
+  }
+};
+
+window.handleTopNavOrderDrop = function(event, targetTileId) {
+  event.preventDefault();
+  event.stopPropagation();
+  const target = event.currentTarget;
+  let isAfter = false;
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    isAfter = event.clientY > midY;
+    target.classList.remove('drag-over-top', 'drag-over-bottom');
+  }
+  const fromId = window._draggedTopNavTileId;
+  if (fromId && targetTileId && fromId !== targetTileId) {
+    window.reorderTopNavTiles(fromId, targetTileId, isAfter);
+  }
+};
+
+window.handleTopNavOrderDragEnd = function(event) {
+  window._draggedTopNavTileId = null;
+  const items = document.querySelectorAll('.top-nav-order-item');
+  items.forEach(it => it.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+};
+
+/* ===== DRAG AND DROP DLA KART GRUP W ZAKŁADCE 2 ===== */
+window.reorderCategoryGroupsByDrag = async function(fromGroupId, toGroupId, isAfter) {
+  if (!fromGroupId || !toGroupId || fromGroupId === toGroupId) return;
+  let groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? [...navigationData.categoryGroups] : [];
+  const fromIdx = groups.findIndex(g => g.id === fromGroupId);
+  const toIdx = groups.findIndex(g => g.id === toGroupId);
+  if (fromIdx === -1 || toIdx === -1) return;
+
+  const [moved] = groups.splice(fromIdx, 1);
+  let targetIdx = groups.findIndex(g => g.id === toGroupId);
+  if (targetIdx === -1) {
+    groups.push(moved);
+  } else {
+    if (isAfter) targetIdx += 1;
+    groups.splice(targetIdx, 0, moved);
+  }
+
+  try {
+    const res = await fetch('/api/category-groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ groups })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu kolejności grup');
+    }
+    if (!navigationData) navigationData = {};
+    if (data.navigation) {
+      navigationData = data.navigation;
+    } else {
+      navigationData.categoryGroups = data.groups || groups;
+    }
+    if (navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    window.renderCategoryGroupsList();
+  } catch (err) {
+    alert('Nie udało się zapisać kolejności grup: ' + err.message);
+  }
+};
+
+window.handleCategoryGroupDragStart = function(event, groupId) {
+  if (event.target && (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT')) {
+    event.preventDefault();
+    return;
+  }
+  window._draggedCategoryGroupId = groupId;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', groupId);
+  }
+  const el = event.currentTarget || event.target;
+  if (el) el.classList.add('dragging');
+};
+
+window.handleCategoryGroupDragOver = function(event, targetGroupId) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  const target = event.currentTarget;
+  if (!target || !target.classList.contains('category-group-card')) return;
+  if (window._draggedCategoryGroupId === targetGroupId) return;
+
+  const rect = target.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  const isAfter = event.clientY > midY;
+
+  target.classList.remove('drag-over-top', 'drag-over-bottom');
+  if (isAfter) {
+    target.classList.add('drag-over-bottom');
+  } else {
+    target.classList.add('drag-over-top');
+  }
+};
+
+window.handleCategoryGroupDragLeave = function(event) {
+  const target = event.currentTarget;
+  if (target) {
+    target.classList.remove('drag-over-top', 'drag-over-bottom');
+  }
+};
+
+window.handleCategoryGroupDrop = function(event, targetGroupId) {
+  event.preventDefault();
+  event.stopPropagation();
+  const target = event.currentTarget;
+  let isAfter = false;
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    isAfter = event.clientY > midY;
+    target.classList.remove('drag-over-top', 'drag-over-bottom');
+  }
+  const fromId = window._draggedCategoryGroupId;
+  if (fromId && targetGroupId && fromId !== targetGroupId) {
+    window.reorderCategoryGroupsByDrag(fromId, targetGroupId, isAfter);
+  }
+};
+
+window.handleCategoryGroupDragEnd = function(event) {
+  window._draggedCategoryGroupId = null;
+  const cards = document.querySelectorAll('.category-group-card');
+  cards.forEach(c => c.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+};
+
+/* ===== DRAG AND DROP DLA WIERSZY SEKCJI W FORMULARZU GRUPY ===== */
+window.handleGrpSectionDragStart = function(event) {
+  if (event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT' || event.target.tagName === 'BUTTON')) {
+    event.preventDefault();
+    return;
+  }
+  const row = event.currentTarget || event.target.closest('.grp-section-row');
+  if (!row) return;
+  window._draggedGrpSectionRow = row;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', 'grp-section-row');
+  }
+  row.classList.add('dragging');
+};
+
+window.handleGrpSectionDragOver = function(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  const target = event.currentTarget;
+  if (!target || !target.classList.contains('grp-section-row')) return;
+  if (window._draggedGrpSectionRow === target) return;
+
+  const rect = target.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  const isAfter = event.clientY > midY;
+
+  target.classList.remove('drag-over-top', 'drag-over-bottom');
+  if (isAfter) {
+    target.classList.add('drag-over-bottom');
+  } else {
+    target.classList.add('drag-over-top');
+  }
+};
+
+window.handleGrpSectionDragLeave = function(event) {
+  const target = event.currentTarget;
+  if (target) {
+    target.classList.remove('drag-over-top', 'drag-over-bottom');
+  }
+};
+
+window.handleGrpSectionDrop = function(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const target = event.currentTarget;
+  const dragged = window._draggedGrpSectionRow;
+  if (!target || !dragged || target === dragged) return;
+
+  const rect = target.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  const isAfter = event.clientY > midY;
+
+  target.classList.remove('drag-over-top', 'drag-over-bottom');
+
+  const parent = target.parentNode;
+  if (parent) {
+    if (isAfter) {
+      parent.insertBefore(dragged, target.nextSibling);
+    } else {
+      parent.insertBefore(dragged, target);
+    }
+  }
+};
+
+window.handleGrpSectionDragEnd = function(event) {
+  window._draggedGrpSectionRow = null;
+  const rows = document.querySelectorAll('.grp-section-row');
+  rows.forEach(r => r.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+};
+
+/* ===== AUTOMATYCZNE GRUPOWANIE WG TOPOLOGII PREFIKSÓW NUMERYCZNYCH ===== */
+window.autoGroupCategoriesByPrefix = async function() {
+  const categories = (navigationData && Array.isArray(navigationData.categories)) ? navigationData.categories : [];
+  const validCats = categories.filter(c => c.id !== 'kanban_board');
+  if (validCats.length === 0) {
+    alert('Brak kategorii w bazie wiedzy do pogrupowania.');
+    return;
+  }
+
+  // Pogrupuj kategorie wg początkowego prefiksu numerycznego (np. 010_, 01_, 10_)
+  const prefixMap = new Map();
+  for (const cat of validCats) {
+    const match = cat.id.match(/^(\d+)[_\s-]+/);
+    if (match) {
+      const prefix = match[1];
+      if (!prefixMap.has(prefix)) {
+        prefixMap.set(prefix, []);
+      }
+      prefixMap.get(prefix).push(cat);
+    }
+  }
+
+  // Wybierz tylko te prefiksy, które występują więcej niż 1 raz (tak jak w topologii użytkownika)
+  const repeatingPrefixes = [];
+  for (const [prefix, list] of prefixMap.entries()) {
+    if (list.length > 1) {
+      repeatingPrefixes.push({ prefix, list });
+    }
+  }
+
+  if (repeatingPrefixes.length === 0) {
+    alert('Nie znaleziono kategorii o powtarzających się prefiksach numerycznych (np. 010_..., 01_...). Wszystkie foldery mają unikalne numery i są wyświetlane automatycznie jako pojedyncze kafelki.');
+    return;
+  }
+
+  const promptLines = repeatingPrefixes.map(p => ` - Prefiks ${p.prefix}: ${p.list.length} folderów (${p.list.map(c => c.id).join(', ')})`);
+  const promptMsg = 'Znaleziono foldery o powtarzających się prefiksach numerycznych:\n' +
+    promptLines.join('\n') +
+    '\n\nCzy chcesz automatycznie połączyć foldery o tych samych numerach w grupy menu górnego? Foldery o unikalnych numerach pozostaną automatycznie osobnymi kafelkami.';
+
+  if (!confirm(promptMsg)) {
+    return;
+  }
+
+  let existingGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? [...navigationData.categoryGroups] : [];
+
+  for (const { prefix, list } of repeatingPrefixes) {
+    const groupId = `group_prefix_${prefix}`;
+    let groupTitle = `GRUPA ${prefix}`;
+    const cleanedNames = list.map(c => (c.title || c.id).replace(/^\d+[_\s-]+/, '').trim());
+    if (cleanedNames.length > 0) {
+      const firstWord = cleanedNames[0].split(/[_\s-]+/)[0].toUpperCase();
+      if (firstWord && firstWord.length >= 2) {
+        groupTitle = firstWord;
+      }
+    }
+
+    const sections = list.map(c => {
+      const cleanH = (c.title || c.id).replace(/^\d+[_\s-]+/, '').replace(/[_\s-]+/g, ' ').toUpperCase();
+      return {
+        header: cleanH,
+        match: `^${c.id}$`
+      };
+    });
+
+    const exIdx = existingGroups.findIndex(g => g.id === groupId);
+    if (exIdx !== -1) {
+      existingGroups[exIdx].sections = sections;
+    } else {
+      existingGroups.push({
+        id: groupId,
+        title: groupTitle,
+        sections
+      });
+    }
+  }
+
+  try {
+    const res = await fetch('/api/category-groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ groups: existingGroups })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd zapisu wygenerowanych grup');
+    }
+    if (!navigationData) navigationData = {};
+    if (data.navigation) {
+      navigationData = data.navigation;
+    } else {
+      navigationData.categoryGroups = data.groups || existingGroups;
+    }
+    if (navigationData.categories) {
+      renderTopCategories(navigationData.categories);
+    }
+    window.renderCategoryGroupsList();
+    alert('Grupy menu zostały pomyślnie utworzone na podstawie topologii prefiksów!');
+  } catch (err) {
+    alert('Błąd automatycznego grupowania: ' + err.message);
+  }
+};
+
 window.openCategoryGroupsModal = async function() {
   const modal = document.getElementById('categoryGroupsModalOverlay');
   if (!modal) return;
@@ -5345,7 +5787,7 @@ window.renderCategoryGroupsList = function() {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
           <div>
             <h4 style="margin:0 0 4px 0; font-size:0.88rem; color:var(--sw-gold); text-transform:uppercase;">Kolejność kafelków na pasku górnym (ręczna segregacja)</h4>
-            <p style="font-size:0.75rem; color:#a1a1aa; margin:0;">Zmieniaj kolejność kafelków przyciskami Góra i Dół. Kolejność na liście odpowiada kolejności od lewej do prawej na górnym pasku.</p>
+            <p style="font-size:0.75rem; color:#a1a1aa; margin:0;">Zmieniaj kolejność kafelków metodą <strong>przeciągnij i upuść (Drag &amp; Drop)</strong> lub przyciskami Góra i Dół. Kolejność na liście odpowiada kolejności od lewej do prawej na górnym pasku.</p>
           </div>
           <button type="button" class="btn-secondary" onclick="window.resetTopNavOrder()" style="font-size:0.72rem; padding:6px 12px;" title="Przywróć domyślny układ menu">
             Przywróć domyślną kolejność
@@ -5370,8 +5812,15 @@ window.renderCategoryGroupsList = function() {
       }
 
       html += `
-        <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:8px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div class="top-nav-order-item" draggable="true" data-tile-id="${tid}"
+             ondragstart="window.handleTopNavOrderDragStart(event, '${tid}')"
+             ondragover="window.handleTopNavOrderDragOver(event, '${tid}')"
+             ondragleave="window.handleTopNavOrderDragLeave(event)"
+             ondrop="window.handleTopNavOrderDrop(event, '${tid}')"
+             ondragend="window.handleTopNavOrderDragEnd(event)"
+             style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:8px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; cursor:grab;">
           <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+            <span class="drag-handle" title="Przeciągnij, aby przenieść ten kafelek" style="cursor:grab; font-size:1.15rem; color:#71717a; padding:0 2px; user-select:none;">:::</span>
             <span style="font-size:0.78rem; color:#71717a; font-family:monospace; width:26px;">${idx + 1}.</span>
             <span style="font-size:0.88rem; font-weight:700; color:#ffffff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${tTitle}</span>
             ${badgeHtml}
@@ -5392,14 +5841,19 @@ window.renderCategoryGroupsList = function() {
     // ZAKŁADKA 2: Zdefiniowane grupy menu
     html += `
       <div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
           <div>
             <h4 style="margin:0 0 4px 0; font-size:0.88rem; color:var(--sw-gold); text-transform:uppercase;">Grupy menu górnego (definiowanie kafelków i sekcji)</h4>
-            <span style="font-size:0.75rem; color:#a1a1aa;">Zdefiniowane grupy łączące wiele działów w jeden kafelek: <strong style="color:#ffffff;">${groups.length}</strong></span>
+            <span style="font-size:0.75rem; color:#a1a1aa;">Zdefiniowane grupy łączące wiele działów w jeden kafelek: <strong style="color:#ffffff;">${groups.length}</strong>. Zmieniaj kolejność przeciągając uchwyt <strong>:::</strong> lub przyciskami.</span>
           </div>
-          <button type="button" class="btn-action" onclick="window.showEditCategoryGroupForm('')" style="font-size:0.72rem; padding:6px 14px;">
-            + Dodaj nową grupę
-          </button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn-secondary" onclick="window.autoGroupCategoriesByPrefix()" style="font-size:0.72rem; padding:6px 12px;" title="Automatycznie utwórz grupy z folderów posiadających ten sam numer prefiksu">
+              Połącz foldery o tym samym numerze
+            </button>
+            <button type="button" class="btn-action" onclick="window.showEditCategoryGroupForm('')" style="font-size:0.72rem; padding:6px 14px;">
+              + Dodaj nową grupę
+            </button>
+          </div>
         </div>
     `;
 
@@ -5431,17 +5885,29 @@ window.renderCategoryGroupsList = function() {
         }
 
         html += `
-          <div style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-            <div>
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">Kafelek: <span style="color:var(--sw-gold);">${gTitle}</span></span>
-                <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">ID: ${gid}</span>
-              </div>
-              <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                ${sectionsSummaryHtml}
+          <div class="category-group-card" draggable="true" data-group-id="${gid}"
+               ondragstart="window.handleCategoryGroupDragStart(event, '${gid}')"
+               ondragover="window.handleCategoryGroupDragOver(event, '${gid}')"
+               ondragleave="window.handleCategoryGroupDragLeave(event)"
+               ondrop="window.handleCategoryGroupDrop(event, '${gid}')"
+               ondragend="window.handleCategoryGroupDragEnd(event)"
+               style="background:#141416; border:1px solid #27272a; border-radius:6px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; cursor:grab;">
+            <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+              <span class="drag-handle" title="Przeciągnij, aby zmienić kolejność grup" style="cursor:grab; font-size:1.15rem; color:#71717a; padding:0 2px; user-select:none;">:::</span>
+              <div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                  <span style="font-size:0.78rem; color:#71717a; font-family:monospace; width:22px;">${idx + 1}.</span>
+                  <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">Kafelek: <span style="color:var(--sw-gold);">${gTitle}</span></span>
+                  <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">ID: ${gid}</span>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                  ${sectionsSummaryHtml}
+                </div>
               </div>
             </div>
             <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" class="btn-secondary" onclick="window.moveCategoryGroup('${gid}', -1)" style="font-size:0.72rem; padding:5px 10px; ${idx === 0 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === 0 ? 'disabled' : ''} title="Przesuń grupę w górę">Góra</button>
+              <button type="button" class="btn-secondary" onclick="window.moveCategoryGroup('${gid}', 1)" style="font-size:0.72rem; padding:5px 10px; ${idx === groups.length - 1 ? 'opacity:0.35; cursor:not-allowed;' : ''}" ${idx === groups.length - 1 ? 'disabled' : ''} title="Przesuń grupę w dół">Dół</button>
               <button type="button" class="btn-secondary" onclick="window.showEditCategoryGroupForm('${gid}')" style="font-size:0.72rem; padding:5px 12px;">Edytuj</button>
               <button type="button" class="btn-danger" onclick="window.deleteCategoryGroup('${gid}')" style="font-size:0.72rem; padding:5px 12px;">Usuń</button>
             </div>
@@ -5529,7 +5995,13 @@ window.addCategoryGroupSectionRow = function(headerVal = '', matchVal = '') {
 
   const row = document.createElement('div');
   row.className = 'grp-section-row';
-  row.style.cssText = 'background:#111; border:1px solid #333; border-radius:4px; padding:10px; display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;';
+  row.draggable = true;
+  row.ondragstart = window.handleGrpSectionDragStart;
+  row.ondragover = window.handleGrpSectionDragOver;
+  row.ondragleave = window.handleGrpSectionDragLeave;
+  row.ondrop = window.handleGrpSectionDrop;
+  row.ondragend = window.handleGrpSectionDragEnd;
+  row.style.cssText = 'background:#111; border:1px solid #333; border-radius:4px; padding:10px; display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; cursor:grab;';
 
   let catOptionsHtml = `<option value="">-- Wybierz kategorię lub wpisz wzorzec --</option>`;
   for (const c of availableCats) {
@@ -5538,6 +6010,9 @@ window.addCategoryGroupSectionRow = function(headerVal = '', matchVal = '') {
   }
 
   row.innerHTML = `
+    <div style="display:flex; align-items:center; padding-bottom:6px;">
+      <span class="drag-handle" title="Przeciągnij sekcję w górę lub w dół" style="cursor:grab; font-size:1.15rem; color:#71717a; padding:0 4px; user-select:none;">:::</span>
+    </div>
     <div style="flex:1; min-width:180px;">
       <label style="display:block; font-size:0.68rem; color:#a1a1aa; margin-bottom:3px; font-weight:600;">Tytuł belki (nagłówek):</label>
       <input type="text" class="grp-sec-header" value="${escapeHtml(headerVal)}" placeholder="np. WINDOWS, LINUX, PROXMOX" required style="width:100%; background:#18181b; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:3px; font-size:0.78rem; box-sizing:border-box;">

@@ -2773,5 +2773,38 @@
       font-weight: 500;
     }
 
+    /* Drag and Drop w modalu zarzadzania menu gornym */
+    .top-nav-order-item.dragging,
+    .grp-section-row.dragging,
+    .category-group-card.dragging {
+      opacity: 0.45;
+      border-style: dashed !important;
+      border-color: var(--sw-gold) !important;
+      background: #1f1f23 !important;
+    }
+
+    .top-nav-order-item.drag-over-top,
+    .grp-section-row.drag-over-top,
+    .category-group-card.drag-over-top {
+      border-top: 2px solid var(--sw-gold) !important;
+    }
+
+    .top-nav-order-item.drag-over-bottom,
+    .grp-section-row.drag-over-bottom,
+    .category-group-card.drag-over-bottom {
+      border-bottom: 2px solid var(--sw-gold) !important;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      user-select: none;
+      font-family: monospace;
+      font-weight: bold;
+      letter-spacing: -1px;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
 
 

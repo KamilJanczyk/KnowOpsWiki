@@ -3227,11 +3227,23 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.equal(buildNavCode.includes("path.join(dataDir, 'top_nav_order.json')"), true);
   assert.equal(buildNavCode.includes("topNavOrder"), true);
 
-  // Frontend funkcje przesuwania i segregacji oraz obsługa zakładek
+  // Frontend funkcje przesuwania i segregacji oraz obsługa zakładek i Drag & Drop
   assert.equal(appJsCode.includes("window.moveSectionRow = function"), true);
   assert.equal(appJsCode.includes("window.moveTopNavTile = async function"), true);
   assert.equal(appJsCode.includes("window.resetTopNavOrder = async function"), true);
   assert.equal(appJsCode.includes("window.switchCategoryGroupsModalTab = function"), true);
+  assert.equal(appJsCode.includes("window.reorderTopNavTiles = async function"), true);
+  assert.equal(appJsCode.includes("window.handleTopNavOrderDragStart"), true);
+  assert.equal(appJsCode.includes("window.handleTopNavOrderDrop"), true);
+  assert.equal(appJsCode.includes("window.reorderCategoryGroupsByDrag = async function"), true);
+  assert.equal(appJsCode.includes("window.handleCategoryGroupDragStart"), true);
+  assert.equal(appJsCode.includes("window.handleCategoryGroupDrop"), true);
+  assert.equal(appJsCode.includes("window.handleGrpSectionDragStart"), true);
+  assert.equal(appJsCode.includes("window.handleGrpSectionDrop"), true);
+  assert.equal(appJsCode.includes("window.autoGroupCategoriesByPrefix = async function"), true);
+  assert.equal(appJsCode.includes("top-nav-order-item"), true);
+  assert.equal(appJsCode.includes("category-group-card"), true);
+  assert.equal(appJsCode.includes("drag-handle"), true);
   assert.equal(appJsCode.includes("getTopNavTiles"), true);
   assert.equal(appJsCode.includes("1. Kolejność kafelków"), true);
   assert.equal(appJsCode.includes("2. Grupy menu"), true);
@@ -3277,6 +3289,69 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   // Przesunięcie group_os w prawo (dół w liście)
   const movedRight = simulateMoveTile(['kanban_board', 'group_os', 'Fortinet'], 'group_os', 1);
   assert.deepEqual(movedRight, ['kanban_board', 'Fortinet', 'group_os']);
+
+  // Symulacja Drag and Drop: przesuwanie elementu z pozycji np. 20 na pozycję 2
+  function simulateDragReorder(list, fromId, toId, isAfter) {
+    const arr = [...list];
+    const fromIdx = arr.indexOf(fromId);
+    const toIdx = arr.indexOf(toId);
+    if (fromIdx === -1 || toIdx === -1) return arr;
+    const [moved] = arr.splice(fromIdx, 1);
+    let targetIdx = arr.indexOf(toId);
+    if (isAfter) targetIdx += 1;
+    arr.splice(targetIdx, 0, moved);
+    return arr;
+  }
+
+  const tiles25 = Array.from({ length: 25 }, (_, i) => `tile_${i + 1}`);
+  // Przeciągnięcie kafla nr 20 (tile_20) przed kafel nr 2 (tile_2) -> staje się nową pozycją 2 (index 1)
+  const reorderedTo2 = simulateDragReorder(tiles25, 'tile_20', 'tile_2', false);
+  assert.equal(reorderedTo2[1], 'tile_20');
+  assert.equal(reorderedTo2[2], 'tile_2');
+  assert.equal(reorderedTo2.length, 25);
+
+  // Przeciągnięcie kafla nr 20 (tile_20) za kafel nr 2 (tile_2) -> staje się nową pozycją 3 (index 2)
+  const reorderedAfter2 = simulateDragReorder(tiles25, 'tile_20', 'tile_2', true);
+  assert.equal(reorderedAfter2[1], 'tile_2');
+  assert.equal(reorderedAfter2[2], 'tile_20');
+  assert.equal(reorderedAfter2.length, 25);
+
+  // Symulacja logiki topologii prefiksów numerycznych:
+  // Foldery o tym samym numerze -> łączone w grupę
+  // Foldery o unikalnym numerze -> automatycznie pojedyncze kafelki
+  const testFolders = [
+    { id: '00_Sciaga', title: 'Ściąga' },
+    { id: '010_CyberSec', title: 'CyberSec' },
+    { id: '010_Linux', title: 'Linux' },
+    { id: '010_Microsoft', title: 'Microsoft' },
+    { id: '025_Bazy_Danych', title: 'Bazy Danych' },
+    { id: '030_Poczta', title: 'Poczta' },
+    { id: '080_Projekty', title: 'Projekty' }
+  ];
+
+  const prefixCount = new Map();
+  for (const f of testFolders) {
+    const match = f.id.match(/^(\d+)[_\s-]+/);
+    if (match) {
+      const p = match[1];
+      prefixCount.set(p, (prefixCount.get(p) || 0) + 1);
+    }
+  }
+
+  const groupsByTopology = [];
+  const standaloneByTopology = [];
+  for (const f of testFolders) {
+    const match = f.id.match(/^(\d+)[_\s-]+/);
+    const p = match ? match[1] : null;
+    if (p && prefixCount.get(p) > 1) {
+      if (!groupsByTopology.includes(p)) groupsByTopology.push(p);
+    } else {
+      standaloneByTopology.push(f.id);
+    }
+  }
+
+  assert.deepEqual(groupsByTopology, ['010']);
+  assert.deepEqual(standaloneByTopology, ['00_Sciaga', '025_Bazy_Danych', '030_Poczta', '080_Projekty']);
 
   // Symulacja przesuwania sekcji w formularzu grupy
   const testSections = [
