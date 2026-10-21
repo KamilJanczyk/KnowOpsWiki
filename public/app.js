@@ -7363,6 +7363,9 @@ async function openEditorModal(targetPath) {
     if (modal) {
       modal.style.display = 'flex';
       ensureEditorToolbarTagsButton();
+      if (typeof window.updateEditorScrollSyncButton === 'function') {
+        window.updateEditorScrollSyncButton();
+      }
       updateEditorPreview();
     } else {
       alert('Nie znaleziono okna edytora articleEditorModal w strukturze HTML.');
@@ -7548,12 +7551,88 @@ function updateEditorHighlights() {
   highlights.scrollLeft = textarea.scrollLeft;
 }
 
+/* ===== SYNCHRONICZNE PRZEWIJANIE EDYTORA I PODGLĄDU (SCROLL SYNC) ===== */
+window.isEditorScrollSyncEnabled = (localStorage.getItem('knowops_editor_scroll_sync') !== 'false');
+let _isSyncingFromTextarea = false;
+let _isSyncingFromPreview = false;
+
+window.toggleEditorScrollSync = function() {
+  window.isEditorScrollSyncEnabled = !window.isEditorScrollSyncEnabled;
+  try {
+    localStorage.setItem('knowops_editor_scroll_sync', String(window.isEditorScrollSyncEnabled));
+  } catch (e) {}
+  window.updateEditorScrollSyncButton();
+};
+
+window.updateEditorScrollSyncButton = function() {
+  const btn = document.getElementById('btnToggleScrollSync');
+  if (!btn) return;
+  if (window.isEditorScrollSyncEnabled) {
+    btn.textContent = 'Scroll Sync: WŁ';
+    btn.style.color = '#fbbf24';
+    btn.style.background = '#1c1917';
+    btn.style.borderColor = '#78350f';
+    btn.title = 'Przełącz synchroniczne przewijanie edytora i podglądu (obecnie: WŁĄCZONE)';
+  } else {
+    btn.textContent = 'Scroll Sync: WYŁ';
+    btn.style.color = '#71717a';
+    btn.style.background = '#18181b';
+    btn.style.borderColor = '#27272a';
+    btn.title = 'Przełącz synchroniczne przewijanie edytora i podglądu (obecnie: WYŁĄCZONE)';
+  }
+};
+
 window.syncEditorScroll = function() {
   const textarea = document.getElementById('editorTextarea');
   const highlights = document.getElementById('editorHighlights');
+  const preview = document.getElementById('editorPreview') || document.getElementById('editorPreviewArea');
+
   if (textarea && highlights) {
     highlights.scrollTop = textarea.scrollTop;
     highlights.scrollLeft = textarea.scrollLeft;
+  }
+
+  if (!window.isEditorScrollSyncEnabled || !textarea || !preview) return;
+  if (_isSyncingFromPreview) return;
+
+  const maxScrollText = textarea.scrollHeight - textarea.clientHeight;
+  const maxScrollPreview = preview.scrollHeight - preview.clientHeight;
+
+  if (maxScrollText > 0 && maxScrollPreview > 0) {
+    _isSyncingFromTextarea = true;
+    const ratio = textarea.scrollTop / maxScrollText;
+    preview.scrollTop = Math.round(ratio * maxScrollPreview);
+    requestAnimationFrame(() => {
+      _isSyncingFromTextarea = false;
+    });
+  }
+};
+
+window.syncPreviewScroll = function() {
+  if (!window.isEditorScrollSyncEnabled) return;
+  if (_isSyncingFromTextarea) return;
+
+  const textarea = document.getElementById('editorTextarea');
+  const highlights = document.getElementById('editorHighlights');
+  const preview = document.getElementById('editorPreview') || document.getElementById('editorPreviewArea');
+
+  if (!textarea || !preview) return;
+
+  const maxScrollText = textarea.scrollHeight - textarea.clientHeight;
+  const maxScrollPreview = preview.scrollHeight - preview.clientHeight;
+
+  if (maxScrollText > 0 && maxScrollPreview > 0) {
+    _isSyncingFromPreview = true;
+    const ratio = preview.scrollTop / maxScrollPreview;
+    const targetScroll = Math.round(ratio * maxScrollText);
+    textarea.scrollTop = targetScroll;
+    if (highlights) {
+      highlights.scrollTop = targetScroll;
+      highlights.scrollLeft = textarea.scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      _isSyncingFromPreview = false;
+    });
   }
 };
 
@@ -7985,6 +8064,9 @@ window.openEditorModal = openEditorModal;
 window.closeEditorModal = closeEditorModal;
 window.saveCurrentArticleFromModal = saveCurrentArticleFromModal;
 window.updateEditorPreview = updateEditorPreview;
+window.toggleEditorScrollSync = window.toggleEditorScrollSync;
+window.updateEditorScrollSyncButton = window.updateEditorScrollSyncButton;
+window.syncPreviewScroll = window.syncPreviewScroll;
 
 
 // ================= MODUŁ USUWANIA FOLDERÓW / DZIAŁÓW ================= //

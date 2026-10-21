@@ -3363,6 +3363,54 @@ test('57. Grupowanie kategorii w górnym pasku (OS -> WINDOWS & LINUX): weryfika
   assert.deepEqual(reorderedSec, ['VMWARE', 'PROXMOX', 'DOCKER']);
 });
 
+test('58. Markdown Editor Scroll Sync: weryfikacja obustronnej synchronizacji edytora i podglądu, zabezpieczenia pętli oraz przycisku kontrolnego', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja kontrolek i zdarzeń w index.html
+  assert.equal(indexHtml.includes('id="btnToggleScrollSync"'), true, 'Brak przycisku btnToggleScrollSync w index.html');
+  assert.equal(indexHtml.includes('onclick="toggleEditorScrollSync()"'), true, 'Brak wywołania toggleEditorScrollSync w index.html');
+  assert.equal(indexHtml.includes('onscroll="syncPreviewScroll()"'), true, 'Brak onscroll="syncPreviewScroll()" na editorPreview w index.html');
+  assert.equal(indexHtml.includes('onscroll="syncEditorScroll()"'), true, 'Brak onscroll="syncEditorScroll()" na editorTextarea w index.html');
+
+  // 2. Weryfikacja funkcji synchronizacji w public/app.js
+  assert.equal(appJs.includes('window.isEditorScrollSyncEnabled'), true, 'Brak window.isEditorScrollSyncEnabled w app.js');
+  assert.equal(appJs.includes('window.toggleEditorScrollSync = function'), true, 'Brak window.toggleEditorScrollSync w app.js');
+  assert.equal(appJs.includes('window.updateEditorScrollSyncButton = function'), true, 'Brak window.updateEditorScrollSyncButton w app.js');
+  assert.equal(appJs.includes('window.syncEditorScroll = function'), true, 'Brak window.syncEditorScroll w app.js');
+  assert.equal(appJs.includes('window.syncPreviewScroll = function'), true, 'Brak window.syncPreviewScroll w app.js');
+  assert.equal(appJs.includes('_isSyncingFromTextarea'), true, 'Brak zabezpieczenia flagą _isSyncingFromTextarea');
+  assert.equal(appJs.includes('_isSyncingFromPreview'), true, 'Brak zabezpieczenia flagą _isSyncingFromPreview');
+
+  // 3. Symulacja wyliczania pozycji przewinięcia proporcjonalnego (Scroll Ratio)
+  function calculateSyncedScroll(sourceScrollTop, sourceScrollHeight, sourceClientHeight, targetScrollHeight, targetClientHeight) {
+    const maxSource = sourceScrollHeight - sourceClientHeight;
+    const maxTarget = targetScrollHeight - targetClientHeight;
+    if (maxSource <= 0 || maxTarget <= 0) return 0;
+    const ratio = sourceScrollTop / maxSource;
+    return Math.round(ratio * maxTarget);
+  }
+
+  // Symulacja: Textarea scrolluje o 50%
+  const textScrollTop = 500;
+  const textScrollHeight = 1500;
+  const textClientHeight = 500; // maxSource = 1000 -> ratio = 0.5
+  const previewScrollHeight = 3500;
+  const previewClientHeight = 500; // maxTarget = 3000
+
+  const syncedPreview = calculateSyncedScroll(textScrollTop, textScrollHeight, textClientHeight, previewScrollHeight, previewClientHeight);
+  assert.equal(syncedPreview, 1500, 'Błędne przeliczenie pozycji podglądu (powinno być 50% z 3000)');
+
+  // Symulacja: Preview scrolluje o 25%
+  const previewInputScrollTop = 750; // ratio = 750 / 3000 = 0.25
+  const syncedText = calculateSyncedScroll(previewInputScrollTop, previewScrollHeight, previewClientHeight, textScrollHeight, textClientHeight);
+  assert.equal(syncedText, 250, 'Błędne przeliczenie pozycji edytora (powinno być 25% z 1000)');
+
+  // Symulacja: Przypadki brzegowe (góra i dół dokumentu)
+  assert.equal(calculateSyncedScroll(0, textScrollHeight, textClientHeight, previewScrollHeight, previewClientHeight), 0);
+  assert.equal(calculateSyncedScroll(1000, textScrollHeight, textClientHeight, previewScrollHeight, previewClientHeight), 3000);
+});
+
 
 
 
