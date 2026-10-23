@@ -2240,20 +2240,12 @@ window.loadSecondaryArticle = async function(articlePath) {
 
     contentArea.innerHTML = `<div class="markdown-body">${parseMarkdown(markdownText)}</div>`;
 
-    const codeBlocks = contentArea.querySelectorAll('pre');
-    codeBlocks.forEach(pre => {
-      const btn = document.createElement('button');
-      btn.className = 'copy-code-btn';
-      btn.textContent = 'Kopiuj';
-      btn.onclick = () => {
-        const code = pre.querySelector('code');
-        navigator.clipboard.writeText(code ? code.innerText : pre.innerText);
-        btn.textContent = 'Skopiowano!';
-        setTimeout(() => { btn.textContent = 'Kopiuj'; }, 2000);
-      };
-      pre.style.position = 'relative';
-      pre.appendChild(btn);
-    });
+    if (typeof renderMermaidDiagrams === 'function') {
+      renderMermaidDiagrams(contentArea);
+    }
+    if (typeof addCopyButtons === 'function') {
+      addCopyButtons(contentArea);
+    }
 
   } catch (err) {
     contentArea.innerHTML = `<p style="color:#ef4444; padding:20px;">Błąd: ${escapeHtml(err.message)}</p>`;
@@ -2458,8 +2450,9 @@ function addCopyButtons(container = null) {
 
   const preBlocks = target.querySelectorAll('pre');
   preBlocks.forEach((pre) => {
+    if (pre.classList.contains('mermaid') || pre.closest('.mermaid')) return;
+
     pre.style.position = 'relative';
-    if (pre.querySelector('.copy-code-btn')) return;
 
     // Syntax Highlighting przez highlight.js [dodane: punkt 8]
     if (typeof hljs !== 'undefined') {
@@ -2469,38 +2462,93 @@ function addCopyButtons(container = null) {
       }
     }
 
-    const btn = document.createElement('button');
-    btn.className = 'copy-code-btn';
-    btn.textContent = 'Kopiuj';
-    btn.type = 'button';
+    // Dodanie przycisku kopiowania, jeśli jeszcze nie istnieje
+    if (!pre.querySelector('.copy-code-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'copy-code-btn';
+      btn.textContent = 'Kopiuj';
+      btn.type = 'button';
 
-    btn.addEventListener('click', async () => {
-      const code = pre.querySelector('code');
-      const rawText = code ? code.textContent : pre.textContent;
-      const textToCopy = (rawText || '').replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
+      btn.addEventListener('click', async () => {
+        const code = pre.querySelector('code');
+        let rawText = '';
+        if (code) {
+          rawText = code.textContent || '';
+        } else {
+          const clone = pre.cloneNode(true);
+          clone.querySelectorAll('.copy-code-btn, .btn-code-collapse').forEach(el => el.remove());
+          rawText = clone.textContent || '';
+        }
+        const textToCopy = (rawText || '').replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
 
-      try {
-        await navigator.clipboard.writeText(textToCopy);
+        try {
+          await navigator.clipboard.writeText(textToCopy);
 
-        // Usunięcie podświetlenia z poprzedniego bloku i podświetlenie aktualnego
-        document.querySelectorAll('pre.code-block-last-copied').forEach(el => {
-          el.classList.remove('code-block-last-copied');
-        });
-        pre.classList.add('code-block-last-copied');
+          // Usuniecie podswietlenia z poprzedniego bloku i podswietlenie aktualnego
+          document.querySelectorAll('pre.code-block-last-copied').forEach(el => {
+            el.classList.remove('code-block-last-copied');
+          });
+          pre.classList.add('code-block-last-copied');
 
-        btn.textContent = 'Skopiowano!';
-        btn.classList.add('copied');
-        setTimeout(() => {
-          btn.textContent = 'Kopiuj';
-          btn.classList.remove('copied');
-        }, 1500);
-      } catch (err) {
-        console.warn('Błąd kopiowania:', err);
-        btn.textContent = 'Błąd';
-      }
-    });
+          btn.textContent = 'Skopiowano!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'Kopiuj';
+            btn.classList.remove('copied');
+          }, 1500);
+        } catch (err) {
+          console.warn('Blad kopiowania:', err);
+          btn.textContent = 'Blad';
+        }
+      });
 
-    pre.appendChild(btn);
+      pre.appendChild(btn);
+    }
+
+    // Wariant 1: Automatyczne zwijanie dlugich blokow kodu (od 16 linii wzwyz)
+    const codeEl = pre.querySelector('code');
+    let rawContent = '';
+    if (codeEl) {
+      rawContent = codeEl.textContent || '';
+    } else {
+      const clone = pre.cloneNode(true);
+      clone.querySelectorAll('.copy-code-btn, .btn-code-collapse').forEach(el => el.remove());
+      rawContent = clone.textContent || '';
+    }
+    const lines = rawContent.trim().split('\n');
+    const lineCount = lines.length;
+
+    if (lineCount >= 16 && !pre.querySelector('.btn-code-collapse')) {
+      pre.classList.add('code-block-collapsible', 'code-block-collapsed');
+
+      const collapseBtn = document.createElement('button');
+      collapseBtn.className = 'btn-code-collapse';
+      collapseBtn.type = 'button';
+      collapseBtn.textContent = `Rozwiń kod (${lineCount} linii)`;
+      collapseBtn.title = `Kliknij, aby rozwinąć kod (${lineCount} linii)`;
+
+      collapseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isCollapsed = pre.classList.contains('code-block-collapsed');
+        if (isCollapsed) {
+          pre.classList.remove('code-block-collapsed');
+          pre.classList.add('code-block-expanded');
+          collapseBtn.textContent = 'Zwiń kod';
+          collapseBtn.title = 'Kliknij, aby zwinąć kod';
+        } else {
+          pre.classList.remove('code-block-expanded');
+          pre.classList.add('code-block-collapsed');
+          collapseBtn.textContent = `Rozwiń kod (${lineCount} linii)`;
+          collapseBtn.title = `Kliknij, aby rozwinąć kod (${lineCount} linii)`;
+          const rect = pre.getBoundingClientRect();
+          if (rect.top < 80) {
+            pre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      });
+
+      pre.appendChild(collapseBtn);
+    }
   });
 }
 
@@ -7643,6 +7691,9 @@ function updateEditorPreview() {
     preview.innerHTML = parseMarkdown(textarea.value);
     if (typeof renderMermaidDiagrams === 'function') {
       renderMermaidDiagrams(preview);
+    }
+    if (typeof addCopyButtons === 'function') {
+      addCopyButtons(preview);
     }
   }
 

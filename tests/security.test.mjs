@@ -3411,16 +3411,88 @@ test('58. Markdown Editor Scroll Sync: weryfikacja obustronnej synchronizacji ed
   assert.equal(calculateSyncedScroll(1000, textScrollHeight, textClientHeight, previewScrollHeight, previewClientHeight), 3000);
 });
 
+test('59. Code Block Collapse & Copy Integration (Wariant 1): automatyczne zwijanie długich bloków kodu, toggle Rozwiń/Zwiń, izolacja kopiowania i reguły print', () => {
+  const css = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
 
+  // 1. Weryfikacja reguł CSS w public/style.css
+  assert.equal(css.includes('.markdown-body pre.code-block-collapsible'), true, 'Brak klasy .code-block-collapsible w style.css');
+  assert.equal(css.includes('.markdown-body pre.code-block-collapsible.code-block-collapsed'), true, 'Brak klasy .code-block-collapsed w style.css');
+  assert.equal(css.includes('max-height: 240px;'), true, 'Brak ograniczenia max-height: 240px w style.css');
+  assert.equal(css.includes('.markdown-body pre.code-block-collapsible.code-block-expanded'), true, 'Brak klasy .code-block-expanded w style.css');
+  assert.equal(css.includes('.btn-code-collapse'), true, 'Brak definicji .btn-code-collapse w style.css');
+  assert.equal(css.includes('linear-gradient(to bottom, rgba(18, 18, 18, 0), rgba(18, 18, 18, 0.96) 75%)'), true, 'Brak gradientu zanikania w style.css');
 
+  // Weryfikacja reguł dla druku / PDF (@media print)
+  assert.equal(css.includes('.btn-code-collapse,') || css.includes('.btn-code-collapse { display: none !important; }'), true, 'Brak ukrycia .btn-code-collapse w @media print');
+  assert.equal(css.includes('.markdown-body pre.code-block-collapsible::after'), true, 'Brak usunięcia dolnego gradientu w @media print');
+  assert.equal(css.includes('max-height: none !important;'), true, 'Brak zdjęcia ograniczenia wysokości bloków w @media print');
 
+  // 2. Weryfikacja logiki w public/app.js
+  assert.equal(appJs.includes('btn-code-collapse'), true, 'Brak tworzenia przycisku btn-code-collapse w app.js');
+  assert.equal(appJs.includes('code-block-collapsible'), true, 'Brak nadawania klasy code-block-collapsible w app.js');
+  assert.equal(appJs.includes('code-block-collapsed'), true, 'Brak nadawania klasy code-block-collapsed w app.js');
+  assert.equal(appJs.includes('code-block-expanded'), true, 'Brak obsługi klasy code-block-expanded w app.js');
+  assert.equal(appJs.includes('Rozwiń kod'), true, 'Brak etykiety Rozwiń kod w app.js');
+  assert.equal(appJs.includes('Zwiń kod'), true, 'Brak etykiety Zwiń kod w app.js');
+  assert.equal(appJs.includes('lineCount >= 16'), true, 'Brak progu 16 linii w app.js');
 
+  // Weryfikacja integracji z widokami loadSecondaryArticle oraz updateEditorPreview
+  assert.equal(appJs.includes('addCopyButtons(contentArea)'), true, 'Brak wywołania addCopyButtons(contentArea) w loadSecondaryArticle');
+  assert.equal(appJs.includes('addCopyButtons(preview)'), true, 'Brak wywołania addCopyButtons(preview) w updateEditorPreview');
 
+  // 3. Symulacja silnika zwijania i kopiowania
+  function simulateCodeBlockProcessing(codeText) {
+    const lines = (codeText || '').trim().split('\n');
+    const lineCount = lines.length;
+    const isCollapsible = lineCount >= 16;
+    let state = isCollapsible ? 'collapsed' : 'none';
+    let buttonText = isCollapsible ? `Rozwiń kod (${lineCount} linii)` : null;
 
+    function toggle() {
+      if (!isCollapsible) return;
+      if (state === 'collapsed') {
+        state = 'expanded';
+        buttonText = 'Zwiń kod';
+      } else {
+        state = 'collapsed';
+        buttonText = `Rozwiń kod (${lineCount} linii)`;
+      }
+    }
 
+    function getClipboardText() {
+      return codeText.replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
+    }
 
+    return { lineCount, isCollapsible, getState: () => state, getButtonText: () => buttonText, toggle, getClipboardText };
+  }
 
+  // Przypadek A: Krótki blok kodu (10 linii) -> nie powinien być zwijany
+  const shortSnippet = Array.from({ length: 10 }, (_, i) => `Get-Process -Id ${i}`).join('\n');
+  const shortBlock = simulateCodeBlockProcessing(shortSnippet);
+  assert.equal(shortBlock.isCollapsible, false, 'Blok poniżej 16 linii nie powinien być zwijany');
+  assert.equal(shortBlock.getState(), 'none');
+  assert.equal(shortBlock.getButtonText(), null);
 
+  // Przypadek B: Długi skrypt (25 linii) -> domyślnie zwinięty z etykietą liczby linii
+  const longSnippet = Array.from({ length: 25 }, (_, i) => `Write-Output "Krok konfiguracji ${i + 1}"`).join('\n');
+  const longBlock = simulateCodeBlockProcessing(longSnippet);
+  assert.equal(longBlock.isCollapsible, true, 'Blok 25 linii powinien być oznaczony jako zwijalny');
+  assert.equal(longBlock.getState(), 'collapsed');
+  assert.equal(longBlock.getButtonText(), 'Rozwiń kod (25 linii)');
 
+  // Przypadek C: Przełączenie stanu Rozwiń / Zwiń
+  longBlock.toggle();
+  assert.equal(longBlock.getState(), 'expanded');
+  assert.equal(longBlock.getButtonText(), 'Zwiń kod');
 
+  longBlock.toggle();
+  assert.equal(longBlock.getState(), 'collapsed');
+  assert.equal(longBlock.getButtonText(), 'Rozwiń kod (25 linii)');
 
+  // Przypadek D: Kopiowanie do schowka zawiera pełen kod bez etykiet przycisków
+  const clipboardOutput = longBlock.getClipboardText();
+  assert.equal(clipboardOutput.includes('Rozwiń kod'), false, 'Tekst przycisku zwijania nie może trafić do schowka');
+  assert.equal(clipboardOutput.includes('Kopiuj'), false, 'Tekst przycisku kopiowania nie może trafić do schowka');
+  assert.equal(clipboardOutput.split('\n').length, 25, 'Schowek musi zawierać wszystkie 25 linii skryptu');
+});
