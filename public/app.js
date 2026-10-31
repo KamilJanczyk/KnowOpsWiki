@@ -1805,7 +1805,7 @@ function renderDocTabs() {
   const activeTabEl = container.querySelector('.doc-tab.active');
   if (activeTabEl) {
     const tabRow = activeTabEl.closest('.doc-tabs-pinned-row') || activeTabEl.closest('.doc-tabs-action-row');
-    if (tabRow) {
+    if (tabRow && tabRow.scrollWidth > tabRow.clientWidth) {
       const tabLeft = activeTabEl.offsetLeft;
       const tabRight = tabLeft + activeTabEl.offsetWidth;
       if (tabLeft < tabRow.scrollLeft) {

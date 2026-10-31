@@ -716,25 +716,24 @@
     }
     .doc-tabs-pinned-row {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 5px;
-      overflow-x: auto;
-      overflow-y: hidden;
+      overflow: visible;
       min-height: 25px;
-      padding-bottom: 3px;
+      padding-top: 1px;
+      padding-bottom: 4px;
       border-bottom: 1px solid #27272a;
-      scrollbar-width: thin;
-      scrollbar-color: #52525b #18181b;
     }
     .doc-tabs-pinned-row::-webkit-scrollbar {
-      height: 3px;
+      display: none;
+      height: 0;
     }
     .doc-tabs-pinned-row::-webkit-scrollbar-thumb {
-      background: #52525b;
-      border-radius: 2px;
+      background: transparent;
     }
     .doc-tabs-pinned-row::-webkit-scrollbar-track {
-      background: #18181b;
+      background: transparent;
     }
     .doc-tabs-action-row {
       display: flex;
