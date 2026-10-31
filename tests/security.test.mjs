@@ -3547,3 +3547,27 @@ test('60. Multi-Row Wrapped Pinned Tabs: weryfikacja zawijania kart (flex-wrap),
   const linesTen = simulateTabsRowLayout(Array(10).fill(150), 600);
   assert.equal(linesTen, 4, '10 kart w wąskim oknie powinno zawinąć się do 4 linii bez paska przewijania');
 });
+
+test('61. Silent Drag & Drop Document & Folder Moving (Wariant 1): eliminacja blokujących okien confirm i alert, płynne przenoszenie i zachowanie obsługi błędów', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Ekstrakcja implementacji handleSidebarDrop z public/app.js
+  const dropFnMatch = appJs.match(/window\.handleSidebarDrop\s*=\s*async\s*function\s*\([^)]*\)\s*\{([\s\S]*?)\n\};/);
+  assert.ok(dropFnMatch, 'Brak funkcji window.handleSidebarDrop w app.js');
+  const dropFnCode = dropFnMatch[1];
+
+  // 2. Weryfikacja całkowitej eliminacji dialogów potwierdzenia (confirm)
+  assert.equal(dropFnCode.includes('confirm('), false, 'handleSidebarDrop nie może wywoływać blokującego okna confirm');
+
+  // 3. Weryfikacja eliminacji alertów sukcesu (został pomyślnie przeniesiony)
+  assert.equal(dropFnCode.includes('został pomyślnie przeniesiony'), false, 'handleSidebarDrop nie może wywoływać blokujących alertów sukcesu');
+
+  // 4. Weryfikacja zachowania obsługi błędów sieciowych i serwerowych (catch block)
+  assert.equal(dropFnCode.includes('Błąd podczas przenoszenia folderu'), true, 'handleSidebarDrop musi zachować powiadomienie o błędzie folderu');
+  assert.equal(dropFnCode.includes('Błąd podczas przenoszenia pliku'), true, 'handleSidebarDrop musi zachować powiadomienie o błędzie pliku');
+
+  // 5. Weryfikacja braku alertu sukcesu w submitMovePage
+  const submitMoveMatch = appJs.match(/window\.submitMovePage\s*=\s*async\s*function\s*\([^)]*\)\s*\{([\s\S]*?)\n\};/);
+  assert.ok(submitMoveMatch, 'Brak funkcji window.submitMovePage w app.js');
+  assert.equal(submitMoveMatch[1].includes("alert('Dokument został pomyślnie przeniesiony.')"), false, 'submitMovePage nie powinien wywoływać blokującego alertu sukcesu');
+});

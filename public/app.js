@@ -1379,13 +1379,9 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
     }
     const currentFolder = sourceRelPath.includes('/') ? sourceRelPath.substring(0, sourceRelPath.lastIndexOf('/')) : '';
     if (currentFolder === targetDirRelPath) {
-      alert('Folder znajduje się już w tym dziale.');
       return;
     }
     const folderName = sourceRelPath.split('/').pop();
-    if (!confirm(`Czy na pewno chcesz przenieść cały folder "${folderName}" do lokalizacji docelowej: "${targetDirRelPath}"?`)) {
-      return;
-    }
 
     try {
       const res = await fetch('/api/move-folder', {
@@ -1410,7 +1406,6 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
 
       expandedDirs[data.relPath] = true;
       await loadNavigation();
-      alert(`Folder "${folderName}" został pomyślnie przeniesiony do "${targetDirRelPath}".`);
     } catch (err) {
       alert(`Błąd podczas przenoszenia folderu: ${err.message}`);
     }
@@ -1419,14 +1414,10 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
 
   const currentFolder = sourceRelPath.includes('/') ? sourceRelPath.substring(0, sourceRelPath.lastIndexOf('/')) : '';
   if (currentFolder === targetDirRelPath) {
-    alert('Dokument znajduje się już w tym dziale / folderze.');
     return;
   }
 
   const filename = sourceRelPath.split('/').pop();
-  if (!confirm(`Czy na pewno chcesz przenieść dokument "${filename}" do lokalizacji docelowej: "${targetDirRelPath}"?`)) {
-    return;
-  }
 
   try {
     const res = await fetch('/api/move-page', {
@@ -1448,7 +1439,6 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
     }
     await loadNavigation();
     window.location.hash = `#/${data.relPath}`;
-    alert(`Dokument "${filename}" został pomyślnie przeniesiony do "${targetDirRelPath}".`);
   } catch (err) {
     alert(`Błąd podczas przenoszenia pliku: ${err.message}`);
   }
@@ -6448,7 +6438,6 @@ window.submitMovePage = async function() {
     if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
 
     closeMovePageModal();
-    alert('Dokument został pomyślnie przeniesiony.');
     
     expandedDirs[targetCategoryRel] = true;
     if (typeof window.renameDocTab === 'function') {
