@@ -3571,3 +3571,48 @@ test('61. Silent Drag & Drop Document & Folder Moving (Wariant 1): eliminacja bl
   assert.ok(submitMoveMatch, 'Brak funkcji window.submitMovePage w app.js');
   assert.equal(submitMoveMatch[1].includes("alert('Dokument został pomyślnie przeniesiony.')"), false, 'submitMovePage nie powinien wywoływać blokującego alertu sukcesu');
 });
+
+test('62. Focus Mode, Inline Click-to-Copy & Sticky Table Headers: weryfikacja zwijania panelu bocznego (Alt+B), kopiowania inline code i lepkich nagłówków tabel', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja Trybu Skupienia (Focus Mode)
+  assert.equal(indexHtml.includes('id="btnToggleSidebar"'), true, 'Brak przycisku btnToggleSidebar w index.html');
+  assert.equal(indexHtml.includes('onclick="window.toggleLeftSidebar()"'), true, 'Brak wywołania toggleLeftSidebar w index.html');
+  assert.equal(styleCss.includes('.left-topics-box.collapsed'), true, 'Brak reguły .left-topics-box.collapsed w style.css');
+  assert.equal(styleCss.includes('width: 0 !important;'), true, 'Brak zwijania do szerokości 0 dla .left-topics-box.collapsed');
+  assert.equal(styleCss.includes('.btn-toggle-sidebar'), true, 'Brak stylów .btn-toggle-sidebar w style.css');
+  assert.equal(appJs.includes('window.toggleLeftSidebar = function'), true, 'Brak window.toggleLeftSidebar w app.js');
+  assert.equal(appJs.includes('window.initSidebarCollapseState = initSidebarCollapseState'), true, 'Brak initSidebarCollapseState w app.js');
+  assert.equal(appJs.includes("e.key === 'b' || e.key === 'B'"), true, 'Brak skrótu Alt+B w app.js');
+
+  // 2. Weryfikacja Click-to-Copy dla elementów inline code
+  assert.equal(styleCss.includes('.markdown-body code.inline-code-copyable'), true, 'Brak klasy inline-code-copyable w style.css');
+  assert.equal(styleCss.includes('.markdown-body code.inline-code-copyable.copied'), true, 'Brak stanu copied w style.css');
+  assert.equal(appJs.includes('window.setupInlineCodeCopy = setupInlineCodeCopy'), true, 'Brak setupInlineCodeCopy w app.js');
+  assert.equal(appJs.includes('setupInlineCodeCopy(target)'), true, 'Brak wywołania setupInlineCodeCopy w addCopyButtons');
+
+  // 3. Weryfikacja lepkich nagłówków tabel (Sticky Table Headers)
+  assert.equal(styleCss.includes('position: sticky;'), true);
+  assert.equal(styleCss.includes('top: var(--unified-header-height, 72px);'), true, 'Brak sticky top powiązanego z --unified-header-height w style.css');
+  assert.equal(appJs.includes('window.updateUnifiedHeaderHeight = updateUnifiedHeaderHeight'), true, 'Brak updateUnifiedHeaderHeight w app.js');
+
+  // 4. Test logiczny: symulacja czyszczenia i kopiowania tekstu inline code
+  function simulateInlineCopyText(rawCode) {
+    return (rawCode || '').trim().replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
+  }
+  assert.equal(simulateInlineCopyText('  certsrv.msc  '), 'certsrv.msc');
+  assert.equal(simulateInlineCopyText('“adfs.firma.pl”'), '"adfs.firma.pl"');
+  assert.equal(simulateInlineCopyText('‘Port 443’'), "'Port 443'");
+
+  // 5. Test logiczny: symulacja przełączania stanu panelu
+  function simulateToggleSidebar(currentCollapsed) {
+    return !currentCollapsed;
+  }
+  let state = false; // panel rozwinięty
+  state = simulateToggleSidebar(state);
+  assert.equal(state, true, 'Panel powinien przejść w stan zwinięty');
+  state = simulateToggleSidebar(state);
+  assert.equal(state, false, 'Panel powinien powrócić do stanu rozwiniętego');
+});

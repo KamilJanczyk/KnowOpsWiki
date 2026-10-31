@@ -201,6 +201,12 @@ async function initializeWikiContent() {
   if (typeof window.initScratchpad === 'function') {
     await window.initScratchpad();
   }
+  if (typeof window.initSidebarCollapseState === 'function') {
+    window.initSidebarCollapseState();
+  }
+  if (typeof window.updateUnifiedHeaderHeight === 'function') {
+    window.updateUnifiedHeaderHeight();
+  }
 }
 
 function escapeHtml(str) {
@@ -213,6 +219,9 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+window.addEventListener('resize', () => {
+  if (typeof window.updateUnifiedHeaderHeight === 'function') window.updateUnifiedHeaderHeight();
+});
 document.addEventListener('DOMContentLoaded', async () => {
   // Weryfikacja stanu autoryzacji z serwera
   try {
@@ -285,6 +294,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       if (typeof window.toggleSplitView === 'function') {
         window.toggleSplitView();
+      }
+    }
+    if (e.altKey && (e.key === 'b' || e.key === 'B')) {
+      e.preventDefault();
+      if (typeof window.toggleLeftSidebar === 'function') {
+        window.toggleLeftSidebar();
       }
     }
     if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
@@ -1805,6 +1820,10 @@ function renderDocTabs() {
       }
     }
   }
+
+  if (typeof window.updateUnifiedHeaderHeight === 'function') {
+    window.updateUnifiedHeaderHeight();
+  }
 }
 
 window.switchDocTab = function(path) {
@@ -2540,6 +2559,13 @@ function addCopyButtons(container = null) {
       pre.appendChild(collapseBtn);
     }
   });
+
+  if (typeof window.setupInlineCodeCopy === 'function') {
+    window.setupInlineCodeCopy(target);
+  }
+  if (typeof window.updateUnifiedHeaderHeight === 'function') {
+    window.updateUnifiedHeaderHeight();
+  }
 }
 
 // Usunięcie nagłówka YAML frontmatter przed parsowaniem i kopiowaniem
@@ -12098,5 +12124,93 @@ window.moveMpkProject = async function(pid, direction) {
 
 window.renderMpkModule = renderMpkModule;
 
+/* ===== TRYB SKUPIENIA (FOCUS MODE) I ZWIJANIE LEWEGO PANELU BOCZNEGO ===== */
+function updateUnifiedHeaderHeight() {
+  const hdr = document.getElementById('unifiedDocHeader');
+  if (hdr) {
+    const h = hdr.offsetHeight;
+    if (h > 0) {
+      document.documentElement.style.setProperty('--unified-header-height', h + 'px');
+    }
+  }
+}
+window.updateUnifiedHeaderHeight = updateUnifiedHeaderHeight;
 
+window.toggleLeftSidebar = function() {
+  const sidebar = document.getElementById('leftSidebarContainer');
+  const btn = document.getElementById('btnToggleSidebar');
+  if (!sidebar) return;
+
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  try {
+    localStorage.setItem('knowops_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+  } catch (e) {}
+
+  if (btn) {
+    if (isCollapsed) {
+      btn.classList.add('collapsed');
+      btn.textContent = 'Rozwiń';
+      btn.title = 'Rozwiń lewy panel boczny (Alt+B)';
+    } else {
+      btn.classList.remove('collapsed');
+      btn.textContent = 'Panel';
+      btn.title = 'Zwiń lewy panel / tryb skupienia (Alt+B)';
+    }
+  }
+
+  setTimeout(updateUnifiedHeaderHeight, 240);
+};
+
+function initSidebarCollapseState() {
+  try {
+    const saved = localStorage.getItem('knowops_sidebar_collapsed');
+    if (saved === 'true') {
+      const sidebar = document.getElementById('leftSidebarContainer');
+      const btn = document.getElementById('btnToggleSidebar');
+      if (sidebar) sidebar.classList.add('collapsed');
+      if (btn) {
+        btn.classList.add('collapsed');
+        btn.textContent = 'Rozwiń';
+        btn.title = 'Rozwiń lewy panel boczny (Alt+B)';
+      }
+    }
+  } catch (e) {}
+}
+window.initSidebarCollapseState = initSidebarCollapseState;
+
+/* ===== CLICK-TO-COPY DLA ELEMENTÓW INLINE CODE ===== */
+function setupInlineCodeCopy(container = null) {
+  const target = container || document.getElementById('articleContentArea');
+  if (!target) return;
+
+  const codeEls = target.querySelectorAll('code');
+  codeEls.forEach((code) => {
+    if (code.closest('pre') || code.closest('.mermaid') || code.dataset.copyInitialized === 'true') return;
+    code.dataset.copyInitialized = 'true';
+    code.classList.add('inline-code-copyable');
+    code.title = 'Kliknij, aby skopiować';
+
+    code.addEventListener('click', async (e) => {
+      if (code.closest('a') && (e.ctrlKey || e.metaKey)) return;
+      e.stopPropagation();
+
+      const rawText = code.textContent || '';
+      const textToCopy = rawText.trim().replace(/[’‘]/g, "'").replace(/[“”]/g, '"');
+      if (!textToCopy) return;
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        code.classList.add('copied');
+        code.title = 'Skopiowano!';
+        setTimeout(() => {
+          code.classList.remove('copied');
+          code.title = 'Kliknij, aby skopiować';
+        }, 1200);
+      } catch (err) {
+        console.warn('Błąd kopiowania inline:', err);
+      }
+    });
+  });
+}
+window.setupInlineCodeCopy = setupInlineCodeCopy;
 
