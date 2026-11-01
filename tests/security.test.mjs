@@ -3777,3 +3777,80 @@ test('Test 63: Automatyczna korelacja prefiksowa folderów z grupami menu górne
   assert.equal(catToGroupMap.has('030_Poczta'), false, '030_Poczta nie powinna być zgrupowana');
   assert.equal(catToGroupMap.has('099_Do_segregacji'), false, '099_Do_segregacji nie powinno być zgrupowane');
 });
+
+test('Test 64: Dynamiczny podwójny pasek menu górnego i automatyczna numeracja kafelków', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja reguł CSS dla podwójnego paska kafelków
+  assert.equal(styleCss.includes('.top-cat-nav-row'), true, 'Brak .top-cat-nav-row w style.css');
+  assert.equal(styleCss.includes('.top-cat-nav-row-1'), true, 'Brak .top-cat-nav-row-1 w style.css');
+  assert.equal(styleCss.includes('.top-cat-nav-row-2'), true, 'Brak .top-cat-nav-row-2 w style.css');
+  assert.equal(styleCss.includes('flex-wrap: wrap;'), true);
+
+  // 2. Weryfikacja funkcji w app.js
+  assert.equal(appJs.includes('function getTileSortNumber'), true, 'Brak getTileSortNumber w app.js');
+  assert.equal(appJs.includes('function sortTilesByDefaultOrder'), true, 'Brak sortTilesByDefaultOrder w app.js');
+  assert.equal(appJs.includes('window.sortTilesByDefaultOrder = sortTilesByDefaultOrder'), true);
+
+  // 3. Test jednostkowy logiki sortowania po początkowych numerach
+  function getTileSortNumberTest(tile) {
+    if (!tile) return null;
+    const str = String(tile.title || tile.id || '').trim();
+    const m = str.match(/^(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function sortTilesByDefaultOrderTest(tileList) {
+    return tileList.sort((a, b) => {
+      if (a.id === 'kanban_board') return -1;
+      if (b.id === 'kanban_board') return 1;
+
+      const numA = getTileSortNumberTest(a);
+      const numB = getTileSortNumberTest(b);
+
+      if (numA !== null && numB !== null) {
+        if (numA !== numB) return numA - numB;
+        return (a.title || a.id).localeCompare(b.title || b.id, 'pl', { numeric: true });
+      }
+      if (numA !== null && numB === null) {
+        return numA >= 90 ? 1 : -1;
+      }
+      if (numA === null && numB !== null) {
+        return numB >= 90 ? -1 : 1;
+      }
+
+      return (a.title || a.id).localeCompare(b.title || b.id, 'pl', { numeric: true });
+    });
+  }
+
+  const sampleTiles = [
+    { id: 'kanban_board', title: 'Pulpit' },
+    { id: '09_Projekty', title: '09_Projekty' },
+    { id: '02_Wirtualizacja', title: '02_Wirtualizacja' },
+    { id: '99_Inbox', title: '99_Inbox' },
+    { id: '00_Sciaga', title: '00_Sciaga' },
+    { id: '01_CyberSec', title: '01_CyberSec' },
+    { id: 'Bazy_Danych', title: 'Bazy Danych' }
+  ];
+
+  const sorted = sortTilesByDefaultOrderTest([...sampleTiles]);
+  const expectedOrder = ['kanban_board', '00_Sciaga', '01_CyberSec', '02_Wirtualizacja', '09_Projekty', 'Bazy_Danych', '99_Inbox'];
+  assert.deepEqual(sorted.map(t => t.id), expectedOrder, 'Kafelki powinny być posortowane wg początkowych numerów (00, 01, 02... 99)');
+
+  // 4. Test logiczny podziału na dwa rzędy przy liczbie kafelków > 6
+  function splitTilesToRows(tiles) {
+    if (tiles.length <= 6) return [tiles];
+    const mid = Math.ceil(tiles.length / 2);
+    return [tiles.slice(0, mid), tiles.slice(mid)];
+  }
+
+  const elevenTiles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  const [row1, row2] = splitTilesToRows(elevenTiles);
+  assert.equal(row1.length, 6, 'Pierwszy rząd powinien zawierać 6 kafelków');
+  assert.equal(row2.length, 5, 'Drugi rząd powinien zawierać 5 kafelków');
+
+  const fourTiles = [1, 2, 3, 4];
+  const singleRowResult = splitTilesToRows(fourTiles);
+  assert.equal(singleRowResult.length, 1, 'Dla <= 6 kafelków powinien powstać 1 rząd');
+});

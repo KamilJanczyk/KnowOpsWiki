@@ -611,6 +611,38 @@ function getTopNavTiles(categories, categoryGroups, catToGroupMap, groupDataMap)
   return tiles;
 }
 
+function getTileSortNumber(tile) {
+  if (!tile) return null;
+  const str = String(tile.title || tile.id || '').trim();
+  const m = str.match(/^(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function sortTilesByDefaultOrder(tileList) {
+  return tileList.sort((a, b) => {
+    if (a.id === 'kanban_board') return -1;
+    if (b.id === 'kanban_board') return 1;
+
+    const numA = getTileSortNumber(a);
+    const numB = getTileSortNumber(b);
+
+    if (numA !== null && numB !== null) {
+      if (numA !== numB) return numA - numB;
+      return (a.title || a.id).localeCompare(b.title || b.id, 'pl', { numeric: true });
+    }
+    if (numA !== null && numB === null) {
+      return numA >= 90 ? 1 : -1;
+    }
+    if (numA === null && numB !== null) {
+      return numB >= 90 ? -1 : 1;
+    }
+
+    return (a.title || a.id).localeCompare(b.title || b.id, 'pl', { numeric: true });
+  });
+}
+window.getTileSortNumber = getTileSortNumber;
+window.sortTilesByDefaultOrder = sortTilesByDefaultOrder;
+
 function renderTopCategories(categories) {
   const topNav = document.getElementById('topCatNav');
   if (!topNav) return;
@@ -630,7 +662,10 @@ function renderTopCategories(categories) {
   // 3. Zbuduj listę wszystkich dostępnych kafelków
   const tiles = getTopNavTiles(categories, categoryGroups, catToGroupMap, groupDataMap);
 
-  // 4. Jeśli zdefiniowano własną kolejność kafelków (topNavOrder), posortuj kafelki zgodnie z nią
+  // 4. Automatyczna numeracja kafelków po początkowych numerach (00, 01, 02... 99)
+  sortTilesByDefaultOrder(tiles);
+
+  // Jeśli zdefiniowano własną kolejność kafelków (topNavOrder), posortuj kafelki zgodnie z nią
   const orderArray = (navigationData && Array.isArray(navigationData.topNavOrder) && navigationData.topNavOrder.length > 0)
     ? navigationData.topNavOrder
     : null;
@@ -646,18 +681,18 @@ function renderTopCategories(categories) {
     });
   }
 
-  let html = '';
+  const tileElements = [];
 
   for (const tile of tiles) {
     if (tile.type === 'kanban') {
       const kanbanCat = categories.find(c => c.id === 'kanban_board');
       if (kanbanCat) {
         const isKanbanActive = currentCategory === 'kanban_board';
-        html += `<li class="top-cat-item ${isKanbanActive ? 'active' : ''}">
+        tileElements.push(`<li class="top-cat-item ${isKanbanActive ? 'active' : ''}">
           <a href="#/kanban" class="top-cat-link" onclick="selectCategory('${kanbanCat.id}', '')">
             <span>${escapeHtml(kanbanCat.title)}</span>
           </a>
-        </li>`;
+        </li>`);
       }
     } else if (tile.type === 'group') {
       const gData = groupDataMap.get(tile.id);
@@ -699,7 +734,7 @@ function renderTopCategories(categories) {
         }
       }
 
-      html += `<li class="top-cat-item ${isGroupActive ? 'active' : ''}">
+      tileElements.push(`<li class="top-cat-item ${isGroupActive ? 'active' : ''}">
         <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
           <span>${escapeHtml(grp.title)}</span>
           <span class="arrow">v</span>
@@ -707,7 +742,7 @@ function renderTopCategories(categories) {
         <div class="top-dropdown-menu">
           ${dropdownSectionsHtml}
         </div>
-      </li>`;
+      </li>`);
     } else if (tile.type === 'category') {
       const cat = standaloneCatsMap.get(tile.id);
       if (!cat) continue;
@@ -715,7 +750,7 @@ function renderTopCategories(categories) {
       const isActive = cat.id === currentCategory;
 
       if (subcategories.length > 0) {
-        html += `<li class="top-cat-item ${isActive ? 'active' : ''}">
+        tileElements.push(`<li class="top-cat-item ${isActive ? 'active' : ''}">
           <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
             <span>${escapeHtml(cat.title)}</span>
             <span class="arrow">v</span>
@@ -736,12 +771,27 @@ function renderTopCategories(categories) {
               `;
             }).join('')}
           </div>
-        </li>`;
+        </li>`);
       }
     }
   }
 
-  topNav.innerHTML = html;
+  // Dynamiczny podział na dwa paski (jeśli liczba kafelków > 6)
+  if (tileElements.length <= 6) {
+    topNav.innerHTML = `<ul class="top-cat-nav-row top-cat-nav-row-1">${tileElements.join('')}</ul>`;
+  } else {
+    const mid = Math.ceil(tileElements.length / 2);
+    const row1Html = tileElements.slice(0, mid).join('');
+    const row2Html = tileElements.slice(mid).join('');
+    topNav.innerHTML = `
+      <ul class="top-cat-nav-row top-cat-nav-row-1">${row1Html}</ul>
+      <ul class="top-cat-nav-row top-cat-nav-row-2">${row2Html}</ul>
+    `;
+  }
+
+  if (typeof window.updateUnifiedHeaderHeight === 'function') {
+    window.updateUnifiedHeaderHeight();
+  }
 }
 
 let expandedDirs = {};
@@ -5279,9 +5329,6 @@ window.moveTopNavTile = async function(tileId, direction) {
 };
 
 window.resetTopNavOrder = async function() {
-  if (!confirm('Czy na pewno chcesz przywrócić domyślny układ kafelków (Pulpit, grupy, działy alfabetycznie)?')) {
-    return;
-  }
   try {
     const res = await fetch('/api/top-nav-order', {
       method: 'POST',
@@ -5817,6 +5864,9 @@ window.renderCategoryGroupsList = function() {
       allTiles.push({ id: cat.id, type: 'category', title: cat.title || cat.id });
     }
   }
+
+  // Sortuj domyślnie wg początkowych numerów (00, 01, 02... 99)
+  sortTilesByDefaultOrder(allTiles);
 
   // Sortuj kafelki wg zapisanego topNavOrder
   const orderArray = (navigationData && Array.isArray(navigationData.topNavOrder) && navigationData.topNavOrder.length > 0)
