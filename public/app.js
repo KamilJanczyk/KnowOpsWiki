@@ -6203,10 +6203,6 @@ window.saveCategoryGroup = async function(event, groupId) {
 };
 
 window.deleteCategoryGroup = async function(groupId) {
-  if (!confirm('Czy na pewno chcesz usunąć tę grupę? Kategorie wrócą do wyświetlania pojedynczo w górnym menu.')) {
-    return;
-  }
-
   let groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? [...navigationData.categoryGroups] : [];
   groups = groups.filter(g => g.id !== groupId);
 
