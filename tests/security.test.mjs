@@ -3854,3 +3854,29 @@ test('Test 64: Dynamiczny podwójny pasek menu górnego i automatyczna numeracja
   const singleRowResult = splitTilesToRows(fourTiles);
   assert.equal(singleRowResult.length, 1, 'Dla <= 6 kafelków powinien powstać 1 rząd');
 });
+
+test('Test 65: Przeniesienie przycisku Pulpit nad przycisk Panel w nagłówku', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja struktury DOM w index.html
+  assert.equal(indexHtml.includes('<div class="header-left-controls">'), true, 'Brak .header-left-controls w index.html');
+  assert.equal(indexHtml.includes('id="btnHeaderPulpit"'), true, 'Brak id="btnHeaderPulpit" w index.html');
+  assert.equal(indexHtml.includes('id="btnToggleSidebar"'), true, 'Brak id="btnToggleSidebar" w index.html');
+
+  // Weryfikacja, że Pulpit znajduje się przed (nad) panelem
+  const pulpitPos = indexHtml.indexOf('id="btnHeaderPulpit"');
+  const panelPos = indexHtml.indexOf('id="btnToggleSidebar"');
+  assert.ok(pulpitPos !== -1 && panelPos !== -1, 'Pulpit i Panel muszą istnieć w DOM');
+  assert.ok(pulpitPos < panelPos, 'Przycisk Pulpit musi znajdować się przed (nad) przyciskiem Panel');
+
+  // 2. Weryfikacja reguł CSS w style.css
+  assert.equal(styleCss.includes('.header-left-controls'), true, 'Brak definicji .header-left-controls w style.css');
+  assert.equal(styleCss.includes('.btn-header-pulpit'), true, 'Brak definicji .btn-header-pulpit w style.css');
+  assert.equal(styleCss.includes('.btn-header-pulpit.active'), true, 'Brak stanu .btn-header-pulpit.active w style.css');
+
+  // 3. Weryfikacja logiki stanu aktywnego w app.js
+  assert.equal(appJs.includes("btnPulpit.classList.toggle('active', currentCategory === 'kanban_board')"), true, 'Brak synchronizacji stanu aktywnego Pulpitu w app.js');
+  assert.equal(appJs.includes("document.getElementById('btnHeaderPulpit')"), true, 'Brak odwołania do #btnHeaderPulpit w app.js');
+});

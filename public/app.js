@@ -592,8 +592,9 @@ window.computeCategoryGroupData = computeCategoryGroupData;
 
 function getTopNavTiles(categories, categoryGroups, catToGroupMap, groupDataMap) {
   const tiles = [];
+  const hasHeaderPulpit = typeof document !== 'undefined' && !!document.getElementById('btnHeaderPulpit');
   const kanbanCat = (categories || []).find(c => c.id === 'kanban_board');
-  if (kanbanCat) {
+  if (kanbanCat && !hasHeaderPulpit) {
     tiles.push({ id: 'kanban_board', type: 'kanban', title: kanbanCat.title || 'Pulpit' });
   }
 
@@ -647,6 +648,11 @@ function renderTopCategories(categories) {
   const topNav = document.getElementById('topCatNav');
   if (!topNav) return;
 
+  const btnPulpit = document.getElementById('btnHeaderPulpit');
+  if (btnPulpit) {
+    btnPulpit.classList.toggle('active', currentCategory === 'kanban_board');
+  }
+
   const categoryGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
 
   // 1. Zmapuj grupy i znajdź przypisane kategorie z automatyczną korelacją prefiksów dla zdefiniowanych grup
@@ -685,6 +691,7 @@ function renderTopCategories(categories) {
 
   for (const tile of tiles) {
     if (tile.type === 'kanban') {
+      if (document.getElementById('btnHeaderPulpit')) continue;
       const kanbanCat = categories.find(c => c.id === 'kanban_board');
       if (kanbanCat) {
         const isKanbanActive = currentCategory === 'kanban_board';
@@ -1142,8 +1149,13 @@ function selectCategory(catId, subId) {
   if (navigationData && navigationData.categories) {
     renderTopCategories(navigationData.categories);
   }
+  const btnPulpit = document.getElementById('btnHeaderPulpit');
+  if (btnPulpit) {
+    btnPulpit.classList.toggle('active', currentCategory === 'kanban_board');
+  }
   renderSidebar();
 }
+window.selectCategory = selectCategory;
 
 async function renderSidebar() {
   const sidebarNav = document.getElementById('sidebarNav');
