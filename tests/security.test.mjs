@@ -3796,9 +3796,11 @@ test('Test 64: Dynamiczny podwójny pasek menu górnego i automatyczna numeracja
   // 3. Test jednostkowy logiki sortowania po początkowych numerach
   function getTileSortNumberTest(tile) {
     if (!tile) return null;
-    const str = String(tile.title || tile.id || '').trim();
-    const m = str.match(/^(\d+)/);
-    return m ? parseInt(m[1], 10) : null;
+    const fromTitle = String(tile.title || '').trim().match(/^(\d+)/);
+    if (fromTitle) return parseInt(fromTitle[1], 10);
+    const fromId = String(tile.id || '').trim().match(/^(\d+)/);
+    if (fromId) return parseInt(fromId[1], 10);
+    return null;
   }
 
   function sortTilesByDefaultOrderTest(tileList) {

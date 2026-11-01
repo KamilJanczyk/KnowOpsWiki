@@ -606,7 +606,13 @@ function getTopNavTiles(categories, categoryGroups, catToGroupMap, groupDataMap)
 
   const standaloneCats = (categories || []).filter(c => c.id !== 'kanban_board' && !catToGroupMap.has(c.id));
   for (const cat of standaloneCats) {
-    tiles.push({ id: cat.id, type: 'category', title: cat.title || cat.id });
+    const rawId = String(cat.id || '').trim();
+    let displayTitle = cat.title || cat.id;
+    const prefixMatch = rawId.match(/^(\d+)[_\s-]+(.*)/);
+    if (prefixMatch && !displayTitle.match(/^\d+/)) {
+      displayTitle = `${prefixMatch[1]}_${displayTitle.replace(/\s+/g, '_')}`;
+    }
+    tiles.push({ id: cat.id, type: 'category', title: displayTitle });
   }
 
   return tiles;
@@ -614,9 +620,11 @@ function getTopNavTiles(categories, categoryGroups, catToGroupMap, groupDataMap)
 
 function getTileSortNumber(tile) {
   if (!tile) return null;
-  const str = String(tile.title || tile.id || '').trim();
-  const m = str.match(/^(\d+)/);
-  return m ? parseInt(m[1], 10) : null;
+  const fromTitle = String(tile.title || '').trim().match(/^(\d+)/);
+  if (fromTitle) return parseInt(fromTitle[1], 10);
+  const fromId = String(tile.id || '').trim().match(/^(\d+)/);
+  if (fromId) return parseInt(fromId[1], 10);
+  return null;
 }
 
 function sortTilesByDefaultOrder(tileList) {
