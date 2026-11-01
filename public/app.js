@@ -742,10 +742,14 @@ function renderTopCategories(categories) {
         }
 
         if (secItemsHtml) {
-          dropdownSectionsHtml += `
-            <div class="top-dropdown-section-header">${escapeHtml(sec.header)}</div>
-            ${secItemsHtml}
-          `;
+          if (gData.sections.length > 1 && sec.header) {
+            dropdownSectionsHtml += `
+              <div class="top-dropdown-section-header">${escapeHtml(sec.header)}</div>
+              ${secItemsHtml}
+            `;
+          } else {
+            dropdownSectionsHtml += secItemsHtml;
+          }
         }
       }
 
