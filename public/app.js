@@ -526,6 +526,70 @@ async function triggerGlobalSearch(query) {
   }
 }
 
+function computeCategoryGroupData(categories, categoryGroups) {
+  const catToGroupMap = new Map(); // cat.id -> { group, header }
+  const groupDataMap = new Map();  // group.id -> { group, sections: [ { header, categories: [...] } ] }
+  const validGroups = Array.isArray(categoryGroups) ? categoryGroups : [];
+  const validCats = Array.isArray(categories) ? categories : [];
+
+  for (const grp of validGroups) {
+    const gEntry = { group: grp, sections: [] };
+
+    // 1. Ekstrakcja prefiksu numerycznego z nazwy grupy (np. "011_Wirtualizacja" -> "011")
+    const titlePrefixMatch = String(grp.title || '').trim().match(/^(\d+)[_\s-]+/);
+    const groupPrefix = titlePrefixMatch ? titlePrefixMatch[1] : null;
+
+    // 2. Najpierw dopasuj jawne sekcje zdefiniowane ręcznie w konfiguracji grupy (mają pierwszeństwo dla nagłówków)
+    if (grp.sections && Array.isArray(grp.sections)) {
+      for (const sec of grp.sections) {
+        if (!sec.match) continue;
+        const reg = new RegExp(sec.match, 'i');
+        const matchedCats = validCats.filter(c => c.id !== 'kanban_board' && (reg.test(c.id) || reg.test(c.title)) && !catToGroupMap.has(c.id));
+
+        for (const mc of matchedCats) {
+          catToGroupMap.set(mc.id, { group: grp, header: sec.header });
+        }
+
+        if (matchedCats.length > 0) {
+          gEntry.sections.push({
+            header: sec.header || '',
+            categories: matchedCats
+          });
+        }
+      }
+    }
+
+    // 3. Automatyczna korelacja: jeśli grupa posiada prefiks numeryczny (np. 011),
+    // dopasuj wszystkie foldery z bazy wiedzy o tym samym prefiksie, które nie zostały jeszcze dopasowane ręcznie
+    if (groupPrefix) {
+      const prefixReg = new RegExp(`^${groupPrefix}[_\\s-]`, 'i');
+      const prefixCats = validCats.filter(c => c.id !== 'kanban_board' && prefixReg.test(c.id) && !catToGroupMap.has(c.id));
+
+      for (const pc of prefixCats) {
+        const autoHeader = (pc.title || pc.id)
+          .replace(/^\d+[_\s-]+/, '')
+          .replace(/[_\s-]+/g, ' ')
+          .trim()
+          .toUpperCase();
+
+        catToGroupMap.set(pc.id, { group: grp, header: autoHeader });
+
+        gEntry.sections.push({
+          header: autoHeader,
+          categories: [pc]
+        });
+      }
+    }
+
+    if (gEntry.sections.length > 0) {
+      groupDataMap.set(grp.id, gEntry);
+    }
+  }
+
+  return { catToGroupMap, groupDataMap };
+}
+window.computeCategoryGroupData = computeCategoryGroupData;
+
 function getTopNavTiles(categories, categoryGroups, catToGroupMap, groupDataMap) {
   const tiles = [];
   const kanbanCat = (categories || []).find(c => c.id === 'kanban_board');
@@ -553,34 +617,8 @@ function renderTopCategories(categories) {
 
   const categoryGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
 
-  // 1. Zmapuj grupy i znajdź przypisane kategorie
-  const catToGroupMap = new Map(); // cat.id -> { group, header }
-  const groupDataMap = new Map();  // group.id -> { group, sections: [ { header, categories: [...] } ] }
-
-  for (const grp of categoryGroups) {
-    if (!grp.sections || !Array.isArray(grp.sections)) continue;
-    const gEntry = { group: grp, sections: [] };
-
-    for (const sec of grp.sections) {
-      if (!sec.match) continue;
-      const reg = new RegExp(sec.match, 'i');
-      const matchedCats = categories.filter(c => reg.test(c.id) || reg.test(c.title));
-
-      for (const mc of matchedCats) {
-        catToGroupMap.set(mc.id, { group: grp, header: sec.header });
-      }
-
-      gEntry.sections.push({
-        header: sec.header || '',
-        categories: matchedCats
-      });
-    }
-
-    const totalSubcats = gEntry.sections.reduce((acc, s) => acc + s.categories.reduce((a2, c) => a2 + (c.subcategories || []).length, 0), 0);
-    if (totalSubcats > 0) {
-      groupDataMap.set(grp.id, gEntry);
-    }
-  }
+  // 1. Zmapuj grupy i znajdź przypisane kategorie z automatyczną korelacją prefiksów dla zdefiniowanych grup
+  const { catToGroupMap, groupDataMap } = computeCategoryGroupData(categories, categoryGroups);
 
   // 2. Przygotuj mapę samodzielnych kategorii
   const standaloneCats = categories.filter(c => c.id !== 'kanban_board' && !catToGroupMap.has(c.id));
@@ -5176,19 +5214,7 @@ window.moveTopNavTile = async function(tileId, direction) {
   const categories = (navigationData && Array.isArray(navigationData.categories)) ? navigationData.categories : [];
   const categoryGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
 
-  const catToGroupMap = new Map();
-  for (const grp of categoryGroups) {
-    if (!grp.sections || !Array.isArray(grp.sections)) continue;
-    for (const sec of grp.sections) {
-      if (!sec.match) continue;
-      const reg = new RegExp(sec.match, 'i');
-      for (const mc of categories) {
-        if (reg.test(mc.id) || reg.test(mc.title)) {
-          catToGroupMap.set(mc.id, grp.id);
-        }
-      }
-    }
-  }
+  const { catToGroupMap } = computeCategoryGroupData(categories, categoryGroups);
 
   const allTileIds = [];
   const kanban = categories.find(c => c.id === 'kanban_board');
@@ -5291,19 +5317,7 @@ window.reorderTopNavTiles = async function(fromTileId, toTileId, isAfter) {
   const categories = (navigationData && Array.isArray(navigationData.categories)) ? navigationData.categories : [];
   const categoryGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
 
-  const catToGroupMap = new Map();
-  for (const grp of categoryGroups) {
-    if (!grp.sections || !Array.isArray(grp.sections)) continue;
-    for (const sec of grp.sections) {
-      if (!sec.match) continue;
-      const reg = new RegExp(sec.match, 'i');
-      for (const mc of categories) {
-        if (reg.test(mc.id) || reg.test(mc.title)) {
-          catToGroupMap.set(mc.id, grp.id);
-        }
-      }
-    }
-  }
+  const { catToGroupMap } = computeCategoryGroupData(categories, categoryGroups);
 
   const allTileIds = [];
   const kanban = categories.find(c => c.id === 'kanban_board');
@@ -5779,20 +5793,8 @@ window.renderCategoryGroupsList = function() {
   const categories = (navigationData && Array.isArray(navigationData.categories)) ? navigationData.categories : [];
   const groups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? navigationData.categoryGroups : [];
 
-  // Zmapuj przypisania kategorii do grup
-  const catToGroupMap = new Map();
-  for (const grp of groups) {
-    if (!grp.sections || !Array.isArray(grp.sections)) continue;
-    for (const sec of grp.sections) {
-      if (!sec.match) continue;
-      const reg = new RegExp(sec.match, 'i');
-      for (const mc of categories) {
-        if (reg.test(mc.id) || reg.test(mc.title)) {
-          catToGroupMap.set(mc.id, grp.id);
-        }
-      }
-    }
-  }
+  // Zmapuj przypisania kategorii do grup z automatyczną korelacją prefiksów dla zdefiniowanych grup
+  const { catToGroupMap, groupDataMap } = computeCategoryGroupData(categories, groups);
 
   // Przygotuj listę wszystkich kafelków
   const allTiles = [];
@@ -5801,11 +5803,13 @@ window.renderCategoryGroupsList = function() {
     allTiles.push({ id: 'kanban_board', type: 'kanban', title: kanban.title || 'Pulpit' });
   }
   for (const grp of groups) {
+    const gData = groupDataMap.get(grp.id);
+    const dynamicSectionsCount = gData ? gData.sections.length : (grp.sections || []).length;
     allTiles.push({
       id: grp.id,
       type: 'group',
       title: grp.title || grp.id,
-      sectionsCount: (grp.sections || []).length
+      sectionsCount: dynamicSectionsCount
     });
   }
   for (const cat of categories) {
@@ -5934,10 +5938,15 @@ window.renderCategoryGroupsList = function() {
         const gid = escapeHtml(grp.id || '');
         const gTitle = escapeHtml(grp.title || 'Bez nazwy');
         const sections = grp.sections || [];
+        const titlePrefixMatch = String(grp.title || '').trim().match(/^(\d+)[_\s-]+/);
+        let prefixBadgeHtml = '';
+        if (titlePrefixMatch) {
+          prefixBadgeHtml = `<span style="background:#064e3b; color:#6ee7b7; border:1px solid #059669; padding:2px 7px; border-radius:3px; font-size:0.68rem; font-weight:600; margin-left:6px;" title="Foldery o prefiksie ${titlePrefixMatch[1]}_ są automatycznie powiązane z tym kafelkiem">Auto-korelacja: ${titlePrefixMatch[1]}_*</span>`;
+        }
 
         let sectionsSummaryHtml = '';
         if (sections.length === 0) {
-          sectionsSummaryHtml = `<span style="color:#71717a; font-style:italic;">Brak zdefiniowanych sekcji</span>`;
+          sectionsSummaryHtml = `<span style="color:#71717a; font-style:italic;">Brak zdefiniowanych sekcji (automatyczne sekcje z folderów)</span>`;
         } else {
           sectionsSummaryHtml = sections.map(s => `
             <div style="display:inline-flex; align-items:center; gap:6px; background:#1c1c1f; border:1px solid #27272a; padding:3px 8px; border-radius:4px; font-size:0.7rem;">
@@ -5959,9 +5968,10 @@ window.renderCategoryGroupsList = function() {
             <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
               <span class="drag-handle" title="Przeciągnij, aby zmienić kolejność grup" style="cursor:grab; font-size:1.15rem; color:#71717a; padding:0 2px; user-select:none;">:::</span>
               <div>
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
                   <span style="font-size:0.78rem; color:#71717a; font-family:monospace; width:22px;">${idx + 1}.</span>
                   <span style="font-size:0.92rem; font-weight:700; color:#ffffff;">Kafelek: <span style="color:var(--sw-gold);">${gTitle}</span></span>
+                  ${prefixBadgeHtml}
                   <span style="font-size:0.68rem; color:#71717a; font-family:monospace;">ID: ${gid}</span>
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:6px;">
@@ -6010,8 +6020,8 @@ window.showEditCategoryGroupForm = function(groupId) {
         <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--sw-gold); margin-bottom:6px; text-transform:uppercase;">
           Nazwa kafelka w górnym pasku:
         </label>
-        <input type="text" id="grpTitleInput" value="${escapeHtml(currentTitle)}" placeholder="np. OS, Sieci, Bazy danych" required style="width:100%; max-width:480px; background:#111; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
-        <p style="font-size:0.72rem; color:#888; margin:4px 0 0 0;">Taka nazwa pojawi się na przycisku w menu górnym aplikacji.</p>
+        <input type="text" id="grpTitleInput" value="${escapeHtml(currentTitle)}" placeholder="np. 011_Wirtualizacja, 018_Sieci, 040_Aplikacje" required style="width:100%; max-width:480px; background:#111; border:1px solid #3f3f46; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.8rem; box-sizing:border-box;">
+        <p style="font-size:0.72rem; color:#888; margin:4px 0 0 0;">Taka nazwa pojawi się na kafelku w menu górnym. Wpisanie prefiksu numerycznego na początku (np. <strong>011_Wirtualizacja</strong>) włącza automatyczną korelację wszystkich folderów z tym prefiksem.</p>
       </div>
 
       <div style="background:#18181b; border:1px solid #27272a; padding:14px; border-radius:6px;">
@@ -6141,8 +6151,9 @@ window.saveCategoryGroup = async function(event, groupId) {
     }
   });
 
-  if (sections.length === 0) {
-    alert('Zdefiniuj przynajmniej jedną sekcję (belkę i przypisaną kategorię).');
+  const titlePrefixMatch = groupTitle.match(/^(\d+)[_\s-]+/);
+  if (sections.length === 0 && !titlePrefixMatch) {
+    alert('Zdefiniuj przynajmniej jedną sekcję lub podaj prefiks numeryczny w nazwie (np. 011_Wirtualizacja), aby sekcje tworzyły się automatycznie.');
     return;
   }
 

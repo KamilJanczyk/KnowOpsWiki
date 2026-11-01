@@ -3616,3 +3616,164 @@ test('62. Focus Mode, Inline Click-to-Copy & Sticky Table Headers: weryfikacja z
   state = simulateToggleSidebar(state);
   assert.equal(state, false, 'Panel powinien powrócić do stanu rozwiniętego');
 });
+
+test('Test 63: Automatyczna korelacja prefiksowa folderów z grupami menu górnego', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja obecności funkcji computeCategoryGroupData
+  assert.equal(appJs.includes('function computeCategoryGroupData'), true, 'Brak funkcji computeCategoryGroupData w app.js');
+  assert.equal(appJs.includes('window.computeCategoryGroupData = computeCategoryGroupData'), true, 'Brak eksportu window.computeCategoryGroupData');
+
+  // 2. Weryfikacja logiki ekstrakcji prefiksu i automatycznej korelacji
+  assert.equal(appJs.includes('const titlePrefixMatch = String(grp.title || \'\').trim().match(/^(\\d+)[_\\s-]+/)'), true);
+  assert.equal(appJs.includes('Auto-korelacja:'), true, 'Brak oznaczenia automatycznej korelacji w widoku grup menu');
+
+  // 3. Test jednostkowy logiki korelacji
+  // Definiujemy funkcję symulacyjną zgodną z implementacją w app.js
+  function computeCategoryGroupDataTest(categories, categoryGroups) {
+    const catToGroupMap = new Map();
+    const groupDataMap = new Map();
+    const validGroups = Array.isArray(categoryGroups) ? categoryGroups : [];
+    const validCats = Array.isArray(categories) ? categories : [];
+
+    for (const grp of validGroups) {
+      const gEntry = { group: grp, sections: [] };
+      const titlePrefixMatch = String(grp.title || '').trim().match(/^(\d+)[_\s-]+/);
+      const groupPrefix = titlePrefixMatch ? titlePrefixMatch[1] : null;
+
+      if (grp.sections && Array.isArray(grp.sections)) {
+        for (const sec of grp.sections) {
+          if (!sec.match) continue;
+          const reg = new RegExp(sec.match, 'i');
+          const matchedCats = validCats.filter(c => c.id !== 'kanban_board' && (reg.test(c.id) || reg.test(c.title)) && !catToGroupMap.has(c.id));
+
+          for (const mc of matchedCats) {
+            catToGroupMap.set(mc.id, { group: grp, header: sec.header });
+          }
+
+          if (matchedCats.length > 0) {
+            gEntry.sections.push({
+              header: sec.header || '',
+              categories: matchedCats
+            });
+          }
+        }
+      }
+
+      if (groupPrefix) {
+        const prefixReg = new RegExp(`^${groupPrefix}[_\\s-]`, 'i');
+        const prefixCats = validCats.filter(c => c.id !== 'kanban_board' && prefixReg.test(c.id) && !catToGroupMap.has(c.id));
+
+        for (const pc of prefixCats) {
+          const autoHeader = (pc.title || pc.id)
+            .replace(/^\d+[_\s-]+/, '')
+            .replace(/[_\s-]+/g, ' ')
+            .trim()
+            .toUpperCase();
+
+          catToGroupMap.set(pc.id, { group: grp, header: autoHeader });
+
+          gEntry.sections.push({
+            header: autoHeader,
+            categories: [pc]
+          });
+        }
+      }
+
+      if (gEntry.sections.length > 0) {
+        groupDataMap.set(grp.id, gEntry);
+      }
+    }
+
+    return { catToGroupMap, groupDataMap };
+  }
+
+  const sampleCategories = [
+    { id: 'kanban_board', title: 'Pulpit' },
+    { id: '00_Sciaga', title: 'Sciaga' },
+    { id: '010_Microsoft', title: 'Microsoft' },
+    { id: '010_Linux', title: 'Linux' },
+    { id: '010_Inne', title: 'Inne' },
+    { id: '010_CyberSec', title: 'CyberSec' },
+    { id: '011_PROXMOX', title: 'PROXMOX' },
+    { id: '011_VMWare', title: 'VMWare' },
+    { id: '011_Zasilanie', title: 'Zasilanie' },
+    { id: '015_AI', title: 'AI' },
+    { id: '015_Monitoring', title: 'Monitoring' },
+    { id: '018_Ogólne', title: 'Ogólne' },
+    { id: '018_Firewalle_i_UTM', title: 'Firewalle i UTM' },
+    { id: '020_Fortinet', title: 'Fortinet' },
+    { id: '020_Veeam', title: 'Veeam' },
+    { id: '025_Bazy_Danych', title: 'Bazy Danych' },
+    { id: '030_Poczta', title: 'Poczta' },
+    { id: '040_Chmura i EDGE', title: 'Chmura i EDGE' },
+    { id: '041_DevOps', title: 'DevOps' },
+    { id: '051_Docker', title: 'Docker' },
+    { id: '080_DOM', title: 'DOM' },
+    { id: '099_Do_segregacji', title: 'Do segregacji' }
+  ];
+
+  const configuredGroups = [
+    {
+      id: 'grp_010',
+      title: '010_OS',
+      sections: [
+        { header: 'WINDOWS', match: 'microsoft|windows' },
+        { header: 'LINUX', match: 'linux' },
+        { header: 'INNE', match: '010_Inne' }
+      ]
+    },
+    {
+      id: 'grp_011',
+      title: '011_Wirtualizacja',
+      sections: [
+        { header: 'Proxmox', match: '011_PROXMOX' },
+        { header: 'VMWare', match: '011_VMWare' }
+        // Brak zdefiniowanej ręcznie sekcji dla 011_Zasilanie
+      ]
+    },
+    {
+      id: 'grp_040',
+      title: '040_Aplikacje',
+      sections: [] // Pusta tablica sekcji - w 100% automatyczna korelacja
+    },
+    {
+      id: 'grp_051',
+      title: '051_Kontenery',
+      sections: [
+        { header: 'Docker', match: '051_Docker' }
+      ]
+    }
+  ];
+
+  const { catToGroupMap, groupDataMap } = computeCategoryGroupDataTest(sampleCategories, configuredGroups);
+
+  // A. Weryfikacja automatycznego dołączenia 011_Zasilanie do grupy 011_Wirtualizacja
+  assert.equal(catToGroupMap.has('011_Zasilanie'), true, '011_Zasilanie powinno być przypisane do grupy');
+  assert.equal(catToGroupMap.get('011_Zasilanie').group.id, 'grp_011');
+  assert.equal(catToGroupMap.get('011_Zasilanie').header, 'ZASILANIE', 'Automatyczny nagłówek powinien wynosić ZASILANIE');
+
+  // B. Weryfikacja zachowania ręcznych nagłówków dla 011_PROXMOX i 011_VMWare
+  assert.equal(catToGroupMap.get('011_PROXMOX').header, 'Proxmox');
+  assert.equal(catToGroupMap.get('011_VMWare').header, 'VMWare');
+
+  // C. Weryfikacja grupy 010_OS - automatyczne dołączenie 010_CyberSec
+  assert.equal(catToGroupMap.has('010_CyberSec'), true);
+  assert.equal(catToGroupMap.get('010_CyberSec').group.id, 'grp_010');
+  assert.equal(catToGroupMap.get('010_CyberSec').header, 'CYBERSEC');
+
+  // D. Weryfikacja grupy 040_Aplikacje bez żadnych sekcji ręcznych
+  assert.equal(catToGroupMap.has('040_Chmura i EDGE'), true);
+  assert.equal(catToGroupMap.get('040_Chmura i EDGE').group.id, 'grp_040');
+  assert.equal(catToGroupMap.get('040_Chmura i EDGE').header, 'CHMURA I EDGE');
+
+  // E. Weryfikacja, że kategorie z prefiksami bez zdefiniowanej grupy NIE są łączone
+  assert.equal(catToGroupMap.has('00_Sciaga'), false, '00_Sciaga nie powinna być zgrupowana');
+  assert.equal(catToGroupMap.has('015_AI'), false, '015_AI nie powinno być zgrupowane (brak grupy 015)');
+  assert.equal(catToGroupMap.has('015_Monitoring'), false, '015_Monitoring nie powinno być zgrupowane');
+  assert.equal(catToGroupMap.has('020_Fortinet'), false, '020_Fortinet nie powinno być zgrupowane (brak grupy 020)');
+  assert.equal(catToGroupMap.has('020_Veeam'), false, '020_Veeam nie powinno być zgrupowane');
+  assert.equal(catToGroupMap.has('025_Bazy_Danych'), false, '025_Bazy_Danych nie powinno być zgrupowane');
+  assert.equal(catToGroupMap.has('030_Poczta'), false, '030_Poczta nie powinna być zgrupowana');
+  assert.equal(catToGroupMap.has('099_Do_segregacji'), false, '099_Do_segregacji nie powinno być zgrupowane');
+});
