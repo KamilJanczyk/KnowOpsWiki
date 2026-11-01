@@ -767,7 +767,7 @@ function renderTopCategories(categories) {
       if (subcategories.length > 0) {
         tileElements.push(`<li class="top-cat-item ${isActive ? 'active' : ''}">
           <a href="javascript:void(0)" class="top-cat-link" style="cursor:default;" onclick="event.preventDefault()">
-            <span>${escapeHtml(cat.title)}</span>
+            <span>${escapeHtml(tile.title || cat.title)}</span>
             <span class="arrow">v</span>
           </a>
           <div class="top-dropdown-menu">
