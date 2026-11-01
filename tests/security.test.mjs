@@ -3882,3 +3882,35 @@ test('Test 65: Przeniesienie przycisku Pulpit nad przycisk Panel w nagłówku', 
   assert.equal(appJs.includes("btnPulpit.classList.toggle('active', currentCategory === 'kanban_board')"), true, 'Brak synchronizacji stanu aktywnego Pulpitu w app.js');
   assert.equal(appJs.includes("document.getElementById('btnHeaderPulpit')"), true, 'Brak odwołania do #btnHeaderPulpit w app.js');
 });
+
+test('Test 66: Całkowita eliminacja blokujących okien dialogowych przeglądarki (confirm i alert) na rzecz toastów powiadomień', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja całkowitego braku wystąpień confirm( w public/app.js
+  const confirmMatches = appJs.match(/\bconfirm\(/g);
+  assert.equal(confirmMatches, null, `W public/app.js znaleziono wywołania confirm(): ${confirmMatches ? confirmMatches.length : 0}`);
+
+  // 2. Weryfikacja definicji i eksportu showToast
+  assert.equal(appJs.includes('function showToast('), true, 'Brak implementacji funkcji showToast w public/app.js');
+  assert.equal(appJs.includes('window.showToast = showToast'), true, 'Brak eksportu window.showToast w public/app.js');
+
+  // 3. Weryfikacja bezpiecznego nadpisania window.alert i window.confirm
+  assert.equal(appJs.includes('window.alert = function('), true, 'Brak bezpiecznego nadpisania window.alert w public/app.js');
+  assert.equal(appJs.includes('window.confirm = function('), true, 'Brak bezpiecznego nadpisania window.confirm w public/app.js');
+
+  // 4. Weryfikacja styli CSS dla kontenera toastów
+  assert.equal(styleCss.includes('#toastContainer'), true, 'Brak reguł CSS dla #toastContainer w style.css');
+  assert.equal(styleCss.includes('.knowops-toast'), true, 'Brak reguł CSS dla .knowops-toast w style.css');
+  assert.equal(styleCss.includes('.knowops-toast-success'), true, 'Brak stylizacji toastu success w style.css');
+  assert.equal(styleCss.includes('.knowops-toast-error'), true, 'Brak stylizacji toastu error w style.css');
+
+  // 5. Weryfikacja cichego usuwania bez dialogów confirm w kluczowych funkcjach
+  assert.equal(appJs.includes('window.deleteCurrentArticleFromModal'), true, 'Brak funkcji deleteCurrentArticleFromModal');
+  assert.equal(appJs.includes('deletePlaybookStageFromDetail'), true, 'Brak funkcji deletePlaybookStageFromDetail');
+  assert.equal(appJs.includes('deleteCurrentPlaybook'), true, 'Brak funkcji deleteCurrentPlaybook');
+  assert.equal(appJs.includes('window.deleteOvertimeItem'), true, 'Brak funkcji deleteOvertimeItem');
+  assert.equal(appJs.includes('window.deleteMpkProject'), true, 'Brak funkcji deleteMpkProject');
+  assert.equal(appJs.includes('window.purgeTrashedDocument'), true, 'Brak funkcji purgeTrashedDocument');
+  assert.equal(appJs.includes('window.submitDeleteFolder'), true, 'Brak funkcji submitDeleteFolder');
+});

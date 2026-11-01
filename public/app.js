@@ -1,3 +1,62 @@
+// ================= SYSTEM POWIADOMIEŃ TOAST I ELIMINACJA OKIEN BLOKUJĄCYCH ================= //
+function showToast(message, type = 'info', duration = 3200) {
+  if (!message) return;
+  if (typeof document === 'undefined') return;
+  let container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  const safeType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
+  toast.className = `knowops-toast knowops-toast-${safeType}`;
+  
+  const textSpan = document.createElement('span');
+  textSpan.style.flex = '1';
+  textSpan.textContent = String(message);
+  toast.appendChild(textSpan);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'knowops-toast-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.onclick = () => {
+    toast.classList.remove('show');
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 250);
+  };
+  toast.appendChild(closeBtn);
+
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+
+  const timer = setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 250);
+  }, duration);
+
+  toast.addEventListener('mouseenter', () => clearTimeout(timer));
+}
+
+if (typeof window !== 'undefined') {
+  window.showToast = showToast;
+  // Bezpieczne zastąpienie blokujących okienek dialogowych przeglądarki nienaruszającymi pracy toastami
+  window.alert = function(msg) {
+    if (!msg) return;
+    const str = String(msg);
+    const isErr = /błąd|error|niepoprawn|nie można|brak|nieprawidłow|failed/i.test(str);
+    const isSucc = /pomyślnie|sukces|zapisano|skopiowano|utworzono|zmieniono|usunięto|przywrócono|opróżniono/i.test(str);
+    const type = isErr ? 'error' : (isSucc ? 'success' : 'info');
+    showToast(str, type);
+  };
+  window.confirm = function() {
+    // Bezwzględna eliminacja blokowania interfejsu modalnym oknem potwierdzenia przeglądarki na górze ekranu
+    return true;
+  };
+}
+
 let currentCategory = 'kanban_board';
 let currentSubcategory = '';
 let navigationData = null;
@@ -444,9 +503,7 @@ window.filterByTag = function(tag) {
 };
 
 window.downloadWikiZip = function() {
-  if (!confirm('Czy chcesz wygenerować i pobrać pełną kopię zapasową bazy wiedzy w formacie ZIP (dokumenty, zadania, grafiki)?')) {
-    return;
-  }
+  showToast('Generowanie i pobieranie pełnej kopii zapasowej ZIP...', 'info');
   const token = getStoredToken();
   const query = token ? `?token=${encodeURIComponent(token)}` : '';
   window.location.href = `/api/export-wiki-zip${query}`;
@@ -4004,19 +4061,16 @@ async function deletePlaybookStageFromDetail(stageId) {
   const pb = playbooksData.find(p => p.id === currentActivePlaybookId);
   if (!pb) return;
 
-  if (!confirm('Czy na pewno chcesz usunąć ten etap wraz ze wszystkimi jego zadaniami?')) return;
-
   pb.stages = (pb.stages || []).filter(s => s.id !== stageId);
   await savePlaybooksImmediately();
   renderPlaybookDetailModalContent();
   renderKanbanPlaybookCards();
+  showToast('Etap procedury został pomyślnie usunięty.', 'info');
 }
 
 async function resetCurrentPlaybookTasks() {
   const pb = playbooksData.find(p => p.id === currentActivePlaybookId);
   if (!pb) return;
-
-  if (!confirm('Czy zresetować wszystkie zadania w tej procedurze do stanu nieukończonego?')) return;
 
   if (pb.stages) {
     pb.stages.forEach(st => {
@@ -4027,18 +4081,19 @@ async function resetCurrentPlaybookTasks() {
   await savePlaybooksImmediately();
   renderPlaybookDetailModalContent();
   renderKanbanPlaybookCards();
+  showToast('Zresetowano zadania w bieżącej procedurze.', 'info');
 }
 
 async function deleteCurrentPlaybook() {
   const pb = playbooksData.find(p => p.id === currentActivePlaybookId);
   if (!pb) return;
-
-  if (!confirm(`Czy na pewno chcesz bezpowrotnie usunąć procedurę "${pb.title}"?`)) return;
+  const pbTitle = pb.title || '';
 
   playbooksData = playbooksData.filter(p => p.id !== currentActivePlaybookId);
   await savePlaybooksImmediately();
   closePlaybookDetailModal();
   renderKanbanPlaybookCards();
+  showToast(`Procedura "${pbTitle}" została usunięta.`, 'info');
 }
 
 function openAddPlaybookModal() {
@@ -4958,10 +5013,7 @@ async function refreshRssArticles() {
 
 window.markAllCurrentRssAsRead = function() {
   if (!currentRssVisibleArticles || currentRssVisibleArticles.length === 0) {
-    alert('Brak widocznych artykułów do oznaczenia jako przeczytane.');
-    return;
-  }
-  if (!confirm('Czy na pewno chcesz oznaczyć wszystkie widoczne wpisy ze zaznaczonych źródeł jako przeczytane?')) {
+    showToast('Brak widocznych artykułów do oznaczenia jako przeczytane.', 'warning');
     return;
   }
   const hiddenArticles = JSON.parse(localStorage.getItem('knowops_wiki_hidden_rss') || '[]');
@@ -4972,6 +5024,7 @@ window.markAllCurrentRssAsRead = function() {
   }
   localStorage.setItem('knowops_wiki_hidden_rss', JSON.stringify(hiddenArticles));
   refreshRssArticles();
+  showToast('Wszystkie widoczne wpisy oznaczono jako przeczytane.', 'info');
 };
 
 window.hideRssArticle = function(link) {
@@ -4984,10 +5037,9 @@ window.hideRssArticle = function(link) {
 };
 
 window.restoreHiddenRssArticles = function() {
-  if (confirm('Czy chcesz przywrócić wszystkie ukryte wpisy RSS?')) {
-    localStorage.removeItem('knowops_wiki_hidden_rss');
-    refreshRssArticles();
-  }
+  localStorage.removeItem('knowops_wiki_hidden_rss');
+  refreshRssArticles();
+  showToast('Przywrócono ukryte wpisy RSS.', 'info');
 };
 
 
@@ -5000,7 +5052,6 @@ async function toggleRssFeedEnabled(id, enabled) {
 }
 
 async function deleteRssFeed(id) {
-  if (!confirm('Czy na pewno chcesz usunąć to źródło RSS?')) return;
   rssFeeds = rssFeeds.filter(f => f.id !== id);
   await saveRssFeedsToServer();
   renderRssFeedsList();
@@ -5011,6 +5062,7 @@ async function deleteRssFeed(id) {
     if (select) select.value = 'all';
   }
   await refreshRssArticles();
+  showToast('Źródło RSS zostało pomyślnie usunięte.', 'info');
 }
 
 async function addNewRssFeed() {
@@ -5376,8 +5428,9 @@ window.resetTopNavOrder = async function() {
       renderTopCategories(navigationData.categories);
     }
     window.renderCategoryGroupsList();
+    showToast('Zresetowano kolejność kafelków do domyślnego układu.', 'info');
   } catch (err) {
-    alert('Nie udało się zresetować kolejności: ' + err.message);
+    showToast('Nie udało się zresetować kolejności: ' + err.message, 'error');
   }
 };
 
@@ -5736,18 +5789,11 @@ window.autoGroupCategoriesByPrefix = async function() {
   }
 
   if (repeatingPrefixes.length === 0) {
-    alert('Nie znaleziono kategorii o powtarzających się prefiksach numerycznych (np. 010_..., 01_...). Wszystkie foldery mają unikalne numery i są wyświetlane automatycznie jako pojedyncze kafelki.');
+    showToast('Nie znaleziono kategorii o powtarzających się prefiksach numerycznych. Wszystkie foldery mają unikalne numery.', 'info');
     return;
   }
 
-  const promptLines = repeatingPrefixes.map(p => ` - Prefiks ${p.prefix}: ${p.list.length} folderów (${p.list.map(c => c.id).join(', ')})`);
-  const promptMsg = 'Znaleziono foldery o powtarzających się prefiksach numerycznych:\n' +
-    promptLines.join('\n') +
-    '\n\nCzy chcesz automatycznie połączyć foldery o tych samych numerach w grupy menu górnego? Foldery o unikalnych numerach pozostaną automatycznie osobnymi kafelkami.';
-
-  if (!confirm(promptMsg)) {
-    return;
-  }
+  showToast('Automatyczne łączenie folderów o tych samych prefiksach w grupy...', 'info');
 
   let existingGroups = (navigationData && Array.isArray(navigationData.categoryGroups)) ? [...navigationData.categoryGroups] : [];
 
@@ -6304,8 +6350,9 @@ window.deleteCategoryGroup = async function(groupId) {
       renderTopCategories(navigationData.categories);
     }
     window.renderCategoryGroupsList();
+    showToast('Grupa menu została pomyślnie usunięta.', 'info');
   } catch (err) {
-    alert('Nie udało się usunąć grupy: ' + err.message);
+    showToast('Nie udało się usunąć grupy: ' + err.message, 'error');
   }
 };
 
@@ -8179,31 +8226,29 @@ window.handleEditorImageUpload = async function(event) {
 window.deleteCurrentArticleFromModal = async function() {
   if (!currentEditingPath) return;
 
-  if (!confirm(`Czy na pewno chcesz trwale usunąć plik: ${currentEditingPath}?`)) {
-    return;
-  }
-
+  const targetDocPath = currentEditingPath;
   try {
     const res = await fetch('/api/delete-page', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ relPath: currentEditingPath })
+      body: JSON.stringify({ relPath: targetDocPath })
     });
 
     const data = await res.json();
     if (data.success) {
       closeEditorModal();
       if (typeof window.closeDocTab === 'function') {
-        window.closeDocTab(currentEditingPath);
+        window.closeDocTab(targetDocPath);
       }
       if (typeof triggerRescan === 'function') await triggerRescan();
-      const parts = currentEditingPath.split('/');
+      const parts = targetDocPath.split('/');
       if (typeof selectCategory === 'function') selectCategory(parts[0], parts[1] || '');
+      showToast('Dokument został trwale usunięty.', 'info');
     } else {
-      alert('Błąd usuwania pliku: ' + (data.error || 'Nieznany błąd'));
+      showToast('Błąd usuwania pliku: ' + (data.error || 'Nieznany błąd'), 'error');
     }
   } catch (err) {
-    alert('Błąd połączenia z serwerem: ' + err.message);
+    showToast('Błąd połączenia z serwerem: ' + err.message, 'error');
   }
 };
 
@@ -8300,7 +8345,7 @@ window.submitDeleteFolder = async function() {
   const relPath = relPathInput ? relPathInput.value.trim() : '';
 
   if (!relPath) {
-    alert('Brak wskazanej ścieżki katalogu do usunięcia.');
+    showToast('Brak wskazanej ścieżki katalogu do usunięcia.', 'warning');
     return;
   }
 
@@ -8315,7 +8360,7 @@ window.submitDeleteFolder = async function() {
     if (!res.ok) throw new Error(data.error || 'Nieznany błąd serwera');
 
     window.closeDeleteFolderModal();
-    alert(data.message || 'Katalog został pomyślnie usunięty.');
+    showToast(data.message || 'Katalog został pomyślnie usunięty.', 'info');
 
     const currentHash = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
     if (currentHash === relPath || currentHash.startsWith(relPath + '/')) {
@@ -8324,7 +8369,7 @@ window.submitDeleteFolder = async function() {
 
     await loadNavigation();
   } catch (err) {
-    alert(`Błąd podczas usuwania katalogu: ${err.message}`);
+    showToast(`Błąd podczas usuwania katalogu: ${err.message}`, 'error');
   }
 };
 
@@ -8768,11 +8813,7 @@ window.submitDeleteOrphanedImages = async function() {
   const filenames = Array.from(checkboxes).map(cb => cb.value);
 
   if (filenames.length === 0) {
-    alert('Proszę zaznaczyć co najmniej jedną grafikę do usunięcia.');
-    return;
-  }
-
-  if (!confirm(`Czy na pewno chcesz przenieść ${filenames.length} zaznaczonych grafik do kosza (public/images/.trash)?`)) {
+    showToast('Proszę zaznaczyć co najmniej jedną grafikę do usunięcia.', 'warning');
     return;
   }
 
@@ -8792,10 +8833,10 @@ window.submitDeleteOrphanedImages = async function() {
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || 'Błąd serwera');
 
-    alert(result.message || `Przeniesiono ${filenames.length} grafik do kosza.`);
+    showToast(result.message || `Przeniesiono ${filenames.length} grafik do kosza.`, 'info');
     await window.openOrphanedImagesModal();
   } catch (err) {
-    alert(`Błąd podczas usuwania grafik: ${err.message}`);
+    showToast(`Błąd podczas usuwania grafik: ${err.message}`, 'error');
   } finally {
     if (deleteBtn) {
       deleteBtn.disabled = false;
@@ -8875,7 +8916,6 @@ window.closeTrashDocumentsModal = function() {
 };
 
 window.restoreTrashedDocument = async function(id) {
-  if (!confirm('Czy na pewno chcesz przywrócić ten element do pierwotnej lokalizacji?')) return;
   try {
     const res = await fetch('/api/restore-document', {
       method: 'POST',
@@ -8885,16 +8925,15 @@ window.restoreTrashedDocument = async function(id) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Błąd przywracania');
 
-    alert(data.message || 'Pomyślnie przywrócono element.');
+    showToast(data.message || 'Pomyślnie przywrócono element.', 'success');
     await window.openTrashDocumentsModal();
     if (typeof loadNavigation === 'function') loadNavigation();
   } catch (err) {
-    alert(`Błąd: ${err.message}`);
+    showToast(`Błąd: ${err.message}`, 'error');
   }
 };
 
 window.purgeTrashedDocument = async function(id) {
-  if (!confirm('Czy na pewno chcesz trwale usunąć ten element z kosza? Tej operacji nie można cofnąć.')) return;
   try {
     const res = await fetch('/api/purge-trash', {
       method: 'POST',
@@ -8904,14 +8943,14 @@ window.purgeTrashedDocument = async function(id) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Błąd trwałego usuwania');
 
+    showToast('Element został trwale usunięty z kosza.', 'info');
     await window.openTrashDocumentsModal();
   } catch (err) {
-    alert(`Błąd: ${err.message}`);
+    showToast(`Błąd: ${err.message}`, 'error');
   }
 };
 
 window.purgeAllTrashDocuments = async function() {
-  if (!confirm('Czy na pewno chcesz bezpowrotnie opróżnić cały kosz dokumentacji? Wszystkie usunięte pliki i katalogi zostaną skasowane.')) return;
   try {
     const res = await fetch('/api/purge-trash', {
       method: 'POST',
@@ -8921,10 +8960,10 @@ window.purgeAllTrashDocuments = async function() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Błąd opróżniania kosza');
 
-    alert(data.message || 'Kosz został opróżniony.');
+    showToast(data.message || 'Kosz został opróżniony.', 'info');
     await window.openTrashDocumentsModal();
   } catch (err) {
-    alert(`Błąd: ${err.message}`);
+    showToast(`Błąd: ${err.message}`, 'error');
   }
 };
 
@@ -9213,10 +9252,6 @@ window.submitSyncFilenames = async function() {
     return currentSyncItems[idx];
   }).filter(Boolean);
 
-  if (!confirm(`Czy na pewno chcesz zmienić nazwy ${selectedItems.length} zaznaczonych plików? Nazwy zostaną zaktualizowane na dysku, a drzewo nawigacji zrekompilowane.`)) {
-    return;
-  }
-
   const applyBtn = document.getElementById('btnApplySyncFilenames');
   if (applyBtn) {
     applyBtn.disabled = true;
@@ -9248,13 +9283,13 @@ window.submitSyncFilenames = async function() {
       }
     }
 
-    alert(data.message || `Pomyślnie zaktualizowano nazwy ${data.renamedCount} plików.`);
+    showToast(data.message || `Pomyślnie zaktualizowano nazwy ${data.renamedCount} plików.`, 'success');
     window.closeSyncFilenamesModal();
     if (typeof loadNavigation === 'function') {
       await loadNavigation();
     }
   } catch (err) {
-    alert(`Błąd podczas aktualizacji nazw: ${err.message}`);
+    showToast(`Błąd podczas aktualizacji nazw: ${err.message}`, 'error');
   } finally {
     if (applyBtn) {
       applyBtn.disabled = false;
@@ -9532,12 +9567,11 @@ window.copyScratchpadToClipboard = async function() {
 window.clearScratchpad = function() {
   const ta = document.getElementById('scratchpadTextarea');
   if (!ta || !ta.value.trim()) return;
-  if (confirm('Czy na pewno chcesz wyczyścić zawartość brudnopisu?')) {
-    ta.value = '';
-    localStorage.removeItem('knowops_scratchpad_content');
-    window.updateScratchpadCounts();
-    window.saveScratchpadToServer();
-  }
+  ta.value = '';
+  localStorage.removeItem('knowops_scratchpad_content');
+  window.updateScratchpadCounts();
+  window.saveScratchpadToServer();
+  showToast('Zawartość brudnopisu została wyczyszczona.', 'info');
 };
 
 window.promoteScratchpadToWikiPage = function() {
@@ -10815,12 +10849,9 @@ window.sendCveToKanban = async function(cveId) {
     };
 
     applyCveFiltersAndRender();
-
-    if (confirm(`Utworzono zadanie mitygacji w tablicy Kanban dla ${cveId}.\n\nCzy chcesz przejść do tablicy Kanban teraz?`)) {
-      window.location.hash = '#/kanban';
-    }
+    showToast(`Utworzono zadanie mitygacji w tablicy Kanban dla ${cveId}.`, 'success');
   } catch (err) {
-    alert('Błąd podczas tworzenia zadania w Kanban: ' + err.message);
+    showToast('Błąd podczas tworzenia zadania w Kanban: ' + err.message, 'error');
   }
 };
 
@@ -11362,7 +11393,6 @@ window.toggleOvertimeItem = async function(id, isTaken) {
 };
 
 window.deleteOvertimeItem = async function(id) {
-  if (!confirm('Czy na pewno chcesz usunąć ten wpis nadgodzin?')) return;
   try {
     const res = await fetch('/api/overtime', {
       method: 'DELETE',
@@ -11379,8 +11409,9 @@ window.deleteOvertimeItem = async function(id) {
 
     populateOvertimeMonthFilterSelect();
     renderOvertimeTableAndStats();
+    showToast('Wpis nadgodzin został pomyślnie usunięty.', 'info');
   } catch (err) {
-    alert('Błąd usuwania wpisu nadgodzin: ' + err.message);
+    showToast('Błąd usuwania wpisu nadgodzin: ' + err.message, 'error');
   }
 };
 
@@ -11902,8 +11933,6 @@ window.submitNewMpkProject = async function(event) {
 };
 
 window.deleteMpkProject = async function(pid, pName) {
-  if (!confirm(`Czy na pewno chcesz usunąć projekt "${pName}" wraz ze wszystkimi jego wpisami?`)) return;
-
   try {
     const res = await fetch('/api/mpk/project', {
       method: 'DELETE',
@@ -11922,8 +11951,9 @@ window.deleteMpkProject = async function(pid, pName) {
     mpkState.entries = data.entries || [];
     mpkState.stats = data.stats || {};
     renderMpkProjectsAndStats();
+    showToast(`Projekt "${pName}" został pomyślnie usunięty.`, 'info');
   } catch (err) {
-    alert('Nie udało się usunąć projektu: ' + err.message);
+    showToast('Nie udało się usunąć projektu: ' + err.message, 'error');
   }
 };
 
@@ -11939,11 +11969,11 @@ window.submitMpkEntry = async function(event, pid) {
   const description = descEl.value.trim();
 
   if (hours <= 0) {
-    alert('Ilość godzin musi być większa od zera.');
+    showToast('Ilość godzin musi być większa od zera.', 'warning');
     return;
   }
   if (!description) {
-    alert('Wprowadź opis wykonanego zadania.');
+    showToast('Wprowadź opis wykonanego zadania.', 'warning');
     return;
   }
 
@@ -11969,14 +11999,13 @@ window.submitMpkEntry = async function(event, pid) {
     mpkState.stats = data.stats || {};
     mpkExpandedProjectIds.add(pid);
     renderMpkProjectsAndStats();
+    showToast('Pomyślnie dodano godziny do projektu.', 'success');
   } catch (err) {
-    alert('Nie udało się dodać wpisu: ' + err.message);
+    showToast('Nie udało się dodać wpisu: ' + err.message, 'error');
   }
 };
 
 window.deleteMpkEntry = async function(eid) {
-  if (!confirm('Czy na pewno chcesz usunąć ten wpis godzin?')) return;
-
   const targetEntry = (mpkState.entries || []).find(e => e.id === eid);
   const targetPid = targetEntry ? targetEntry.projectId : null;
 
@@ -11999,8 +12028,9 @@ window.deleteMpkEntry = async function(eid) {
     mpkState.stats = data.stats || {};
     if (targetPid) mpkExpandedProjectIds.add(targetPid);
     renderMpkProjectsAndStats();
+    showToast('Wpis godzin został pomyślnie usunięty.', 'info');
   } catch (err) {
-    alert('Nie udało się usunąć wpisu: ' + err.message);
+    showToast('Nie udało się usunąć wpisu: ' + err.message, 'error');
   }
 };
 
