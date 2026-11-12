@@ -8,7 +8,6 @@ import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR, initBackup
 import { generateNavigation, extractMarkdownTags, extractMarkdownStatus } from './build_navigation.mjs';
 import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
 import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, translateLiveText, batchTranslateLive, getTranslationsCache } from './cve_engine.mjs';
-import { HISTORY_DIR, MAX_DOCUMENT_VERSIONS, archiveDocumentVersion, listDocumentVersions, getDocumentVersionContent } from './version_engine.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -114,7 +113,127 @@ const DATA_DIR = path.resolve('data');
 const OVERTIME_FILE = path.join(DATA_DIR, 'overtime.json');
 const STATUSES_FILE = path.join(DATA_DIR, 'article_statuses.json');
 
-export { HISTORY_DIR, MAX_DOCUMENT_VERSIONS, archiveDocumentVersion, listDocumentVersions, getDocumentVersionContent };
+export const HISTORY_DIR = path.join(DATA_DIR, 'history');
+if (!fs.existsSync(HISTORY_DIR)) {
+  try { fs.mkdirSync(HISTORY_DIR, { recursive: true }); } catch (e) {}
+}
+
+export const MAX_DOCUMENT_VERSIONS = 10;
+
+function sanitizeHistoryRelPath(relPath) {
+  let decodedPath = decodeURIComponent(relPath || '');
+  let sanitized = decodedPath.replace(/^[\/\\]+/, '').replace(/\\/g, '/');
+  sanitized = sanitized.replace(/[<>:"|?*\x00]/g, '_');
+  sanitized = sanitized.split('/').map(part => part === '..' ? '__' : part).join('/');
+  if (!sanitized.endsWith('.md')) sanitized += '.md';
+  return sanitized;
+}
+
+function getDocumentHistoryDir(relPath) {
+  const raw = String(relPath || '');
+  if (raw.includes('..') || path.isAbsolute(raw) || /^[a-zA-Z]:/.test(raw)) {
+    throw new Error('Nieprawidłowa ścieżka dokumentu w historii (Path Traversal)');
+  }
+  const sanitized = sanitizeHistoryRelPath(raw);
+  const dir = path.resolve(HISTORY_DIR, sanitized);
+  if (!isPathInsideDocs(dir, HISTORY_DIR)) {
+    throw new Error('Nieprawidłowa ścieżka dokumentu w historii (Path Traversal)');
+  }
+  return dir;
+}
+
+export function archiveDocumentVersion(relPath, oldContent) {
+  if (!relPath || typeof oldContent !== 'string') return null;
+  const docHistoryDir = getDocumentHistoryDir(relPath);
+
+  if (!fs.existsSync(docHistoryDir)) {
+    fs.mkdirSync(docHistoryDir, { recursive: true });
+  }
+
+  const timestamp = Date.now();
+  const versionFilename = `version_${timestamp}.md`;
+  const versionPath = path.join(docHistoryDir, versionFilename);
+  atomicWriteFile(versionPath, oldContent, 'utf8');
+
+  // Rotacja FIFO: utrzymywanie maksymalnie MAX_DOCUMENT_VERSIONS
+  const files = fs.readdirSync(docHistoryDir)
+    .filter(f => /^version_\d+\.md$/.test(f))
+    .sort((a, b) => {
+      const tsA = parseInt(a.replace(/^version_|\.md$/g, ''), 10) || 0;
+      const tsB = parseInt(b.replace(/^version_|\.md$/g, ''), 10) || 0;
+      return tsA - tsB;
+    });
+
+  if (files.length > MAX_DOCUMENT_VERSIONS) {
+    const toRemove = files.slice(0, files.length - MAX_DOCUMENT_VERSIONS);
+    for (const f of toRemove) {
+      try {
+        fs.unlinkSync(path.join(docHistoryDir, f));
+      } catch (err) {
+        console.warn('[Wiki History] Błąd usuwania starej wersji:', err.message);
+      }
+    }
+  }
+
+  return {
+    versionFilename,
+    timestamp,
+    remainingVersionsCount: Math.min(files.length, MAX_DOCUMENT_VERSIONS)
+  };
+}
+
+export function listDocumentVersions(relPath) {
+  const docHistoryDir = getDocumentHistoryDir(relPath);
+  if (!fs.existsSync(docHistoryDir)) {
+    return [];
+  }
+
+  const files = fs.readdirSync(docHistoryDir).filter(f => /^version_\d+\.md$/.test(f));
+  const versions = [];
+
+  for (const f of files) {
+    const filePath = path.join(docHistoryDir, f);
+    const stat = fs.statSync(filePath);
+    const tsMatch = f.match(/^version_(\d+)\.md$/);
+    const timestamp = tsMatch ? parseInt(tsMatch[1], 10) : stat.mtimeMs;
+    const dateObj = new Date(timestamp);
+    versions.push({
+      id: f,
+      timestamp,
+      date: dateObj.toISOString(),
+      formattedDate: dateObj.toLocaleString('pl-PL'),
+      size: stat.size
+    });
+  }
+
+  versions.sort((a, b) => b.timestamp - a.timestamp);
+  return versions;
+}
+
+export function getDocumentVersionContent(relPath, versionId) {
+  if (!/^version_\d+\.md$/.test(versionId)) {
+    throw new Error('Nieprawidłowy identyfikator wersji');
+  }
+  const docHistoryDir = getDocumentHistoryDir(relPath);
+  const versionFilePath = path.resolve(docHistoryDir, versionId);
+
+  if (!isPathInsideDocs(versionFilePath, docHistoryDir) || !fs.existsSync(versionFilePath)) {
+    return null;
+  }
+
+  const content = fs.readFileSync(versionFilePath, 'utf8');
+  const stat = fs.statSync(versionFilePath);
+  const tsMatch = versionId.match(/^version_(\d+)\.md$/);
+  const timestamp = tsMatch ? parseInt(tsMatch[1], 10) : stat.mtimeMs;
+
+  return {
+    versionId,
+    timestamp,
+    formattedDate: new Date(timestamp).toLocaleString('pl-PL'),
+    size: stat.size,
+    content
+  };
+}
 
 export function getArticleStatuses() {
   if (fs.existsSync(STATUSES_FILE)) {

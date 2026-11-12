@@ -663,13 +663,7 @@ function getTopNavTiles(categories, categoryGroups, catToGroupMap, groupDataMap)
 
   const standaloneCats = (categories || []).filter(c => c.id !== 'kanban_board' && !catToGroupMap.has(c.id));
   for (const cat of standaloneCats) {
-    const rawId = String(cat.id || '').trim();
-    let displayTitle = cat.title || cat.id;
-    const prefixMatch = rawId.match(/^(\d+)[_\s-]+(.*)/);
-    if (prefixMatch && !displayTitle.match(/^\d+/)) {
-      displayTitle = `${prefixMatch[1]}_${displayTitle.replace(/\s+/g, '_')}`;
-    }
-    tiles.push({ id: cat.id, type: 'category', title: displayTitle });
+    tiles.push({ id: cat.id, type: 'category', title: cat.title || cat.id });
   }
 
   return tiles;
