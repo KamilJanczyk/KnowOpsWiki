@@ -3914,3 +3914,77 @@ test('Test 66: Całkowita eliminacja blokujących okien dialogowych przeglądark
   assert.equal(appJs.includes('window.purgeTrashedDocument'), true, 'Brak funkcji purgeTrashedDocument');
   assert.equal(appJs.includes('window.submitDeleteFolder'), true, 'Brak funkcji submitDeleteFolder');
 });
+
+test('Test 67: Lokalne wersjonowanie dokumentów (do 10 wersji FIFO), archiwizacja, rotacja, podgląd i mitygacja Path Traversal', async () => {
+  const { HISTORY_DIR, MAX_DOCUMENT_VERSIONS, archiveDocumentVersion } = await import('../version_engine.mjs');
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja limitu retencji wersji oraz tras w server.mjs
+  assert.equal(MAX_DOCUMENT_VERSIONS, 10, 'Maksymalna liczba wersji dokumentu musi wynosić dokładnie 10');
+  assert.equal(serverMjs.includes("normPath === '/api/document-history'"), true, 'Brak endpointu /api/document-history w server.mjs');
+  assert.equal(serverMjs.includes("normPath === '/api/document-version'"), true, 'Brak endpointu /api/document-version w server.mjs');
+  assert.equal(serverMjs.includes("normPath === '/api/document-restore'"), true, 'Brak endpointu /api/document-restore w server.mjs');
+  assert.equal(serverMjs.includes('archiveDocumentVersion(sanitizedRelPath, oldContent)'), true, 'Brak wywołania archiwizacji wersji w /api/save-page');
+
+  // 2. Weryfikacja struktury DOM i kontrolek UI
+  assert.equal(indexHtml.includes('id="documentHistoryModalOverlay"'), true, 'Brak #documentHistoryModalOverlay w index.html');
+  assert.equal(indexHtml.includes('id="docHistoryListContainer"'), true, 'Brak #docHistoryListContainer w index.html');
+  assert.equal(indexHtml.includes('id="btnRestoreDocVersion"'), true, 'Brak #btnRestoreDocVersion w index.html');
+  assert.equal(indexHtml.includes('id="docHistoryPreviewContent"'), true, 'Brak #docHistoryPreviewContent w index.html');
+  assert.equal(indexHtml.includes('openDocumentHistoryModal()'), true, 'Brak wywołania openDocumentHistoryModal w index.html');
+
+  // 3. Weryfikacja funkcji po stronie klienta (public/app.js)
+  assert.equal(appJs.includes('window.openDocumentHistoryModal'), true, 'Brak openDocumentHistoryModal w public/app.js');
+  assert.equal(appJs.includes('window.closeDocumentHistoryModal'), true, 'Brak closeDocumentHistoryModal w public/app.js');
+  assert.equal(appJs.includes('window.selectDocumentVersion'), true, 'Brak selectDocumentVersion w public/app.js');
+  assert.equal(appJs.includes('window.submitRestoreDocumentVersion'), true, 'Brak submitRestoreDocumentVersion w public/app.js');
+
+  // 4. Test funkcjonalny archiwizacji i rotacji FIFO (max 10 wersji)
+  const testRelPath = '00_Sciaga/test_history_unit.md';
+  const testDocHistoryDir = path.resolve(HISTORY_DIR, testRelPath);
+
+  // Wyczyść ewentualny katalog testowy
+  if (fs.existsSync(testDocHistoryDir)) {
+    fs.rmSync(testDocHistoryDir, { recursive: true, force: true });
+  }
+
+  try {
+    // Dodaj 13 kolejnych wersji pliku
+    for (let i = 1; i <= 13; i++) {
+      archiveDocumentVersion(testRelPath, `# Wersja testowa ${i}\nTreść dokumentu testowego numer ${i}`);
+      // Krótkie opóźnienie dla unikalności timestampów
+      await new Promise(r => setTimeout(r, 8));
+    }
+
+    assert.equal(fs.existsSync(testDocHistoryDir), true, 'Katalog historii dokumentu powinien istnieć');
+    const versionFiles = fs.readdirSync(testDocHistoryDir).filter(f => /^version_\d+\.md$/.test(f));
+
+    // Weryfikacja, że na dysku zachowano dokładnie 10 najnowszych wersji (FIFO)
+    assert.equal(versionFiles.length, 10, 'Historia powinna zawierać dokładnie 10 wersji po przekroczeniu limitu');
+
+    // Sprawdź zawartość najnowszej wersji
+    versionFiles.sort((a, b) => {
+      const tsA = parseInt(a.replace(/^version_|\.md$/g, ''), 10) || 0;
+      const tsB = parseInt(b.replace(/^version_|\.md$/g, ''), 10) || 0;
+      return tsA - tsB;
+    });
+    const newestContent = fs.readFileSync(path.join(testDocHistoryDir, versionFiles[versionFiles.length - 1]), 'utf8');
+    assert.equal(newestContent.includes('Wersja testowa 13'), true, 'Najnowsza wersja powinna zawierać treść z ostatniego zapisu');
+
+    const oldestRetainedContent = fs.readFileSync(path.join(testDocHistoryDir, versionFiles[0]), 'utf8');
+    assert.equal(oldestRetainedContent.includes('Wersja testowa 4'), true, 'Najstarsza zachowana wersja powinna być wersją nr 4 (1-3 usunięte przez FIFO)');
+
+    // 5. Mitygacja Path Traversal przy odwołaniach do historii
+    assert.throws(() => {
+      archiveDocumentVersion('../../etc/shadow', 'niebezpieczna tresc');
+    }, /Nieprawidłowa ścieżka/, 'Próba Path Traversal w historii dokumentów musi rzucić wyjątkiem');
+
+  } finally {
+    // Sprzątanie po teście jednostkowym
+    if (fs.existsSync(testDocHistoryDir)) {
+      fs.rmSync(testDocHistoryDir, { recursive: true, force: true });
+    }
+  }
+});

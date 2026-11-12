@@ -8,6 +8,7 @@ import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR, initBackup
 import { generateNavigation, extractMarkdownTags, extractMarkdownStatus } from './build_navigation.mjs';
 import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
 import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, translateLiveText, batchTranslateLive, getTranslationsCache } from './cve_engine.mjs';
+import { HISTORY_DIR, MAX_DOCUMENT_VERSIONS, archiveDocumentVersion, listDocumentVersions, getDocumentVersionContent } from './version_engine.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -112,6 +113,8 @@ export function getTrashManifest() {
 const DATA_DIR = path.resolve('data');
 const OVERTIME_FILE = path.join(DATA_DIR, 'overtime.json');
 const STATUSES_FILE = path.join(DATA_DIR, 'article_statuses.json');
+
+export { HISTORY_DIR, MAX_DOCUMENT_VERSIONS, archiveDocumentVersion, listDocumentVersions, getDocumentVersionContent };
 
 export function getArticleStatuses() {
   if (fs.existsSync(STATUSES_FILE)) {
@@ -1957,6 +1960,19 @@ const server = http.createServer(async (req, res) => {
       fs.renameSync(sourcePath, targetPath);
       console.log(`[Wiki API] Zmieniono nazwę pliku: ${sanitizedOld} -> ${newRelPath}`);
 
+      // Przeniesienie powiązanej historii wersji (jeśli istnieje)
+      try {
+        const oldHistoryDir = path.resolve(HISTORY_DIR, sanitizedOld);
+        const newHistoryDir = path.resolve(HISTORY_DIR, newRelPath);
+        if (fs.existsSync(oldHistoryDir)) {
+          const newHistoryParent = path.dirname(newHistoryDir);
+          if (!fs.existsSync(newHistoryParent)) fs.mkdirSync(newHistoryParent, { recursive: true });
+          fs.renameSync(oldHistoryDir, newHistoryDir);
+        }
+      } catch (hRenameErr) {
+        console.warn('[Wiki History Rename]', hRenameErr.message);
+      }
+
       try {
         const statuses = getArticleStatuses();
         if (statuses[sanitizedOld]) {
@@ -2084,6 +2100,18 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      // Archiwizacja dotychczasowej wersji przed nadpisaniem (lokalne wersjonowanie do 10 wersji)
+      if (fs.existsSync(targetPath)) {
+        try {
+          const oldContent = fs.readFileSync(targetPath, 'utf8');
+          if (oldContent !== content) {
+            archiveDocumentVersion(sanitizedRelPath, oldContent);
+          }
+        } catch (histErr) {
+          console.error('[Wiki API History]', histErr.message);
+        }
+      }
+
       isApiSaving = true;
       try {
         atomicWriteFile(targetPath, content, 'utf8');
@@ -2112,6 +2140,176 @@ const server = http.createServer(async (req, res) => {
         relPath: sanitizedRelPath,
         url: sanitizedRelPath.replace(/\.md$/, '.html')
       });
+    }
+
+    if (normPath === '/api/document-history' && req.method === 'GET') {
+      const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const rawRelPath = urlObj.searchParams.get('relPath');
+      if (!rawRelPath) {
+        return sendJson(400, { error: 'Wymagany parametr relPath' });
+      }
+
+      let decodedPath = decodeURIComponent(rawRelPath);
+      let sanitizedRelPath = decodedPath.replace(/^[\/\\]+/, '').replace(/\\/g, '/');
+      sanitizedRelPath = sanitizedRelPath.replace(/[<>:"|?*\x00]/g, '_');
+      sanitizedRelPath = sanitizedRelPath.split('/').map(part => part === '..' ? '__' : part).join('/');
+      if (!sanitizedRelPath.endsWith('.md')) sanitizedRelPath += '.md';
+
+      const docHistoryDir = path.resolve(HISTORY_DIR, sanitizedRelPath);
+      if (!isPathInsideDocs(docHistoryDir, HISTORY_DIR)) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka pliku' });
+      }
+
+      if (!fs.existsSync(docHistoryDir)) {
+        return sendJson(200, { success: true, relPath: sanitizedRelPath, maxVersions: MAX_DOCUMENT_VERSIONS, versions: [] });
+      }
+
+      try {
+        const files = fs.readdirSync(docHistoryDir)
+          .filter(f => /^version_\d+\.md$/.test(f));
+
+        const versions = [];
+        for (const f of files) {
+          const filePath = path.join(docHistoryDir, f);
+          const stat = fs.statSync(filePath);
+          const tsMatch = f.match(/^version_(\d+)\.md$/);
+          const timestamp = tsMatch ? parseInt(tsMatch[1], 10) : stat.mtimeMs;
+          const dateObj = new Date(timestamp);
+          versions.push({
+            id: f,
+            timestamp,
+            date: dateObj.toISOString(),
+            formattedDate: dateObj.toLocaleString('pl-PL'),
+            size: stat.size
+          });
+        }
+
+        versions.sort((a, b) => b.timestamp - a.timestamp);
+
+        return sendJson(200, {
+          success: true,
+          relPath: sanitizedRelPath,
+          maxVersions: MAX_DOCUMENT_VERSIONS,
+          versions
+        });
+      } catch (err) {
+        return sendJson(500, { error: 'Błąd odczytu historii dokumentu: ' + err.message });
+      }
+    }
+
+    if (normPath === '/api/document-version' && req.method === 'GET') {
+      const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const rawRelPath = urlObj.searchParams.get('relPath');
+      const versionId = urlObj.searchParams.get('versionId');
+
+      if (!rawRelPath || !versionId) {
+        return sendJson(400, { error: 'Wymagane parametry relPath i versionId' });
+      }
+
+      if (!/^version_\d+\.md$/.test(versionId)) {
+        return sendJson(400, { error: 'Nieprawidłowy identyfikator wersji' });
+      }
+
+      let decodedPath = decodeURIComponent(rawRelPath);
+      let sanitizedRelPath = decodedPath.replace(/^[\/\\]+/, '').replace(/\\/g, '/');
+      sanitizedRelPath = sanitizedRelPath.replace(/[<>:"|?*\x00]/g, '_');
+      sanitizedRelPath = sanitizedRelPath.split('/').map(part => part === '..' ? '__' : part).join('/');
+      if (!sanitizedRelPath.endsWith('.md')) sanitizedRelPath += '.md';
+
+      const docHistoryDir = path.resolve(HISTORY_DIR, sanitizedRelPath);
+      if (!isPathInsideDocs(docHistoryDir, HISTORY_DIR)) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka pliku' });
+      }
+
+      const versionFilePath = path.resolve(docHistoryDir, versionId);
+      if (!isPathInsideDocs(versionFilePath, docHistoryDir) || !fs.existsSync(versionFilePath)) {
+        return sendJson(404, { error: 'Wskazana wersja archiwalna nie istnieje' });
+      }
+
+      try {
+        const content = fs.readFileSync(versionFilePath, 'utf8');
+        const stat = fs.statSync(versionFilePath);
+        const tsMatch = versionId.match(/^version_(\d+)\.md$/);
+        const timestamp = tsMatch ? parseInt(tsMatch[1], 10) : stat.mtimeMs;
+
+        return sendJson(200, {
+          success: true,
+          relPath: sanitizedRelPath,
+          versionId,
+          timestamp,
+          formattedDate: new Date(timestamp).toLocaleString('pl-PL'),
+          size: stat.size,
+          content
+        });
+      } catch (err) {
+        return sendJson(500, { error: 'Błąd odczytu wersji archiwalnej: ' + err.message });
+      }
+    }
+
+    if (normPath === '/api/document-restore' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { relPath, versionId } = body;
+
+      if (!relPath || !versionId) {
+        return sendJson(400, { error: 'Wymagane parametry: relPath i versionId' });
+      }
+
+      if (!/^version_\d+\.md$/.test(versionId)) {
+        return sendJson(400, { error: 'Nieprawidłowy identyfikator wersji' });
+      }
+
+      let decodedPath = decodeURIComponent(relPath);
+      let sanitizedRelPath = decodedPath.replace(/^[\/\\]+/, '').replace(/\\/g, '/');
+      sanitizedRelPath = sanitizedRelPath.replace(/[<>:"|?*\x00]/g, '_');
+      sanitizedRelPath = sanitizedRelPath.split('/').map(part => part === '..' ? '__' : part).join('/');
+      if (!sanitizedRelPath.endsWith('.md')) sanitizedRelPath += '.md';
+
+      const docHistoryDir = path.resolve(HISTORY_DIR, sanitizedRelPath);
+      if (!isPathInsideDocs(docHistoryDir, HISTORY_DIR)) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka pliku' });
+      }
+
+      const versionFilePath = path.resolve(docHistoryDir, versionId);
+      if (!isPathInsideDocs(versionFilePath, docHistoryDir) || !fs.existsSync(versionFilePath)) {
+        return sendJson(404, { error: 'Wskazana wersja archiwalna nie istnieje' });
+      }
+
+      const targetPath = path.resolve(DOCS_DIR, sanitizedRelPath);
+      if (!isPathInsideDocs(targetPath)) {
+        return sendJson(400, { error: 'Nieprawidłowa ścieżka pliku docelowego' });
+      }
+
+      try {
+        const restoredContent = fs.readFileSync(versionFilePath, 'utf8');
+
+        // Archiwizuj bieżący stan przed przywróceniem
+        if (fs.existsSync(targetPath)) {
+          const currentContent = fs.readFileSync(targetPath, 'utf8');
+          if (currentContent !== restoredContent) {
+            archiveDocumentVersion(sanitizedRelPath, currentContent);
+          }
+        }
+
+        isApiSaving = true;
+        atomicWriteFile(targetPath, restoredContent, 'utf8');
+        try {
+          await rebuildWiki();
+          rebuildSearchCache();
+        } finally {
+          isApiSaving = false;
+        }
+
+        return sendJson(200, {
+          success: true,
+          message: 'Pomyślnie przywrócono wybraną wersję dokumentu.',
+          relPath: sanitizedRelPath,
+          content: restoredContent
+        });
+      } catch (err) {
+        isApiSaving = false;
+        return sendJson(500, { error: 'Błąd przywracania wersji: ' + err.message });
+      }
     }
 
     if (normPath === '/api/move-page' && req.method === 'POST') {

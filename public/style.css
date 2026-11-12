@@ -3067,5 +3067,10 @@
       color: #ffffff;
     }
 
+    .doc-history-item:hover {
+      border-color: #38bdf8 !important;
+      background: #182234 !important;
+    }
+
 
 

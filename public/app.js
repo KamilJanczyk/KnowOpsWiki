@@ -1963,6 +1963,7 @@ function renderDocTabs() {
       <button class="btn-action" style="background:#0f766e; border:1px solid #14b8a6; color:#ffffff; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="exportArticleOfflineHtml()" title="Pobierz ten artykuł jako samodzielny plik HTML ze zdjęciami Base64">EKSPORTUJ</button>
       <button class="btn-action" style="background:#27272a; border:1px solid #3f3f46; color:#ffffff; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="window.print()" title="Drukuj lub zapisz jako PDF (Ctrl+P)">DRUKUJ</button>
       <button class="btn-action" style="background:#166534; border:1px solid #22c55e; color:#ffffff; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="openCreateItemModalForCurrentFolder()" title="Dodaj stronę lub dział w bieżącym folderze">+ DODAJ STRONĘ / DZIAŁ</button>
+      <button class="btn-action" style="background:#0f172a; border:1px solid #0284c7; color:#38bdf8; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="openDocumentHistoryModal()" title="Historia wersji tego artykułu (do 10 wersji)">HISTORIA</button>
       <button class="btn-action" style="background:var(--sw-gold); color:#000000; font-weight:600; font-size:0.68rem; padding:3px 7px; border-radius:4px; cursor:pointer;" onclick="openEditorModal()" title="Edytuj ten dokument (Markdown)">EDYTUJ</button>
     `;
   }
@@ -8259,6 +8260,178 @@ window.updateEditorPreview = updateEditorPreview;
 window.toggleEditorScrollSync = window.toggleEditorScrollSync;
 window.updateEditorScrollSyncButton = window.updateEditorScrollSyncButton;
 window.syncPreviewScroll = window.syncPreviewScroll;
+
+// ================= MODUŁ LOKALNEGO WERSJONOWANIA DOKUMENTÓW (DO 10 WERSJI) ================= //
+
+let currentHistoryRelPath = '';
+let currentHistoryVersions = [];
+let currentSelectedVersionId = null;
+
+window.openDocumentHistoryModal = async function(targetRelPath = null) {
+  const relPath = targetRelPath || currentEditingPath || (window.location.hash ? decodeURIComponent(window.location.hash.replace(/^#\/?/, '')) : '');
+  if (!relPath || relPath.startsWith('tool/') || relPath === 'kanban' || relPath === 'kanban_board') {
+    showToast('Wybierz konkretny dokument Markdown, aby sprawdzić historię wersji.', 'warning');
+    return;
+  }
+
+  currentHistoryRelPath = relPath;
+  currentSelectedVersionId = null;
+
+  const overlay = document.getElementById('documentHistoryModalOverlay');
+  const pathDisplay = document.getElementById('docHistoryPathDisplay');
+  const countBadge = document.getElementById('docHistoryCountBadge');
+  const listContainer = document.getElementById('docHistoryListContainer');
+  const metaDisplay = document.getElementById('docHistoryPreviewMeta');
+  const previewContent = document.getElementById('docHistoryPreviewContent');
+  const btnRestore = document.getElementById('btnRestoreDocVersion');
+
+  if (!overlay || !listContainer) return;
+
+  if (pathDisplay) pathDisplay.textContent = relPath;
+  if (metaDisplay) metaDisplay.textContent = 'Wczytywanie historii wersji...';
+  if (previewContent) previewContent.textContent = '';
+  if (btnRestore) btnRestore.style.display = 'none';
+  if (countBadge) countBadge.textContent = '...';
+
+  listContainer.innerHTML = '<div style="padding:12px; color:#71717a; font-size:0.75rem; text-align:center;">Pobieranie historii...</div>';
+  overlay.style.display = 'flex';
+
+  try {
+    const res = await fetch(`/api/document-history?relPath=${encodeURIComponent(relPath)}&t=${Date.now()}`);
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd odczytu historii');
+    }
+
+    currentHistoryVersions = data.versions || [];
+    if (countBadge) countBadge.textContent = `(${currentHistoryVersions.length}/${data.maxVersions || 10})`;
+
+    if (currentHistoryVersions.length === 0) {
+      listContainer.innerHTML = '<div style="padding:16px 8px; color:#71717a; font-size:0.75rem; text-align:center; line-height:1.4;">Brak zapisanych wersji archiwalnych.<br><span style="font-size:0.68rem; color:#52525b;">Wersje powstają automatycznie przy każdej edycji i zapisie dokumentu (do 10 wersji).</span></div>';
+      if (metaDisplay) metaDisplay.textContent = 'Dokument nie posiada jeszcze zarchiwizowanych wersji';
+      return;
+    }
+
+    let listHtml = '';
+    currentHistoryVersions.forEach((v, idx) => {
+      const isFirst = idx === 0;
+      const sizeKb = (v.size / 1024).toFixed(1);
+      listHtml += `
+        <div class="doc-history-item" id="history_item_${v.id}" onclick="selectDocumentVersion('${v.id}')" style="padding:8px 10px; background:#1c1c1f; border:1px solid #27272a; border-radius:4px; cursor:pointer; transition:all 0.15s ease;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+            <strong style="font-size:0.72rem; color:${isFirst ? '#38bdf8' : '#e4e4e7'};">Wersja ${currentHistoryVersions.length - idx} ${isFirst ? '(ostatnia)' : ''}</strong>
+            <span style="font-size:0.65rem; color:#71717a;">${sizeKb} KB</span>
+          </div>
+          <div style="font-size:0.68rem; color:#a1a1aa;">${escapeHtml(v.formattedDate)}</div>
+        </div>
+      `;
+    });
+    listContainer.innerHTML = listHtml;
+
+    selectDocumentVersion(currentHistoryVersions[0].id);
+  } catch (err) {
+    listContainer.innerHTML = `<div style="padding:12px; color:#ef4444; font-size:0.75rem;">Błąd: ${escapeHtml(err.message)}</div>`;
+    if (metaDisplay) metaDisplay.textContent = 'Nie udało się wczytać historii';
+  }
+};
+
+window.closeDocumentHistoryModal = function() {
+  const overlay = document.getElementById('documentHistoryModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.selectDocumentVersion = async function(versionId) {
+  currentSelectedVersionId = versionId;
+  const version = currentHistoryVersions.find(v => v.id === versionId);
+  if (!version) return;
+
+  document.querySelectorAll('.doc-history-item').forEach(el => {
+    el.style.borderColor = '#27272a';
+    el.style.background = '#1c1c1f';
+  });
+  const activeEl = document.getElementById(`history_item_${versionId}`);
+  if (activeEl) {
+    activeEl.style.borderColor = '#38bdf8';
+    activeEl.style.background = '#0f172a';
+  }
+
+  const metaDisplay = document.getElementById('docHistoryPreviewMeta');
+  const previewContent = document.getElementById('docHistoryPreviewContent');
+  const btnRestore = document.getElementById('btnRestoreDocVersion');
+
+  if (metaDisplay) {
+    metaDisplay.innerHTML = `Wersja z dnia: <strong style="color:#38bdf8;">${escapeHtml(version.formattedDate)}</strong> (${(version.size / 1024).toFixed(1)} KB)`;
+  }
+  if (btnRestore) {
+    btnRestore.style.display = 'block';
+  }
+  if (previewContent) {
+    previewContent.textContent = 'Wczytywanie treści wersji...';
+  }
+
+  try {
+    const res = await fetch(`/api/document-version?relPath=${encodeURIComponent(currentHistoryRelPath)}&versionId=${encodeURIComponent(versionId)}`);
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd pobierania wersji');
+    }
+    if (previewContent) {
+      previewContent.textContent = data.content || '';
+    }
+  } catch (err) {
+    if (previewContent) {
+      previewContent.textContent = 'Błąd wczytywania wersji: ' + err.message;
+    }
+  }
+};
+
+window.submitRestoreDocumentVersion = async function() {
+  if (!currentHistoryRelPath || !currentSelectedVersionId) return;
+
+  const btnRestore = document.getElementById('btnRestoreDocVersion');
+  if (btnRestore) {
+    btnRestore.disabled = true;
+    btnRestore.textContent = 'Przywracanie...';
+  }
+
+  try {
+    const res = await fetch('/api/document-restore', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ relPath: currentHistoryRelPath, versionId: currentSelectedVersionId })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Błąd przywracania wersji');
+    }
+
+    const editorModal = document.getElementById('articleEditorModal');
+    if (editorModal && editorModal.style.display !== 'none' && currentEditingPath === currentHistoryRelPath) {
+      const textarea = document.getElementById('editorTextarea');
+      if (textarea) {
+        textarea.value = data.content;
+        updateEditorPreview();
+      }
+    }
+
+    closeDocumentHistoryModal();
+    showToast(data.message || 'Pomyślnie przywrócono wybraną wersję dokumentu.', 'success');
+
+    if (typeof loadArticle === 'function') {
+      await loadArticle(currentHistoryRelPath);
+    }
+  } catch (err) {
+    showToast(`Błąd podczas przywracania wersji: ${err.message}`, 'error');
+  } finally {
+    if (btnRestore) {
+      btnRestore.disabled = false;
+      btnRestore.textContent = 'PRZYWRÓĆ TĘ WERSJĘ';
+    }
+  }
+};
 
 
 // ================= MODUŁ USUWANIA FOLDERÓW / DZIAŁÓW ================= //
