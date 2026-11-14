@@ -1260,17 +1260,12 @@ async function renderSidebar() {
 
     sidebarNav.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:2px; margin-top:6px;">
+        <div class="sidebar-section-header">ZARZĄDZANIE I CZAS PRACY</div>
         <a href="#/kanban" class="sidebar-tile-btn ${isKanbanActive ? 'active' : ''}">
           <span class="label">Tablica Kanban</span>
         </a>
         <a href="#/notes" class="sidebar-tile-btn ${isNotesActive ? 'active' : ''}">
           <span class="label">Szybkie Notatki</span>
-        </a>
-        <a href="#/tool/cve" class="sidebar-tile-btn ${isCveActive ? 'active' : ''}">
-          <span class="label">Radar Podatności CVE</span>
-        </a>
-        <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}">
-          <span class="label">Biuletyn RSS SecOps</span>
         </a>
         <a href="#/tool/overtime" class="sidebar-tile-btn ${isOvertimeActive ? 'active' : ''}">
           <span class="label">Ewidencja Nadgodzin</span>
@@ -1278,11 +1273,24 @@ async function renderSidebar() {
         <a href="#/tool/mpk" class="sidebar-tile-btn ${isMpkActive ? 'active' : ''}">
           <span class="label">Projekty MPK</span>
         </a>
-        <a href="#/tool/inventory" class="sidebar-tile-btn ${isInventoryActive ? 'active' : ''}">
-          <span class="label">Inwentaryzacja Sprzętu</span>
+
+        <div class="sidebar-section-header">BEZPIECZEŃSTWO (SECOPS)</div>
+        <a href="#/tool/cve" class="sidebar-tile-btn ${isCveActive ? 'active' : ''}">
+          <span class="label">Radar Podatności CVE</span>
+        </a>
+        <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}">
+          <span class="label">Biuletyn RSS SecOps</span>
         </a>
         <a href="#/tool/passgen" class="sidebar-tile-btn ${isPassgenActive ? 'active' : ''}">
           <span class="label">Hasłomat SecOps</span>
+        </a>
+
+        <div class="sidebar-section-header">INFRASTRUKTURA I HOMELAB</div>
+        <a href="#/tool/inventory" class="sidebar-tile-btn ${isInventoryActive ? 'active' : ''}">
+          <span class="label">Inwentaryzacja Sprzętu</span>
+        </a>
+        <a href="#/tool/monitor" class="sidebar-tile-btn ${isMonitorActive ? 'active' : ''}">
+          <span class="label">Monitor Serwera</span>
         </a>
         <a href="#/tool/cidr" class="sidebar-tile-btn ${isCidrActive ? 'active' : ''}">
           <span class="label">Kalkulator CIDR</span>
@@ -1290,9 +1298,8 @@ async function renderSidebar() {
         <a href="#/tool/raid" class="sidebar-tile-btn ${isRaidActive ? 'active' : ''}">
           <span class="label">Kalkulator RAID & ZFS</span>
         </a>
-        <a href="#/tool/monitor" class="sidebar-tile-btn ${isMonitorActive ? 'active' : ''}">
-          <span class="label">Monitor Serwera</span>
-        </a>
+
+        <div class="sidebar-section-header">ADMINISTRACJA I WIKI</div>
         <a href="#/tool/instrukcja" class="sidebar-tile-btn ${isInstrukcjaActive ? 'active' : ''}">
           <span class="label">Instrukcja Obsługi</span>
         </a>

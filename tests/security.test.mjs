@@ -4282,3 +4282,50 @@ test('Test 70: Hybrydowy Radar CVE - Global Lookup (CVE.org MITRE v5 / NVD Fallb
   assert.equal(severity, 'CRITICAL');
   assert.equal(score, 9.8);
 });
+
+test('Test 71: Podzial paska bocznego Pulpitu na sekcje dzialowe (Zarzadzanie, SecOps, Infrastruktura, Administracja)', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+
+  // 1. Weryfikacja definicji stylu naglowka sekcji w public/style.css
+  assert.equal(styleCss.includes('.sidebar-section-header'), true, 'Brak definicji .sidebar-section-header w public/style.css');
+
+  // 2. Weryfikacja 4 naglowkow dzialowych w public/app.js
+  assert.equal(appJs.includes('<div class="sidebar-section-header">ZARZĄDZANIE I CZAS PRACY</div>'), true, 'Brak naglowka ZARZADZANIE I CZAS PRACY w app.js');
+  assert.equal(appJs.includes('<div class="sidebar-section-header">BEZPIECZEŃSTWO (SECOPS)</div>'), true, 'Brak naglowka BEZPIECZENSTWO (SECOPS) w app.js');
+  assert.equal(appJs.includes('<div class="sidebar-section-header">INFRASTRUKTURA I HOMELAB</div>'), true, 'Brak naglowka INFRASTRUKTURA I HOMELAB w app.js');
+  assert.equal(appJs.includes('<div class="sidebar-section-header">ADMINISTRACJA I WIKI</div>'), true, 'Brak naglowka ADMINISTRACJA I WIKI w app.js');
+
+  // 3. Weryfikacja kolejnosci wystapienia sekcji w widoku Pulpitu
+  const idxZarzadzanie = appJs.indexOf('ZARZĄDZANIE I CZAS PRACY');
+  const idxSecops = appJs.indexOf('BEZPIECZEŃSTWO (SECOPS)');
+  const idxInfra = appJs.indexOf('INFRASTRUKTURA I HOMELAB');
+  const idxAdmin = appJs.indexOf('ADMINISTRACJA I WIKI');
+
+  assert.equal(idxZarzadzanie > 0, true);
+  assert.equal(idxSecops > idxZarzadzanie, true, 'BEZPIECZENSTWO musi wystepowac po ZARZADZANIU');
+  assert.equal(idxInfra > idxSecops, true, 'INFRASTRUKTURA musi wystepowac po BEZPIECZENSTWIE');
+  assert.equal(idxAdmin > idxInfra, true, 'ADMINISTRACJA musi wystepowac po INFRASTRUKTURZE');
+
+  // 4. Weryfikacja przypisania narzedzi do sekcji
+  const zarzadzanieSlice = appJs.slice(idxZarzadzanie, idxSecops);
+  assert.equal(zarzadzanieSlice.includes('#/kanban'), true);
+  assert.equal(zarzadzanieSlice.includes('#/notes'), true);
+  assert.equal(zarzadzanieSlice.includes('#/tool/overtime'), true);
+  assert.equal(zarzadzanieSlice.includes('#/tool/mpk'), true);
+
+  const secopsSlice = appJs.slice(idxSecops, idxInfra);
+  assert.equal(secopsSlice.includes('#/tool/cve'), true);
+  assert.equal(secopsSlice.includes('#/tool/rss'), true);
+  assert.equal(secopsSlice.includes('#/tool/passgen'), true);
+
+  const infraSlice = appJs.slice(idxInfra, idxAdmin);
+  assert.equal(infraSlice.includes('#/tool/inventory'), true);
+  assert.equal(infraSlice.includes('#/tool/monitor'), true);
+  assert.equal(infraSlice.includes('#/tool/cidr'), true);
+  assert.equal(infraSlice.includes('#/tool/raid'), true);
+
+  const adminSlice = appJs.slice(idxAdmin, idxAdmin + 400);
+  assert.equal(adminSlice.includes('#/tool/instrukcja'), true);
+  assert.equal(adminSlice.includes('#/tool/admin'), true);
+});

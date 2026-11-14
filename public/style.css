@@ -730,6 +730,20 @@
     }
 
     /* Kafelkowy pasek boczny dla Dodatków */
+    .sidebar-section-header {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 6px 4px 4px 4px;
+      margin-top: 10px;
+      border-bottom: 1px solid #27272a;
+      margin-bottom: 6px;
+    }
+    .sidebar-section-header:first-child {
+      margin-top: 2px;
+    }
     .sidebar-tile-btn {
       display: flex;
       align-items: center;
