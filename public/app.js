@@ -1258,53 +1258,80 @@ async function renderSidebar() {
     const isInstrukcjaActive = (currentHash === 'tool/instrukcja');
     const isAdminActive = (currentHash === 'tool/admin');
 
+    const isKanbanPinned = openDocTabs.some(t => t.path === 'kanban');
+    const isNotesPinned = openDocTabs.some(t => t.path === 'notes');
+    const isPassgenPinned = openDocTabs.some(t => t.path === 'tool/passgen');
+    const isCidrPinned = openDocTabs.some(t => t.path === 'tool/cidr');
+    const isRaidPinned = openDocTabs.some(t => t.path === 'tool/raid');
+    const isMonitorPinned = openDocTabs.some(t => t.path === 'tool/monitor');
+    const isRssPinned = openDocTabs.some(t => t.path === 'tool/rss');
+    const isCvePinned = openDocTabs.some(t => t.path === 'tool/cve');
+    const isOvertimePinned = openDocTabs.some(t => t.path === 'tool/overtime');
+    const isMpkPinned = openDocTabs.some(t => t.path === 'tool/mpk');
+    const isInventoryPinned = openDocTabs.some(t => t.path === 'tool/inventory');
+    const isInstrukcjaPinned = openDocTabs.some(t => t.path === 'tool/instrukcja');
+    const isAdminPinned = openDocTabs.some(t => t.path === 'tool/admin');
+
     sidebarNav.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:2px; margin-top:6px;">
         <div class="sidebar-section-header">ZARZĄDZANIE I CZAS PRACY</div>
-        <a href="#/kanban" class="sidebar-tile-btn ${isKanbanActive ? 'active' : ''}">
+        <a href="#/kanban" class="sidebar-tile-btn ${isKanbanActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'kanban', 'Tablica Kanban')">
           <span class="label">Tablica Kanban</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isKanbanPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('kanban', 'Tablica Kanban')" title="${isKanbanPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isKanbanPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/notes" class="sidebar-tile-btn ${isNotesActive ? 'active' : ''}">
+        <a href="#/notes" class="sidebar-tile-btn ${isNotesActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'notes', 'Szybkie Notatki')">
           <span class="label">Szybkie Notatki</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isNotesPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('notes', 'Szybkie Notatki')" title="${isNotesPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isNotesPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/overtime" class="sidebar-tile-btn ${isOvertimeActive ? 'active' : ''}">
+        <a href="#/tool/overtime" class="sidebar-tile-btn ${isOvertimeActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/overtime', 'Ewidencja Nadgodzin')">
           <span class="label">Ewidencja Nadgodzin</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isOvertimePinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/overtime', 'Ewidencja Nadgodzin')" title="${isOvertimePinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isOvertimePinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/mpk" class="sidebar-tile-btn ${isMpkActive ? 'active' : ''}">
+        <a href="#/tool/mpk" class="sidebar-tile-btn ${isMpkActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/mpk', 'Projekty MPK')">
           <span class="label">Projekty MPK</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isMpkPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/mpk', 'Projekty MPK')" title="${isMpkPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isMpkPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
 
         <div class="sidebar-section-header">BEZPIECZEŃSTWO (SECOPS)</div>
-        <a href="#/tool/cve" class="sidebar-tile-btn ${isCveActive ? 'active' : ''}">
+        <a href="#/tool/cve" class="sidebar-tile-btn ${isCveActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/cve', 'Radar CVE')">
           <span class="label">Radar Podatności CVE</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isCvePinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/cve', 'Radar CVE')" title="${isCvePinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isCvePinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}">
+        <a href="#/tool/rss" class="sidebar-tile-btn ${isRssActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/rss', 'Biuletyn RSS')">
           <span class="label">Biuletyn RSS SecOps</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isRssPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/rss', 'Biuletyn RSS')" title="${isRssPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isRssPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/passgen" class="sidebar-tile-btn ${isPassgenActive ? 'active' : ''}">
+        <a href="#/tool/passgen" class="sidebar-tile-btn ${isPassgenActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/passgen', 'Hasłomat SecOps')">
           <span class="label">Hasłomat SecOps</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isPassgenPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/passgen', 'Hasłomat SecOps')" title="${isPassgenPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isPassgenPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
 
         <div class="sidebar-section-header">INFRASTRUKTURA I HOMELAB</div>
-        <a href="#/tool/inventory" class="sidebar-tile-btn ${isInventoryActive ? 'active' : ''}">
+        <a href="#/tool/inventory" class="sidebar-tile-btn ${isInventoryActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/inventory', 'Inwentaryzacja Sprzętu')">
           <span class="label">Inwentaryzacja Sprzętu</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isInventoryPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/inventory', 'Inwentaryzacja Sprzętu')" title="${isInventoryPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isInventoryPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/monitor" class="sidebar-tile-btn ${isMonitorActive ? 'active' : ''}">
+        <a href="#/tool/monitor" class="sidebar-tile-btn ${isMonitorActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/monitor', 'Monitor Serwera')">
           <span class="label">Monitor Serwera</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isMonitorPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/monitor', 'Monitor Serwera')" title="${isMonitorPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isMonitorPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/cidr" class="sidebar-tile-btn ${isCidrActive ? 'active' : ''}">
+        <a href="#/tool/cidr" class="sidebar-tile-btn ${isCidrActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/cidr', 'Kalkulator CIDR')">
           <span class="label">Kalkulator CIDR</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isCidrPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/cidr', 'Kalkulator CIDR')" title="${isCidrPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isCidrPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/raid" class="sidebar-tile-btn ${isRaidActive ? 'active' : ''}">
+        <a href="#/tool/raid" class="sidebar-tile-btn ${isRaidActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/raid', 'Kalkulator RAID & ZFS')">
           <span class="label">Kalkulator RAID & ZFS</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isRaidPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/raid', 'Kalkulator RAID & ZFS')" title="${isRaidPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isRaidPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
 
         <div class="sidebar-section-header">ADMINISTRACJA I WIKI</div>
-        <a href="#/tool/instrukcja" class="sidebar-tile-btn ${isInstrukcjaActive ? 'active' : ''}">
+        <a href="#/tool/instrukcja" class="sidebar-tile-btn ${isInstrukcjaActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/instrukcja', 'Instrukcja Obsługi')">
           <span class="label">Instrukcja Obsługi</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isInstrukcjaPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/instrukcja', 'Instrukcja Obsługi')" title="${isInstrukcjaPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isInstrukcjaPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
-        <a href="#/tool/admin" class="sidebar-tile-btn ${isAdminActive ? 'active' : ''}">
+        <a href="#/tool/admin" class="sidebar-tile-btn ${isAdminActive ? 'active' : ''}" draggable="true" ondragstart="window.handleSidebarToolDragStart(event, 'tool/admin', 'Centrum Administracyjne')">
           <span class="label">Centrum Administracyjne</span>
+          <button type="button" class="sidebar-tile-pin-btn ${isAdminPinned ? 'is-pinned' : ''}" onclick="event.preventDefault(); event.stopPropagation(); window.togglePinTool('tool/admin', 'Centrum Administracyjne')" title="${isAdminPinned ? 'Odepnij z paska zakładek' : 'Przypnij do paska zakładek'}">${isAdminPinned ? 'ODEPNIJ' : '+ PRZYPNIJ'}</button>
         </a>
       </div>
     `;
@@ -1635,7 +1662,7 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
 
 // ================= WIELOZAKŁADKOWOŚĆ DOKUMENTÓW I NARZĘDZI (DOC TABS) ================= //
 
-const MAX_DOC_TABS = 10;
+const MAX_DOC_TABS = 20;
 const DOC_TABS_STORAGE_KEY = 'knowops_doc_tabs';
 const DOC_BROWSING_TAB_STORAGE_KEY = 'knowops_browsing_tab';
 let openDocTabs = [];
@@ -1878,8 +1905,8 @@ function renderDocTabs() {
   let html = '';
 
   // 1. POZIOM WYŻEJ: Karty Przypięte (Saved / Pinned Tabs) z obsługą przeciągania myszką
+  let pinnedTabsHtml = '';
   if (openDocTabs.length > 0) {
-    let pinnedTabsHtml = '';
     for (let i = 0; i < openDocTabs.length; i++) {
       const tab = openDocTabs[i];
       const isSavedActive = (tab.path === currentPath);
@@ -1899,8 +1926,10 @@ function renderDocTabs() {
         `<button type="button" class="doc-tab-close" title="Usuń z przypiętych zakładek" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
       `</div>`;
     }
-    html += `<div class="doc-tabs-pinned-row" id="docTabsPinnedRow" ondragover="window.handleDocTabDragOver(event, ${openDocTabs.length - 1})" ondrop="window.handleDocTabsPinnedRowDrop(event)">${pinnedTabsHtml}</div>`;
+  } else {
+    pinnedTabsHtml = `<div class="doc-tabs-empty-placeholder">Brak przypiętych kart. Użyj + PRZYPNIJ lub przeciągnij element z menu bocznego.</div>`;
   }
+  html += `<div class="doc-tabs-pinned-row" id="docTabsPinnedRow" ondragover="window.handleDocTabsPinnedRowDragOver(event)" ondrop="window.handleDocTabsPinnedRowDrop(event)">${pinnedTabsHtml}</div>`;
 
   // 2. POZIOM NIŻEJ: Scalony wiersz operacyjny (Wariant A: akcja + karta robocza + status + narzędzia)
   let actionLeftHtml = '';
@@ -2097,6 +2126,37 @@ window.openDocTabAndSwitch = function(path, customTitle = null) {
   }
 };
 
+window.togglePinTool = function(path, customTitle = null) {
+  const clean = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
+  const existingIdx = openDocTabs.findIndex(t => t.path === clean);
+  if (existingIdx !== -1) {
+    window.unpinDocTab(clean);
+  } else {
+    registerDocTab(clean, customTitle);
+  }
+  if (currentCategory === 'kanban_board') {
+    renderSidebar();
+  }
+};
+
+window.handleSidebarToolDragStart = function(event, path, title) {
+  window._draggedToolPath = path;
+  window._draggedToolTitle = title;
+  window._isDraggingDocTab = true;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'copyMove';
+    event.dataTransfer.setData('text/plain', '#/' + path);
+  }
+};
+
+window.handleDocTabsPinnedRowDragOver = function(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy';
+  }
+};
+
 window.togglePinCurrentPage = function() {
   const currentPath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
   if (openDocTabs.some(t => t.path === currentPath)) {
@@ -2176,6 +2236,34 @@ window.handleDocTabDrop = function(event, targetIndex) {
     target.classList.remove('drag-over-left', 'drag-over-right');
   }
 
+  if (window._draggedToolPath) {
+    const toIndex = parseInt(targetIndex, 10);
+    const p = window._draggedToolPath;
+    const t = window._draggedToolTitle;
+    window._draggedToolPath = null;
+    window._draggedToolTitle = null;
+    window._isDraggingDocTab = false;
+    registerDocTab(p, t);
+    if (!isNaN(toIndex) && openDocTabs.length > 1) {
+      window.reorderDocTabs(openDocTabs.length - 1, toIndex, isAfter);
+    }
+    if (currentCategory === 'kanban_board') renderSidebar();
+    return;
+  }
+
+  if (window.sidebarDraggedPath && window.sidebarDraggedType === 'file') {
+    const toIndex = parseInt(targetIndex, 10);
+    const p = window.sidebarDraggedPath;
+    window.sidebarDraggedPath = null;
+    window.sidebarDraggedType = null;
+    window._isDraggingDocTab = false;
+    registerDocTab(p);
+    if (!isNaN(toIndex) && openDocTabs.length > 1) {
+      window.reorderDocTabs(openDocTabs.length - 1, toIndex, isAfter);
+    }
+    return;
+  }
+
   const fromIndex = window._draggedDocTabIndex;
   const toIndex = parseInt(targetIndex, 10);
   window._draggedDocTabIndex = null;
@@ -2189,6 +2277,27 @@ window.handleDocTabsPinnedRowDrop = function(event) {
   if (event.target && event.target.closest('.doc-tab-saved')) return;
   event.preventDefault();
   event.stopPropagation();
+
+  if (window._draggedToolPath) {
+    const p = window._draggedToolPath;
+    const t = window._draggedToolTitle;
+    window._draggedToolPath = null;
+    window._draggedToolTitle = null;
+    window._isDraggingDocTab = false;
+    registerDocTab(p, t);
+    if (currentCategory === 'kanban_board') renderSidebar();
+    return;
+  }
+
+  if (window.sidebarDraggedPath && window.sidebarDraggedType === 'file') {
+    const p = window.sidebarDraggedPath;
+    window.sidebarDraggedPath = null;
+    window.sidebarDraggedType = null;
+    window._isDraggingDocTab = false;
+    registerDocTab(p);
+    return;
+  }
+
   const fromIndex = window._draggedDocTabIndex;
   window._draggedDocTabIndex = null;
   if (typeof fromIndex === 'number' && !isNaN(fromIndex) && openDocTabs.length > 0) {
@@ -2198,6 +2307,8 @@ window.handleDocTabsPinnedRowDrop = function(event) {
 
 window.handleDocTabDragEnd = function(event) {
   window._draggedDocTabIndex = null;
+  window._draggedToolPath = null;
+  window._draggedToolTitle = null;
   setTimeout(() => {
     window._isDraggingDocTab = false;
   }, 100);
@@ -2273,6 +2384,9 @@ window.handleDocTabDragLeave = window.handleDocTabDragLeave;
 window.handleDocTabDrop = window.handleDocTabDrop;
 window.handleDocTabDragEnd = window.handleDocTabDragEnd;
 window.handleDocTabsPinnedRowDrop = window.handleDocTabsPinnedRowDrop;
+window.handleDocTabsPinnedRowDragOver = window.handleDocTabsPinnedRowDragOver;
+window.togglePinTool = window.togglePinTool;
+window.handleSidebarToolDragStart = window.handleSidebarToolDragStart;
 window.setOpenDocTabs = (tabs) => { openDocTabs = tabs; saveDocTabsToStorage(); renderDocTabs(); };
 window.syncDocTabsFromServer = syncDocTabsFromServer;
 window.saveDocTabsToServer = saveDocTabsToServer;

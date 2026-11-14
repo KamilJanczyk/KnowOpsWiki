@@ -1918,7 +1918,7 @@ const server = http.createServer(async (req, res) => {
       if (!body.tabs || !Array.isArray(body.tabs)) {
         return sendJson(400, { error: 'Wymagana tablica tabs' });
       }
-      const sanitizedTabs = body.tabs.slice(0, 10).map(t => {
+      const sanitizedTabs = body.tabs.slice(0, 20).map(t => {
         let cleanPath = String(t.path || '').replace(/^#\/?/, '').trim();
         cleanPath = cleanPath.replace(/[\0\r\n]/g, '').slice(0, 300);
         let title = String(t.title || '').replace(/[<>]/g, '').trim().slice(0, 120);

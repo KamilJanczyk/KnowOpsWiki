@@ -2137,7 +2137,7 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   assert.equal(printMediaContent.includes('.doc-tabs-bar'), true, 'doc-tabs-bar powinien być ukryty w @media print');
 
   // 3. Sprawdzenie funkcji w public/app.js
-  assert.equal(appJs.includes('MAX_DOC_TABS = 10'), true, 'Brak limitu MAX_DOC_TABS = 10 w app.js');
+  assert.equal(appJs.includes('MAX_DOC_TABS = 20'), true, 'Brak limitu MAX_DOC_TABS = 20 w app.js');
   assert.equal(appJs.includes('function registerDocTab'), true);
   assert.equal(appJs.includes('function renderDocTabs'), true);
   assert.equal(appJs.includes('window.switchDocTab'), true);
@@ -4325,7 +4325,38 @@ test('Test 71: Podzial paska bocznego Pulpitu na sekcje dzialowe (Zarzadzanie, S
   assert.equal(infraSlice.includes('#/tool/cidr'), true);
   assert.equal(infraSlice.includes('#/tool/raid'), true);
 
-  const adminSlice = appJs.slice(idxAdmin, idxAdmin + 400);
+  const adminSlice = appJs.slice(idxAdmin, idxAdmin + 1200);
   assert.equal(adminSlice.includes('#/tool/instrukcja'), true);
   assert.equal(adminSlice.includes('#/tool/admin'), true);
+});
+
+test('Test 72: Stala wysokosc wiersza kart (rozmiar 2 zakladek, 58px) oraz przypinanie narzedzi z paska bocznego (Pin Button & Drag-Drop)', () => {
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+
+  // 1. Weryfikacja reguly stalej wysokosci 2 zakladek w public/style.css
+  assert.equal(styleCss.includes('height: 58px;'), true, 'Wiersz kart przypietych musi posiadac staly wymiar height: 58px');
+  assert.equal(styleCss.includes('min-height: 58px;'), true, 'Wiersz kart przypietych musi posiadac min-height: 58px');
+  assert.equal(styleCss.includes('max-height: 58px;'), true, 'Wiersz kart przypietych musi posiadac max-height: 58px');
+  assert.equal(styleCss.includes('overflow-y: auto;'), true, 'Wiersz kart musi obslugiwac przewijanie pionowe przy wiekszej liczbie kart');
+  assert.equal(styleCss.includes('.doc-tabs-empty-placeholder'), true, 'Brak definicji stylu .doc-tabs-empty-placeholder w CSS');
+  assert.equal(styleCss.includes('.sidebar-tile-pin-btn'), true, 'Brak definicji stylu .sidebar-tile-pin-btn w CSS');
+
+  // 2. Weryfikacja stalego renderowania kontenera kart w app.js niezaleznie od liczby kart
+  assert.equal(appJs.includes('Brak przypiętych kart'), true, 'Brak obslugi pustego wiersza kart z zachowaniem stalego rozmiaru');
+  assert.equal(appJs.includes('doc-tabs-empty-placeholder'), true, 'Brak uzycia klasy doc-tabs-empty-placeholder');
+
+  // 3. Weryfikacja mozliwosci przypinania narzedzi prosto z menu bocznego
+  assert.equal(appJs.includes('sidebar-tile-pin-btn'), true, 'Brak przyciskow przypinania w kafelkach bocznych');
+  assert.equal(appJs.includes('window.togglePinTool'), true, 'Brak funkcji window.togglePinTool');
+  assert.equal(appJs.includes('window.handleSidebarToolDragStart'), true, 'Brak funkcji window.handleSidebarToolDragStart');
+  assert.equal(appJs.includes('window.handleDocTabsPinnedRowDragOver'), true, 'Brak funkcji window.handleDocTabsPinnedRowDragOver');
+
+  // 4. Weryfikacja obslugi przeciagania narzedzi do paska kart
+  assert.equal(appJs.includes('_draggedToolPath'), true, 'Brak obslugi _draggedToolPath przy upuszczeniu');
+
+  // 5. Weryfikacja zwiekszonego limitu zakladek (do 20 kart)
+  assert.equal(appJs.includes('MAX_DOC_TABS = 20'), true, 'Limit MAX_DOC_TABS powinien wynosic 20');
+  assert.equal(serverMjs.includes('body.tabs.slice(0, 20)'), true, 'Backend powinien akceptowac do 20 zakladek');
 });
