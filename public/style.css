@@ -1235,6 +1235,17 @@
       height: 100%;
       max-height: 100%;
       overflow-y: auto;
+      transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+    }
+    .right-kanban-sidebar.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      border-left: none !important;
+      overflow: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
     .right-sidebar-title { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; font-weight: 800; color: var(--sw-gold); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #222; text-transform: uppercase; letter-spacing: 0.5px; }
     .btn-sidebar-toggle-completed {
@@ -2568,6 +2579,31 @@
       background: #27272a;
       color: #f87171;
       border-color: #ef4444;
+    }
+    .btn-toggle-right-sidebar {
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      color: #a1a1aa;
+      font-size: 0.70rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-toggle-right-sidebar:hover {
+      background: #27272a;
+      color: #ffffff;
+      border-color: var(--sw-gold);
+    }
+    .btn-toggle-right-sidebar.collapsed {
+      background: #262419;
+      color: var(--sw-gold);
+      border-color: var(--sw-gold);
     }
 
     /* Fullscreen Auth Lock Overlay (Single-User Gatekeeper) */

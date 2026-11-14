@@ -361,6 +361,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.toggleLeftSidebar();
       }
     }
+    if (e.altKey && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (typeof window.toggleRightSidebar === 'function') {
+        window.toggleRightSidebar();
+      }
+    }
     if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
       if (isAuthRequired && (!document.getElementById('authLockOverlay') || document.getElementById('authLockOverlay').style.display !== 'flex')) {
         e.preventDefault();
@@ -12639,6 +12645,25 @@ window.toggleLeftSidebar = function() {
   setTimeout(updateUnifiedHeaderHeight, 240);
 };
 
+window.toggleRightSidebar = function() {
+  const sidebar = document.getElementById('rightKanbanSidebar');
+  const btn = document.getElementById('btnToggleRightSidebar');
+  if (!sidebar) return;
+
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  try {
+    localStorage.setItem('knowops_right_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+  } catch (e) {}
+
+  if (btn) {
+    btn.classList.toggle('collapsed', isCollapsed);
+    btn.textContent = isCollapsed ? 'Rozwiń Zadania' : 'Zadania';
+    btn.title = isCollapsed ? 'Rozwiń prawy panel zadań i wyszukiwarki (Alt+K)' : 'Zwiń prawy panel zadań i wyszukiwarki (Alt+K)';
+  }
+
+  setTimeout(updateUnifiedHeaderHeight, 240);
+};
+
 function initSidebarCollapseState() {
   try {
     const saved = localStorage.getItem('knowops_sidebar_collapsed');
@@ -12652,9 +12677,21 @@ function initSidebarCollapseState() {
         btn.title = 'Rozwiń lewy panel boczny (Alt+B)';
       }
     }
+    const savedRight = localStorage.getItem('knowops_right_sidebar_collapsed');
+    if (savedRight === 'true') {
+      const rightSidebar = document.getElementById('rightKanbanSidebar');
+      const rightBtn = document.getElementById('btnToggleRightSidebar');
+      if (rightSidebar) rightSidebar.classList.add('collapsed');
+      if (rightBtn) {
+        rightBtn.classList.add('collapsed');
+        rightBtn.textContent = 'Rozwiń Zadania';
+        rightBtn.title = 'Rozwiń prawy panel zadań i wyszukiwarki (Alt+K)';
+      }
+    }
   } catch (e) {}
 }
 window.initSidebarCollapseState = initSidebarCollapseState;
+window.toggleRightSidebar = window.toggleRightSidebar;
 
 /* ===== CLICK-TO-COPY DLA ELEMENTÓW INLINE CODE ===== */
 function setupInlineCodeCopy(container = null) {

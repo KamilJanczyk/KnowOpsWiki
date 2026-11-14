@@ -4360,3 +4360,23 @@ test('Test 72: Stala wysokosc wiersza kart (rozmiar 2 zakladek, 58px) oraz przyp
   assert.equal(appJs.includes('MAX_DOC_TABS = 20'), true, 'Limit MAX_DOC_TABS powinien wynosic 20');
   assert.equal(serverMjs.includes('body.tabs.slice(0, 20)'), true, 'Backend powinien akceptowac do 20 zakladek');
 });
+
+test('Test 73: Zwijanie prawego paska zadan Kanban i wyszukiwarki (Right Sidebar Collapse, Alt+K, persistencja localStorage)', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja kontrolek zwijania w index.html
+  assert.equal(indexHtml.includes('id="btnToggleRightSidebar"'), true, 'Brak przycisku btnToggleRightSidebar w naglowku');
+  assert.equal(indexHtml.includes('id="btnCloseRightSidebar"'), true, 'Brak przycisku btnCloseRightSidebar w tytule prawego paska');
+  assert.equal(indexHtml.includes('window.toggleRightSidebar()'), true, 'Brak podpiecia window.toggleRightSidebar w index.html');
+
+  // 2. Weryfikacja reguly CSS w public/style.css
+  assert.equal(styleCss.includes('.right-kanban-sidebar.collapsed'), true, 'Brak klasy .right-kanban-sidebar.collapsed w CSS');
+  assert.equal(styleCss.includes('.btn-toggle-right-sidebar'), true, 'Brak klasy .btn-toggle-right-sidebar w CSS');
+
+  // 3. Weryfikacja logiki zwijania, skrotu klawiszowego Alt+K i persistencji w app.js
+  assert.equal(appJs.includes('window.toggleRightSidebar'), true, 'Brak implementacji window.toggleRightSidebar w app.js');
+  assert.equal(appJs.includes("e.key === 'k' || e.key === 'K'"), true, 'Brak obslugi skrotu Alt+K w listenerze keydown');
+  assert.equal(appJs.includes('knowops_right_sidebar_collapsed'), true, 'Brak zapisu stanu zwijania w localStorage');
+});

@@ -65,7 +65,8 @@
           </ul>
         </div>
 
-        <div class="header-actions" id="headerActions">
+        <div class="header-actions" id="headerActions" style="display:flex; align-items:center; gap:8px;">
+          <button type="button" id="btnToggleRightSidebar" class="btn-toggle-right-sidebar" onclick="window.toggleRightSidebar()" title="Zwiń / rozwiń prawy panel zadań Kanban i wyszukiwarki (Alt+K)">Zadania</button>
           <button id="btnHeaderLock" class="btn-header-lock" style="display:none;" onclick="manualLockSession()" title="Zablokuj panel bazy wiedzy (Ctrl+L)">Zablokuj</button>
         </div>
       </header>
@@ -107,7 +108,10 @@
           </div>
           <div class="right-sidebar-title">
             <span>AKTYWNE ZADANIA KANBAN</span>
-            <button type="button" id="btnToggleSidebarHideCompleted" class="btn-sidebar-toggle-completed active" onclick="window.toggleHideCompletedSidebarTasks()" title="Zadania w 100% ukończone są ukrywane (kliknij, aby pokazać wszystkie)">Ukryj 100%</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" id="btnToggleSidebarHideCompleted" class="btn-sidebar-toggle-completed active" onclick="window.toggleHideCompletedSidebarTasks()" title="Zadania w 100% ukończone są ukrywane (kliknij, aby pokazać wszystkie)">Ukryj 100%</button>
+              <button type="button" id="btnCloseRightSidebar" class="btn-sidebar-toggle-completed" onclick="window.toggleRightSidebar()" title="Zwiń prawy panel zadań (Alt+K)">Zwiń</button>
+            </div>
           </div>
           <div class="right-kanban-list" id="rightKanbanList">
             <div style="font-size:0.68rem; color:#555; text-align:center; padding:10px;">Ładowanie zadań...</div>
