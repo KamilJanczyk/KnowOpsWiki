@@ -1668,11 +1668,18 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
 
 // ================= WIELOZAKŁADKOWOŚĆ DOKUMENTÓW I NARZĘDZI (DOC TABS) ================= //
 
+const MAX_APP_TABS = 5;
 const MAX_DOC_TABS = 5;
 const DOC_TABS_STORAGE_KEY = 'knowops_doc_tabs';
 const DOC_BROWSING_TAB_STORAGE_KEY = 'knowops_browsing_tab';
 let openDocTabs = [];
 let browsingTab = null;
+
+function isToolPath(path) {
+  const clean = String(path || '').replace(/^#\/?/, '').trim();
+  return clean === 'kanban' || clean === 'notes' || clean.startsWith('tool/');
+}
+window.isToolPath = isToolPath;
 
 function loadBrowsingTabFromStorage() {
   try {
@@ -1734,7 +1741,9 @@ function loadDocTabsFromStorage() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.slice(0, MAX_DOC_TABS).map(t => ({
+        const appTabs = parsed.filter(t => isToolPath(t.path)).slice(0, MAX_APP_TABS);
+        const docTabs = parsed.filter(t => !isToolPath(t.path)).slice(0, MAX_DOC_TABS);
+        return [...appTabs, ...docTabs].map(t => ({
           path: String(t.path || '').replace(/^#\/?/, '').trim(),
           title: String(t.title || '').trim() || getDocTabTitleForPath(t.path)
         })).filter(t => Boolean(t.path));
@@ -1794,7 +1803,9 @@ async function syncDocTabsFromServer() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.tabs)) {
-        const serverTabs = data.tabs.slice(0, MAX_DOC_TABS);
+        const serverAppTabs = data.tabs.filter(t => isToolPath(t.path)).slice(0, MAX_APP_TABS);
+        const serverDocTabs = data.tabs.filter(t => !isToolPath(t.path)).slice(0, MAX_DOC_TABS);
+        const serverTabs = [...serverAppTabs, ...serverDocTabs];
         const currentJson = JSON.stringify(openDocTabs);
         const serverJson = JSON.stringify(serverTabs);
         if (serverTabs.length > 0 && currentJson !== serverJson) {
@@ -1821,6 +1832,7 @@ async function syncDocTabsFromServer() {
 function registerDocTab(path, customTitle = null) {
   const cleanPath = String(path || '').replace(/^#\/?/, '').trim() || 'kanban';
   const resolvedTitle = getDocTabTitleForPath(cleanPath, customTitle);
+  const isApp = isToolPath(cleanPath);
 
   const existingIdx = openDocTabs.findIndex(t => t.path === cleanPath);
   if (existingIdx !== -1) {
@@ -1828,13 +1840,26 @@ function registerDocTab(path, customTitle = null) {
       openDocTabs[existingIdx].title = customTitle;
     }
   } else {
-    if (openDocTabs.length >= MAX_DOC_TABS) {
-      const currentActivePath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
-      let evictIdx = openDocTabs.findIndex(t => t.path !== currentActivePath);
-      if (evictIdx === -1) {
-        evictIdx = 0;
+    if (isApp) {
+      const appTabs = openDocTabs.filter(t => isToolPath(t.path));
+      if (appTabs.length >= MAX_APP_TABS) {
+        const currentActivePath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+        let evictTab = appTabs.find(t => t.path !== currentActivePath) || appTabs[0];
+        if (evictTab) {
+          const evictIdx = openDocTabs.findIndex(t => t.path === evictTab.path);
+          if (evictIdx !== -1) openDocTabs.splice(evictIdx, 1);
+        }
       }
-      openDocTabs.splice(evictIdx, 1);
+    } else {
+      const docTabs = openDocTabs.filter(t => !isToolPath(t.path));
+      if (docTabs.length >= MAX_DOC_TABS) {
+        const currentActivePath = decodeURIComponent(window.location.hash.replace(/^#\/?/, '')).trim() || 'kanban';
+        let evictTab = docTabs.find(t => t.path !== currentActivePath) || docTabs[0];
+        if (evictTab) {
+          const evictIdx = openDocTabs.findIndex(t => t.path === evictTab.path);
+          if (evictIdx !== -1) openDocTabs.splice(evictIdx, 1);
+        }
+      }
     }
     openDocTabs.push({
       path: cleanPath,
@@ -1908,52 +1933,77 @@ function renderDocTabs() {
     }
   }
 
-  let html = '';
+  const appTabs = openDocTabs.filter(t => isToolPath(t.path)).slice(0, MAX_APP_TABS);
+  const docTabs = openDocTabs.filter(t => !isToolPath(t.path)).slice(0, MAX_DOC_TABS);
 
-  // 1. POZIOM WYŻEJ: Pojedynczy pasek przypiętych kart (Saved / Pinned Tabs, 4-5 kafelków max)
-  let pinnedTabsHtml = '';
-  if (openDocTabs.length > 0) {
-    for (let i = 0; i < openDocTabs.length; i++) {
-      const tab = openDocTabs[i];
+  // 1. POZIOM WYŻSZY: Pasek Przypiętych Aplikacji (Oddzielny pasek powyżej zakładek dokumentów)
+  let appTabsHtml = '';
+  if (appTabs.length > 0) {
+    for (let i = 0; i < appTabs.length; i++) {
+      const tab = appTabs[i];
       const isSavedActive = (tab.path === currentPath);
-      pinnedTabsHtml += `<div class="doc-tab doc-tab-saved ${isSavedActive ? 'active' : ''}" ` +
+      const globalIdx = openDocTabs.findIndex(t => t.path === tab.path);
+      appTabsHtml += `<div class="doc-tab doc-tab-app ${isSavedActive ? 'active' : ''}" ` +
         `draggable="true" ` +
         `data-path="${escapeHtml(tab.path)}" ` +
         `data-index="${i}" ` +
-        `title="${escapeHtml(tab.title)} (karta przypięta - przeciągnij myszką, aby zmienić kolejność)" ` +
+        `title="${escapeHtml(tab.title)} (aplikacja - przeciągnij myszką, aby zmienić kolejność)" ` +
         `onclick="window.switchDocTab('${escapeHtml(tab.path)}')" ` +
-        `ondragstart="window.handleDocTabDragStart(event, ${i})" ` +
-        `ondragover="window.handleDocTabDragOver(event, ${i})" ` +
+        `ondragstart="window.handleDocTabDragStart(event, ${globalIdx})" ` +
+        `ondragover="window.handleDocTabDragOver(event, ${globalIdx})" ` +
         `ondragleave="window.handleDocTabDragLeave(event)" ` +
-        `ondrop="window.handleDocTabDrop(event, ${i})" ` +
+        `ondrop="window.handleDocTabDrop(event, ${globalIdx})" ` +
+        `ondragend="window.handleDocTabDragEnd(event)" ` +
+        `onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
+        `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
+        `<button type="button" class="doc-tab-close" title="Usuń aplikację z paska" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
+      `</div>`;
+    }
+  }
+
+  let pinnedAppsBarEl = document.getElementById('pinnedAppsBar');
+  if (!pinnedAppsBarEl) {
+    pinnedAppsBarEl = document.createElement('div');
+    pinnedAppsBarEl.id = 'pinnedAppsBar';
+    pinnedAppsBarEl.className = 'pinned-apps-bar';
+    pinnedAppsBarEl.setAttribute('ondragover', 'window.handlePinnedAppsBarDragOver(event)');
+    pinnedAppsBarEl.setAttribute('ondrop', 'window.handlePinnedAppsBarDrop(event)');
+    if (headerWrapper && headerWrapper.parentNode) {
+      headerWrapper.parentNode.insertBefore(pinnedAppsBarEl, headerWrapper);
+    }
+  }
+  if (pinnedAppsBarEl) {
+    if (appTabs.length > 0) {
+      pinnedAppsBarEl.innerHTML = appTabsHtml;
+      pinnedAppsBarEl.style.display = 'flex';
+    } else {
+      pinnedAppsBarEl.innerHTML = '';
+      pinnedAppsBarEl.style.display = 'none';
+    }
+  }
+
+  // 2. POZIOM NIŻSZY: Pasek Zakładek Dokumentów (wewnątrz unifiedDocHeader)
+  let docTabsHtml = '';
+  if (docTabs.length > 0) {
+    for (let i = 0; i < docTabs.length; i++) {
+      const tab = docTabs[i];
+      const isSavedActive = (tab.path === currentPath);
+      const globalIdx = openDocTabs.findIndex(t => t.path === tab.path);
+      docTabsHtml += `<div class="doc-tab doc-tab-saved ${isSavedActive ? 'active' : ''}" ` +
+        `draggable="true" ` +
+        `data-path="${escapeHtml(tab.path)}" ` +
+        `data-index="${i}" ` +
+        `title="${escapeHtml(tab.title)} (dokument - przeciągnij myszką, aby zmienić kolejność)" ` +
+        `onclick="window.switchDocTab('${escapeHtml(tab.path)}')" ` +
+        `ondragstart="window.handleDocTabDragStart(event, ${globalIdx})" ` +
+        `ondragover="window.handleDocTabDragOver(event, ${globalIdx})" ` +
+        `ondragleave="window.handleDocTabDragLeave(event)" ` +
+        `ondrop="window.handleDocTabDrop(event, ${globalIdx})" ` +
         `ondragend="window.handleDocTabDragEnd(event)" ` +
         `onauxclick="if (event.button === 1) { event.preventDefault(); event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event); }">` +
         `<span class="doc-tab-title">${escapeHtml(tab.title)}</span>` +
         `<button type="button" class="doc-tab-close" title="Usuń z przypiętych zakładek" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
       `</div>`;
-    }
-  }
-
-  let pinnedRowEl = document.getElementById('docTabsPinnedRow');
-  if (!pinnedRowEl) {
-    pinnedRowEl = document.createElement('div');
-    pinnedRowEl.id = 'docTabsPinnedRow';
-    pinnedRowEl.className = 'doc-tabs-pinned-row';
-    pinnedRowEl.setAttribute('ondragover', 'window.handleDocTabsPinnedRowDragOver(event)');
-    pinnedRowEl.setAttribute('ondrop', 'window.handleDocTabsPinnedRowDrop(event)');
-    if (headerWrapper && headerWrapper.parentNode) {
-      headerWrapper.parentNode.insertBefore(pinnedRowEl, headerWrapper);
-    } else {
-      container.prepend(pinnedRowEl);
-    }
-  }
-  if (pinnedRowEl) {
-    if (openDocTabs.length > 0) {
-      pinnedRowEl.innerHTML = pinnedTabsHtml;
-      pinnedRowEl.style.display = 'flex';
-    } else {
-      pinnedRowEl.innerHTML = '';
-      pinnedRowEl.style.display = 'none';
     }
   }
 
@@ -2034,13 +2084,17 @@ function renderDocTabs() {
 
   const actionRowHtml = `<div class="doc-tabs-action-left">${actionLeftHtml}</div><div class="doc-tabs-action-right">${actionRightHtml}</div>`;
 
+  let html = '';
+  if (docTabs.length > 0) {
+    html += `<div class="doc-tabs-pinned-row doc-tabs-docs-row" id="docTabsPinnedRow" ondragover="window.handleDocTabsPinnedRowDragOver(event)" ondrop="window.handleDocTabsPinnedRowDrop(event)">${docTabsHtml}</div>`;
+  }
   html += `<div class="doc-tabs-action-row" id="docTabsActionRow">${actionRowHtml}</div>`;
 
   container.innerHTML = html;
 
   const activeTabEl = document.querySelector('.doc-tab.active');
   if (activeTabEl) {
-    const tabRow = activeTabEl.closest('.doc-tabs-pinned-row') || activeTabEl.closest('.doc-tabs-action-row');
+    const tabRow = activeTabEl.closest('.pinned-apps-bar') || activeTabEl.closest('.doc-tabs-pinned-row') || activeTabEl.closest('.doc-tabs-action-row');
     if (tabRow && tabRow.scrollWidth > tabRow.clientWidth) {
       const tabLeft = activeTabEl.offsetLeft;
       const tabRight = tabLeft + activeTabEl.offsetWidth;
@@ -2331,6 +2385,47 @@ window.handleDocTabsPinnedRowDrop = function(event) {
   }
 };
 
+window.handlePinnedAppsBarDragOver = function(event) {
+  if (window._isDraggingDocTab || window._draggedToolPath || (window.sidebarDraggedPath && window.sidebarDraggedType === 'file')) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  }
+};
+
+window.handlePinnedAppsBarDrop = function(event) {
+  if (event.target && event.target.closest('.doc-tab-app')) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (window._draggedToolPath) {
+    const p = window._draggedToolPath;
+    const t = window._draggedToolTitle;
+    window._draggedToolPath = null;
+    window._draggedToolTitle = null;
+    window._isDraggingDocTab = false;
+    registerDocTab(p, t);
+    if (currentCategory === 'kanban_board') renderSidebar();
+    return;
+  }
+
+  if (window.sidebarDraggedPath && window.sidebarDraggedType === 'file') {
+    const p = window.sidebarDraggedPath;
+    window.sidebarDraggedPath = null;
+    window.sidebarDraggedType = null;
+    window._isDraggingDocTab = false;
+    registerDocTab(p);
+    return;
+  }
+
+  const fromIndex = window._draggedDocTabIndex;
+  window._draggedDocTabIndex = null;
+  if (typeof fromIndex === 'number' && !isNaN(fromIndex) && openDocTabs.length > 0) {
+    window.reorderDocTabs(fromIndex, openDocTabs.length - 1, true);
+  }
+};
+
 window.handleDocTabDragEnd = function(event) {
   window._draggedDocTabIndex = null;
   window._draggedToolPath = null;
@@ -2340,7 +2435,12 @@ window.handleDocTabDragEnd = function(event) {
   }, 100);
   const container = document.getElementById('docTabsPinnedRow');
   if (container) {
-    const tabs = container.querySelectorAll('.doc-tab-saved');
+    const tabs = container.querySelectorAll('.doc-tab');
+    tabs.forEach(t => t.classList.remove('dragging', 'drag-over-left', 'drag-over-right'));
+  }
+  const appsBar = document.getElementById('pinnedAppsBar');
+  if (appsBar) {
+    const tabs = appsBar.querySelectorAll('.doc-tab');
     tabs.forEach(t => t.classList.remove('dragging', 'drag-over-left', 'drag-over-right'));
   }
 };
@@ -2390,7 +2490,10 @@ window.addEventListener('focus', () => {
   syncDocTabsFromServer();
 });
 
+window.MAX_APP_TABS = MAX_APP_TABS;
 window.MAX_DOC_TABS = MAX_DOC_TABS;
+window.handlePinnedAppsBarDragOver = window.handlePinnedAppsBarDragOver;
+window.handlePinnedAppsBarDrop = window.handlePinnedAppsBarDrop;
 window.registerDocTab = registerDocTab;
 window.renderDocTabs = renderDocTabs;
 window.openDocTabAndSwitch = window.openDocTabAndSwitch;

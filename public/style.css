@@ -850,6 +850,48 @@
       display: flex;
       flex-direction: column;
     }
+    .pinned-apps-bar {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 6px;
+      height: 28px;
+      min-height: 28px;
+      max-height: 28px;
+      padding: 2px 6px;
+      margin-bottom: 8px;
+      background: #141416;
+      border: 1px solid #27272a;
+      border-radius: 4px;
+      box-sizing: border-box;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .pinned-apps-bar::-webkit-scrollbar {
+      height: 3px;
+      width: 3px;
+    }
+    .pinned-apps-bar::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+      border-radius: 2px;
+    }
+    .pinned-apps-bar::-webkit-scrollbar-thumb:hover {
+      background: var(--sw-gold);
+    }
+    .pinned-apps-bar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .doc-tab.doc-tab-app {
+      background: #1f1f23;
+      border: 1px solid #3f3f46;
+      border-left: 2px solid var(--sw-gold);
+    }
+    .doc-tab.doc-tab-app.active {
+      background: #27272a;
+      border-color: var(--sw-gold);
+      color: #ffffff;
+    }
     .doc-tabs-bar {
       display: flex;
       flex-direction: column;
@@ -874,10 +916,10 @@
       min-height: 28px;
       max-height: 28px;
       padding: 2px 6px;
-      margin-bottom: 8px;
-      background: #141416;
-      border: 1px solid #27272a;
-      border-radius: 4px;
+      margin-bottom: 4px;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #27272a;
       box-sizing: border-box;
       overflow-x: auto;
       overflow-y: hidden;
@@ -1794,6 +1836,7 @@
       .left-topics-box,
       .right-kanban-sidebar,
       .left-sidebar-tools,
+      .pinned-apps-bar,
       .doc-tabs-pinned-row,
       .unified-doc-header,
       .doc-tabs-bar,

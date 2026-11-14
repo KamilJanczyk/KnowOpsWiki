@@ -4301,37 +4301,40 @@ test('Test 71: Podzial paska bocznego Pulpitu na sekcje dzialowe (Zarzadzanie, S
   assert.equal(adminSlice.includes('#/tool/admin'), true);
 });
 
-test('Test 72: Pojedynczy pasek przypietych kart (4-5 kafelkow, wysokosc 28px) umiejscowiony u gory oraz przypinanie narzedzi z paska bocznego', () => {
+test('Test 72: Oddzielny pasek przypietych aplikacji (4-5 kafelkow) powyzej zakladek dokumentow oraz przypinanie narzedzi z paska bocznego', () => {
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
   const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
   const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
 
-  // 1. Weryfikacja reguly stalej wysokosci pojedynczego paska w public/style.css
+  // 1. Weryfikacja reguly pojedynczego paska aplikacji w public/style.css
+  assert.equal(styleCss.includes('.pinned-apps-bar'), true, 'Brak klasy .pinned-apps-bar w CSS');
   assert.equal(styleCss.includes('height: 28px;'), true, 'Wiersz kart przypietych musi posiadac staly wymiar height: 28px');
   assert.equal(styleCss.includes('min-height: 28px;'), true, 'Wiersz kart przypietych musi posiadac min-height: 28px');
   assert.equal(styleCss.includes('max-height: 28px;'), true, 'Wiersz kart przypietych musi posiadac max-height: 28px');
   assert.equal(styleCss.includes('flex-wrap: nowrap;'), true, 'Wiersz kart musi byc pojedynczym paskiem (flex-wrap: nowrap)');
   assert.equal(styleCss.includes('.sidebar-tile-pin-btn'), true, 'Brak definicji stylu .sidebar-tile-pin-btn w CSS');
 
-  // 2. Weryfikacja umiejscowienia paska docTabsPinnedRow nad unifiedDocHeader w index.html
-  assert.equal(indexHtml.includes('id="docTabsPinnedRow"'), true, 'Brak kontenera docTabsPinnedRow w index.html');
-  const pinnedPos = indexHtml.indexOf('id="docTabsPinnedRow"');
+  // 2. Weryfikacja umiejscowienia paska aplikacji pinnedAppsBar powyzej unifiedDocHeader
+  assert.equal(indexHtml.includes('id="pinnedAppsBar"'), true, 'Brak kontenera pinnedAppsBar w index.html');
+  assert.equal(indexHtml.includes('id="unifiedDocHeader"'), true, 'Brak kontenera unifiedDocHeader w index.html');
+  const appsPos = indexHtml.indexOf('id="pinnedAppsBar"');
   const unifiedPos = indexHtml.indexOf('id="unifiedDocHeader"');
-  assert.equal(pinnedPos < unifiedPos, true, 'docTabsPinnedRow musi znajdowac sie powyzej unifiedDocHeader');
+  assert.equal(appsPos < unifiedPos, true, 'pinnedAppsBar musi znajdowac sie powyzej unifiedDocHeader');
 
-  // 3. Weryfikacja mozliwosci przypinania narzedzi prosto z menu bocznego
+  // 3. Weryfikacja rozdzielenia aplikacji od dokumentow (isToolPath)
+  assert.equal(appJs.includes('function isToolPath'), true, 'Brak funkcji isToolPath w app.js');
   assert.equal(appJs.includes('sidebar-tile-pin-btn'), true, 'Brak przyciskow przypinania w kafelkach bocznych');
   assert.equal(appJs.includes('window.togglePinTool'), true, 'Brak funkcji window.togglePinTool');
   assert.equal(appJs.includes('window.handleSidebarToolDragStart'), true, 'Brak funkcji window.handleSidebarToolDragStart');
-  assert.equal(appJs.includes('window.handleDocTabsPinnedRowDragOver'), true, 'Brak funkcji window.handleDocTabsPinnedRowDragOver');
+  assert.equal(appJs.includes('window.handlePinnedAppsBarDragOver'), true, 'Brak funkcji window.handlePinnedAppsBarDragOver');
 
   // 4. Weryfikacja obslugi przeciagania narzedzi do paska kart
   assert.equal(appJs.includes('_draggedToolPath'), true, 'Brak obslugi _draggedToolPath przy upuszczeniu');
 
-  // 5. Weryfikacja limitu zakladek (pojedynczy pasek 4-5 kafelkow)
-  assert.equal(appJs.includes('MAX_DOC_TABS = 5'), true, 'Limit MAX_DOC_TABS powinien wynosic 5');
-  assert.equal(serverMjs.includes('body.tabs.slice(0, 5)'), true, 'Backend powinien akceptowac do 5 zakladek');
+  // 5. Weryfikacja limitu zakladek aplikacji (4-5 kafelkow) oraz backendu
+  assert.equal(appJs.includes('MAX_APP_TABS = 5'), true, 'Limit MAX_APP_TABS powinien wynosic 5');
+  assert.equal(serverMjs.includes('body.tabs.slice(0, 20)'), true, 'Backend powinien akceptowac do 20 zakladek');
 });
 
 test('Test 73: Zwijanie prawego paska zadan Kanban i wyszukiwarki (Right Sidebar Collapse, Alt+K, persistencja localStorage)', () => {
