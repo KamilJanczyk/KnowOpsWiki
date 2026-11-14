@@ -1668,7 +1668,7 @@ window.handleSidebarDrop = async function(event, targetDirRelPath) {
 
 // ================= WIELOZAKŁADKOWOŚĆ DOKUMENTÓW I NARZĘDZI (DOC TABS) ================= //
 
-const MAX_DOC_TABS = 20;
+const MAX_DOC_TABS = 5;
 const DOC_TABS_STORAGE_KEY = 'knowops_doc_tabs';
 const DOC_BROWSING_TAB_STORAGE_KEY = 'knowops_browsing_tab';
 let openDocTabs = [];
@@ -1910,7 +1910,7 @@ function renderDocTabs() {
 
   let html = '';
 
-  // 1. POZIOM WYŻEJ: Karty Przypięte (Saved / Pinned Tabs) z obsługą przeciągania myszką
+  // 1. POZIOM WYŻEJ: Pojedynczy pasek przypiętych kart (Saved / Pinned Tabs, 4-5 kafelków max)
   let pinnedTabsHtml = '';
   if (openDocTabs.length > 0) {
     for (let i = 0; i < openDocTabs.length; i++) {
@@ -1932,10 +1932,30 @@ function renderDocTabs() {
         `<button type="button" class="doc-tab-close" title="Usuń z przypiętych zakładek" onclick="event.stopPropagation(); window.closeDocTab('${escapeHtml(tab.path)}', event)">X</button>` +
       `</div>`;
     }
-  } else {
-    pinnedTabsHtml = `<div class="doc-tabs-empty-placeholder">Brak przypiętych kart. Użyj + PRZYPNIJ lub przeciągnij element z menu bocznego.</div>`;
   }
-  html += `<div class="doc-tabs-pinned-row" id="docTabsPinnedRow" ondragover="window.handleDocTabsPinnedRowDragOver(event)" ondrop="window.handleDocTabsPinnedRowDrop(event)">${pinnedTabsHtml}</div>`;
+
+  let pinnedRowEl = document.getElementById('docTabsPinnedRow');
+  if (!pinnedRowEl) {
+    pinnedRowEl = document.createElement('div');
+    pinnedRowEl.id = 'docTabsPinnedRow';
+    pinnedRowEl.className = 'doc-tabs-pinned-row';
+    pinnedRowEl.setAttribute('ondragover', 'window.handleDocTabsPinnedRowDragOver(event)');
+    pinnedRowEl.setAttribute('ondrop', 'window.handleDocTabsPinnedRowDrop(event)');
+    if (headerWrapper && headerWrapper.parentNode) {
+      headerWrapper.parentNode.insertBefore(pinnedRowEl, headerWrapper);
+    } else {
+      container.prepend(pinnedRowEl);
+    }
+  }
+  if (pinnedRowEl) {
+    if (openDocTabs.length > 0) {
+      pinnedRowEl.innerHTML = pinnedTabsHtml;
+      pinnedRowEl.style.display = 'flex';
+    } else {
+      pinnedRowEl.innerHTML = '';
+      pinnedRowEl.style.display = 'none';
+    }
+  }
 
   // 2. POZIOM NIŻEJ: Scalony wiersz operacyjny (Wariant A: akcja + karta robocza + status + narzędzia)
   let actionLeftHtml = '';
@@ -2018,7 +2038,7 @@ function renderDocTabs() {
 
   container.innerHTML = html;
 
-  const activeTabEl = container.querySelector('.doc-tab.active');
+  const activeTabEl = document.querySelector('.doc-tab.active');
   if (activeTabEl) {
     const tabRow = activeTabEl.closest('.doc-tabs-pinned-row') || activeTabEl.closest('.doc-tabs-action-row');
     if (tabRow && tabRow.scrollWidth > tabRow.clientWidth) {

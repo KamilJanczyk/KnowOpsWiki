@@ -2137,7 +2137,7 @@ test('43. In-App Multi-Tab System: weryfikacja paska zakładek w środkowej kolu
   assert.equal(printMediaContent.includes('.doc-tabs-bar'), true, 'doc-tabs-bar powinien być ukryty w @media print');
 
   // 3. Sprawdzenie funkcji w public/app.js
-  assert.equal(appJs.includes('MAX_DOC_TABS = 20'), true, 'Brak limitu MAX_DOC_TABS = 20 w app.js');
+  assert.equal(appJs.includes('MAX_DOC_TABS = 5'), true, 'Brak limitu MAX_DOC_TABS = 5 w app.js');
   assert.equal(appJs.includes('function registerDocTab'), true);
   assert.equal(appJs.includes('function renderDocTabs'), true);
   assert.equal(appJs.includes('window.switchDocTab'), true);
@@ -3497,55 +3497,26 @@ test('59. Code Block Collapse & Copy Integration (Wariant 1): automatyczne zwija
   assert.equal(clipboardOutput.split('\n').length, 25, 'Schowek musi zawierać wszystkie 25 linii skryptu');
 });
 
-test('60. Multi-Row Wrapped Pinned Tabs: weryfikacja zawijania kart (flex-wrap), braku paska przewijania (overflow: visible) i zachowania responsywnego', () => {
+test('60. Pojedynczy pasek przypiętych kart (Single-Row Strip, 4-5 kafelków, no-wrap) oraz responsywne zachowanie', () => {
   const css = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
 
   // 1. Weryfikacja reguł CSS w public/style.css
   assert.equal(css.includes('.doc-tabs-pinned-row'), true, 'Brak klasy .doc-tabs-pinned-row w style.css');
-  assert.equal(css.includes('flex-wrap: wrap;'), true, 'Brak flex-wrap: wrap w style.css');
+  assert.equal(css.includes('flex-wrap: nowrap;'), true, 'Wiersz kart musi być pojedynczym paskiem (flex-wrap: nowrap)');
 
-  // Weryfikacja braku poziomego paska przewijania dla wiersza kart
+  // Weryfikacja pojedynczego wiersza i parametrów wysokości
   const pinnedRowMatch = css.match(/\.doc-tabs-pinned-row\s*\{([^}]+)\}/);
   assert.ok(pinnedRowMatch, 'Brak bloku .doc-tabs-pinned-row');
   const pinnedRowCss = pinnedRowMatch[1];
-  assert.equal(pinnedRowCss.includes('flex-wrap: wrap;'), true, 'Wiersz kart musi posiadać flex-wrap: wrap');
-  assert.equal(pinnedRowCss.includes('overflow: visible;'), true, 'Wiersz kart musi posiadać overflow: visible');
-  assert.equal(pinnedRowCss.includes('overflow-x: auto;'), false, 'Wiersz kart nie może posiadać overflow-x: auto');
+  assert.equal(pinnedRowCss.includes('flex-wrap: nowrap;'), true, 'Wiersz kart musi posiadać flex-wrap: nowrap');
+  assert.equal(pinnedRowCss.includes('height: 28px;'), true, 'Wiersz kart musi mieć wysokość 28px');
 
   // 2. Weryfikacja logiki scrollLeft w app.js
   assert.equal(appJs.includes('tabRow.scrollWidth > tabRow.clientWidth'), true, 'Brak zabezpieczenia scrollLeft przed niepotrzebnym przewijaniem');
 
-  // 3. Symulacja zawijania wielu kart do kolejnego wiersza (Multi-Row Wrapping)
-  function simulateTabsRowLayout(tabWidths, containerWidth, gap = 5) {
-    let lines = 1;
-    let currentLineWidth = 0;
-
-    for (let i = 0; i < tabWidths.length; i++) {
-      const w = tabWidths[i];
-      if (currentLineWidth === 0) {
-        currentLineWidth = w;
-      } else if (currentLineWidth + gap + w <= containerWidth) {
-        currentLineWidth += gap + w;
-      } else {
-        lines++;
-        currentLineWidth = w;
-      }
-    }
-    return lines;
-  }
-
-  // Scenariusz A: 3 karty (np. 140px każda) w kontenerze 900px -> 1 linia
-  const linesFew = simulateTabsRowLayout([140, 140, 140], 900);
-  assert.equal(linesFew, 1, 'Mała liczba kart powinna mieścić się w jednej linii');
-
-  // Scenariusz B: 7 kart (jak na zrzucie ekranu użytkownika) w kontenerze 800px -> 2 linie (zawijanie zamiast paska)
-  const linesSeven = simulateTabsRowLayout([150, 160, 150, 160, 150, 160, 150], 800);
-  assert.equal(linesSeven, 2, '7 długich kart powinno zawinąć się do 2 linii');
-
-  // Scenariusz C: 10 kart (maksymalny limit FIFO) w kontenerze 600px -> 4 linie
-  const linesTen = simulateTabsRowLayout(Array(10).fill(150), 600);
-  assert.equal(linesTen, 4, '10 kart w wąskim oknie powinno zawinąć się do 4 linii bez paska przewijania');
+  // 3. Weryfikacja limitu maksymalnie 5 kart w jednej linii
+  assert.equal(appJs.includes('MAX_DOC_TABS = 5'), true, 'Limit zakładek powinien wynosić 5');
 });
 
 test('61. Silent Drag & Drop Document & Folder Moving (Wariant 1): eliminacja blokujących okien confirm i alert, płynne przenoszenie i zachowanie obsługi błędów', () => {
@@ -4330,22 +4301,24 @@ test('Test 71: Podzial paska bocznego Pulpitu na sekcje dzialowe (Zarzadzanie, S
   assert.equal(adminSlice.includes('#/tool/admin'), true);
 });
 
-test('Test 72: Stala wysokosc wiersza kart (rozmiar 2 zakladek, 58px) oraz przypinanie narzedzi z paska bocznego (Pin Button & Drag-Drop)', () => {
+test('Test 72: Pojedynczy pasek przypietych kart (4-5 kafelkow, wysokosc 28px) umiejscowiony u gory oraz przypinanie narzedzi z paska bocznego', () => {
   const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
   const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
   const serverMjs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
 
-  // 1. Weryfikacja reguly stalej wysokosci 2 zakladek w public/style.css
-  assert.equal(styleCss.includes('height: 58px;'), true, 'Wiersz kart przypietych musi posiadac staly wymiar height: 58px');
-  assert.equal(styleCss.includes('min-height: 58px;'), true, 'Wiersz kart przypietych musi posiadac min-height: 58px');
-  assert.equal(styleCss.includes('max-height: 58px;'), true, 'Wiersz kart przypietych musi posiadac max-height: 58px');
-  assert.equal(styleCss.includes('overflow-y: auto;'), true, 'Wiersz kart musi obslugiwac przewijanie pionowe przy wiekszej liczbie kart');
-  assert.equal(styleCss.includes('.doc-tabs-empty-placeholder'), true, 'Brak definicji stylu .doc-tabs-empty-placeholder w CSS');
+  // 1. Weryfikacja reguly stalej wysokosci pojedynczego paska w public/style.css
+  assert.equal(styleCss.includes('height: 28px;'), true, 'Wiersz kart przypietych musi posiadac staly wymiar height: 28px');
+  assert.equal(styleCss.includes('min-height: 28px;'), true, 'Wiersz kart przypietych musi posiadac min-height: 28px');
+  assert.equal(styleCss.includes('max-height: 28px;'), true, 'Wiersz kart przypietych musi posiadac max-height: 28px');
+  assert.equal(styleCss.includes('flex-wrap: nowrap;'), true, 'Wiersz kart musi byc pojedynczym paskiem (flex-wrap: nowrap)');
   assert.equal(styleCss.includes('.sidebar-tile-pin-btn'), true, 'Brak definicji stylu .sidebar-tile-pin-btn w CSS');
 
-  // 2. Weryfikacja stalego renderowania kontenera kart w app.js niezaleznie od liczby kart
-  assert.equal(appJs.includes('Brak przypiętych kart'), true, 'Brak obslugi pustego wiersza kart z zachowaniem stalego rozmiaru');
-  assert.equal(appJs.includes('doc-tabs-empty-placeholder'), true, 'Brak uzycia klasy doc-tabs-empty-placeholder');
+  // 2. Weryfikacja umiejscowienia paska docTabsPinnedRow nad unifiedDocHeader w index.html
+  assert.equal(indexHtml.includes('id="docTabsPinnedRow"'), true, 'Brak kontenera docTabsPinnedRow w index.html');
+  const pinnedPos = indexHtml.indexOf('id="docTabsPinnedRow"');
+  const unifiedPos = indexHtml.indexOf('id="unifiedDocHeader"');
+  assert.equal(pinnedPos < unifiedPos, true, 'docTabsPinnedRow musi znajdowac sie powyzej unifiedDocHeader');
 
   // 3. Weryfikacja mozliwosci przypinania narzedzi prosto z menu bocznego
   assert.equal(appJs.includes('sidebar-tile-pin-btn'), true, 'Brak przyciskow przypinania w kafelkach bocznych');
@@ -4356,9 +4329,9 @@ test('Test 72: Stala wysokosc wiersza kart (rozmiar 2 zakladek, 58px) oraz przyp
   // 4. Weryfikacja obslugi przeciagania narzedzi do paska kart
   assert.equal(appJs.includes('_draggedToolPath'), true, 'Brak obslugi _draggedToolPath przy upuszczeniu');
 
-  // 5. Weryfikacja zwiekszonego limitu zakladek (do 20 kart)
-  assert.equal(appJs.includes('MAX_DOC_TABS = 20'), true, 'Limit MAX_DOC_TABS powinien wynosic 20');
-  assert.equal(serverMjs.includes('body.tabs.slice(0, 20)'), true, 'Backend powinien akceptowac do 20 zakladek');
+  // 5. Weryfikacja limitu zakladek (pojedynczy pasek 4-5 kafelkow)
+  assert.equal(appJs.includes('MAX_DOC_TABS = 5'), true, 'Limit MAX_DOC_TABS powinien wynosic 5');
+  assert.equal(serverMjs.includes('body.tabs.slice(0, 5)'), true, 'Backend powinien akceptowac do 5 zakladek');
 });
 
 test('Test 73: Zwijanie prawego paska zadan Kanban i wyszukiwarki (Right Sidebar Collapse, Alt+K, persistencja localStorage)', () => {
