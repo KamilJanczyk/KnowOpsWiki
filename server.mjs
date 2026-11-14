@@ -402,6 +402,113 @@ export function saveTrashManifest(items) {
     console.error('[Trash Manifest] Błąd zapisu manifestu:', e);
   }
 }
+
+// ================= INWENTARYZACJA SPRZĘTU (ASSET MANAGEMENT) ================= //
+export const INVENTORY_FILE = path.join(DATA_DIR, 'inventory.json');
+export const INVENTORY_IMAGES_DIR = path.join(path.resolve('public'), 'images', 'inventory');
+if (!fs.existsSync(INVENTORY_IMAGES_DIR)) {
+  try { fs.mkdirSync(INVENTORY_IMAGES_DIR, { recursive: true }); } catch (e) {}
+}
+
+export function getInventoryData() {
+  if (fs.existsSync(INVENTORY_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8'));
+      if (Array.isArray(data)) {
+        return data;
+      }
+    } catch (e) {
+      console.error('[Inventory Error] Błąd odczytu inventory.json:', e.message);
+    }
+  }
+  const defaultData = [];
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    atomicWriteFile(INVENTORY_FILE, JSON.stringify(defaultData, null, 2), 'utf8');
+  } catch (e) {}
+  return defaultData;
+}
+
+export function saveInventoryData(items = []) {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  atomicWriteFile(INVENTORY_FILE, JSON.stringify(items, null, 2), 'utf8');
+  return items;
+}
+
+export function parseCapacityInGb(capacityStr) {
+  if (!capacityStr || typeof capacityStr !== 'string') return 0;
+  const str = capacityStr.trim().toUpperCase();
+  const match = str.match(/^([\d.]+)\s*(TB|GB|MB)?/);
+  if (!match) return 0;
+  const val = parseFloat(match[1]);
+  if (isNaN(val)) return 0;
+  const unit = match[2] || 'GB';
+  if (unit === 'TB') return val * 1024;
+  if (unit === 'MB') return val / 1024;
+  return val;
+}
+
+export function calculateInventoryStats(items = []) {
+  let totalCount = items.length;
+  let freeCount = 0;
+  let inUseCount = 0;
+  let toTestCount = 0;
+  let damagedCount = 0;
+  let reservedCount = 0;
+  let totalFreeRamGb = 0;
+  let totalFreeDiskGb = 0;
+
+  const categoryCounts = {};
+
+  for (const item of items) {
+    const cat = item.category || 'inne';
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+
+    const status = item.status || 'wolny';
+    if (status === 'wolny') {
+      freeCount++;
+      const capGb = parseCapacityInGb(item.capacity || (item.specs && item.specs.capacity));
+      if (cat === 'ram') {
+        totalFreeRamGb += capGb;
+      } else if (cat === 'dyski') {
+        totalFreeDiskGb += capGb;
+      }
+    } else if (status === 'w_uzyciu') {
+      inUseCount++;
+    } else if (status === 'do_testow') {
+      toTestCount++;
+    } else if (status === 'uszkodzony') {
+      damagedCount++;
+    } else if (status === 'zarezerwowany') {
+      reservedCount++;
+    }
+  }
+
+  const formatCapacity = (gb) => {
+    if (gb >= 1024) {
+      return `${Math.round((gb / 1024) * 10) / 10} TB`;
+    }
+    return `${Math.round(gb)} GB`;
+  };
+
+  return {
+    totalCount,
+    freeCount,
+    inUseCount,
+    toTestCount,
+    damagedCount,
+    reservedCount,
+    categoryCounts,
+    totalFreeRamGb,
+    totalFreeRamFormatted: formatCapacity(totalFreeRamGb),
+    totalFreeDiskGb,
+    totalFreeDiskFormatted: formatCapacity(totalFreeDiskGb)
+  };
+}
 const DIST_DIR = path.resolve('dist');
 const IMAGES_DIR = path.join(path.resolve('public'), 'images');
 if (!fs.existsSync(IMAGES_DIR)) {
@@ -436,6 +543,28 @@ export function getReferencedImages() {
     }
   }
   scanDocs(DOCS_DIR);
+
+  if (fs.existsSync(INVENTORY_FILE)) {
+    try {
+      const invData = JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8'));
+      if (Array.isArray(invData)) {
+        for (const item of invData) {
+          if (Array.isArray(item.images)) {
+            for (const img of item.images) {
+              if (typeof img === 'string') {
+                const clean = img.replace(/\\/g, '/').replace(/^\/+/, '');
+                referenced.add(clean.toLowerCase());
+                referenced.add(path.basename(clean).toLowerCase());
+                const withoutImagesPrefix = clean.replace(/^(?:public\/)?images\//i, '');
+                referenced.add(withoutImagesPrefix.toLowerCase());
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
   return referenced;
 }
 
@@ -3076,6 +3205,174 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // ================= INWENTARYZACJA SPRZĘTU (HOMELAB ASSET MANAGEMENT) ================= //
+    if (normPath === '/api/inventory') {
+      if (req.method === 'GET') {
+        const items = getInventoryData();
+        return sendJson(200, {
+          success: true,
+          items,
+          stats: calculateInventoryStats(items)
+        });
+      }
+    }
+
+    if (normPath === '/api/inventory/item') {
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const { id, name, category, subcategory, capacity, specs, serialNumber, location, status, assignedHost, images, notes } = body;
+
+        const itemName = String(name || '').trim().slice(0, 200);
+        if (!itemName) {
+          return sendJson(400, { error: 'Nazwa podzespołu / sprzętu jest wymagana.' });
+        }
+
+        const validStatuses = ['wolny', 'w_uzyciu', 'do_testow', 'zarezerwowany', 'uszkodzony'];
+        const itemStatus = validStatuses.includes(status) ? status : 'wolny';
+
+        const sanitizedImages = Array.isArray(images)
+          ? images.filter(img => typeof img === 'string' && img.startsWith('/public/images/')).slice(0, 20)
+          : [];
+
+        const items = getInventoryData();
+        let item = id ? items.find(i => i.id === id) : null;
+        const now = Date.now();
+
+        if (item) {
+          item.name = itemName;
+          item.category = String(category || 'inne').trim().toLowerCase().slice(0, 50);
+          item.subcategory = String(subcategory || '').trim().slice(0, 50);
+          item.capacity = String(capacity || '').trim().slice(0, 50);
+          item.specs = (typeof specs === 'object' && specs !== null) ? specs : { details: String(specs || '').trim().slice(0, 500) };
+          item.serialNumber = String(serialNumber || '').trim().slice(0, 100);
+          item.location = String(location || 'Nieokreślona').trim().slice(0, 150);
+          item.status = itemStatus;
+          item.assignedHost = String(assignedHost || '').trim().slice(0, 150);
+          item.images = sanitizedImages;
+          item.notes = String(notes || '').trim().slice(0, 2000);
+          item.updatedAt = now;
+        } else {
+          item = {
+            id: `inv_${now}_${crypto.randomBytes(3).toString('hex')}`,
+            name: itemName,
+            category: String(category || 'inne').trim().toLowerCase().slice(0, 50),
+            subcategory: String(subcategory || '').trim().slice(0, 50),
+            capacity: String(capacity || '').trim().slice(0, 50),
+            specs: (typeof specs === 'object' && specs !== null) ? specs : { details: String(specs || '').trim().slice(0, 500) },
+            serialNumber: String(serialNumber || '').trim().slice(0, 100),
+            location: String(location || 'Nieokreślona').trim().slice(0, 150),
+            status: itemStatus,
+            assignedHost: String(assignedHost || '').trim().slice(0, 150),
+            images: sanitizedImages,
+            notes: String(notes || '').trim().slice(0, 2000),
+            createdAt: now,
+            updatedAt: now
+          };
+          items.unshift(item);
+        }
+
+        saveInventoryData(items);
+        return sendJson(200, {
+          success: true,
+          item,
+          items,
+          stats: calculateInventoryStats(items)
+        });
+      }
+
+      if (req.method === 'DELETE') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const urlObj = new URL(req.url, 'http://localhost');
+        let id = urlObj.searchParams.get('id');
+        if (!id) {
+          const body = await getBody();
+          id = body?.id;
+        }
+
+        if (!id) {
+          return sendJson(400, { error: 'Wymagany parametr id pozycji' });
+        }
+
+        let items = getInventoryData();
+        const initialLen = items.length;
+        items = items.filter(i => i.id !== id);
+
+        if (items.length === initialLen) {
+          return sendJson(404, { error: 'Nie znaleziono pozycji o podanym id' });
+        }
+
+        saveInventoryData(items);
+        return sendJson(200, {
+          success: true,
+          deletedId: id,
+          items,
+          stats: calculateInventoryStats(items)
+        });
+      }
+    }
+
+    if (normPath === '/api/inventory/upload-image' && req.method === 'POST') {
+      if (!checkMutatingRateLimit(req, res)) return;
+      const body = await getBody();
+      const { filename, base64Data } = body;
+
+      if (!filename || !base64Data) {
+        return sendJson(400, { error: 'Wymagane parametry: filename i base64Data' });
+      }
+
+      const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+      const ext = (path.extname(filename) || '.jpg').toLowerCase();
+      if (!allowedExts.includes(ext)) {
+        return sendJson(400, { error: 'Niedozwolone rozszerzenie pliku obrazu. Dozwolone: png, jpg, jpeg, gif, webp' });
+      }
+
+      const pureBase64 = base64Data.replace(/^data:image\/[^;]+;base64,/, '').replace(/\s/g, '');
+      const imageBuffer = Buffer.from(pureBase64, 'base64');
+
+      if (imageBuffer.length > 10 * 1024 * 1024) {
+        return sendJson(400, { error: 'Rozmiar pliku przekracza dopuszczalny limit 10MB' });
+      }
+
+      // Weryfikacja sygnatury binarnej (Magic Bytes)
+      const isPng = imageBuffer.length >= 8 && imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50 && imageBuffer[2] === 0x4e && imageBuffer[3] === 0x47;
+      const isJpg = imageBuffer.length >= 3 && imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8 && imageBuffer[2] === 0xff;
+      const isGif = imageBuffer.length >= 6 && imageBuffer[0] === 0x47 && imageBuffer[1] === 0x49 && imageBuffer[2] === 0x46 && imageBuffer[3] === 0x38;
+      const isWebp = imageBuffer.length >= 12 && imageBuffer[0] === 0x52 && imageBuffer[1] === 0x49 && imageBuffer[2] === 0x46 && imageBuffer[3] === 0x46 && imageBuffer[8] === 0x57 && imageBuffer[9] === 0x45 && imageBuffer[10] === 0x42 && imageBuffer[11] === 0x50;
+
+      const isValidSignature = (ext === '.png' && isPng) || ((ext === '.jpg' || ext === '.jpeg') && isJpg) || (ext === '.gif' && isGif) || (ext === '.webp' && isWebp);
+      if (!isValidSignature) {
+        return sendJson(400, { error: 'Plik nie jest prawidłowym obrazem (niezgodna sygnatura binarna).' });
+      }
+
+      if (!fs.existsSync(INVENTORY_IMAGES_DIR)) {
+        try { fs.mkdirSync(INVENTORY_IMAGES_DIR, { recursive: true }); } catch (e) {}
+      }
+
+      const cleanName = path.basename(filename, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+      const uniqueFilename = `inv_${Date.now()}_${cleanName}${ext}`;
+      const targetPath = path.join(INVENTORY_IMAGES_DIR, uniqueFilename);
+
+      try {
+        fs.writeFileSync(targetPath, imageBuffer);
+      } catch (err) {
+        if (err.code === 'EACCES') {
+          console.error('[Wiki API] EACCES inventory upload: sudo chown -R 1000:1000 public/images && sudo chmod -R 775 public/images');
+          return sendJson(500, { error: 'Błąd uprawnień zapisu pliku obrazu na serwerze.' });
+        }
+        console.error('[Wiki API] Błąd zapisu zdjęcia inwentarza:', err);
+        return sendJson(500, { error: 'Błąd zapisu pliku obrazu na serwerze.' });
+      }
+
+      const publicUrl = `/public/images/inventory/${uniqueFilename}`;
+      return sendJson(200, {
+        success: true,
+        filename: uniqueFilename,
+        url: publicUrl,
+        imageUrl: publicUrl
+      });
+    }
+
     if (normPath === '/api/create-backup' && req.method === 'POST') {
       const backupRes = executeBackupJob(true);
       if (backupRes && backupRes.success) {
@@ -3490,25 +3787,27 @@ function rebuildSearchCache() {
   processChunk();
 }
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server API KnowOps nasłuchuje na porcie ${PORT} (0.0.0.0)`);
-  rebuildWiki()
-    .then(() => {
-      rebuildSearchCache();
-    })
-    .catch(e => console.error('[Wiki API Startup Build] Błąd:', e.message));
+if (process.argv[1] && (process.argv[1].endsWith('server.mjs') || process.argv[1].endsWith('server'))) {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server API KnowOps nasłuchuje na porcie ${PORT} (0.0.0.0)`);
+    rebuildWiki()
+      .then(() => {
+        rebuildSearchCache();
+      })
+      .catch(e => console.error('[Wiki API Startup Build] Błąd:', e.message));
 
-  // Inicjalizacja cyklicznego harmonogramu kopii zapasowych oraz retencji
-  try {
-    const perm = checkBackupsDirWritable(BACKUPS_DIR);
-    if (!perm.writable) {
-      console.warn(`[Wiki API Security Warning] ${perm.error}`);
+    // Inicjalizacja cyklicznego harmonogramu kopii zapasowych oraz retencji
+    try {
+      const perm = checkBackupsDirWritable(BACKUPS_DIR);
+      if (!perm.writable) {
+        console.warn(`[Wiki API Security Warning] ${perm.error}`);
+      }
+      initBackupScheduler();
+    } catch (err) {
+      console.error('[Backup Scheduler Init] Błąd:', err.message);
     }
-    initBackupScheduler();
-  } catch (err) {
-    console.error('[Backup Scheduler Init] Błąd:', err.message);
-  }
-});
+  });
+}
 // Graceful Shutdown for SIGTERM / SIGINT
 const gracefulShutdown = (signal) => {
   console.log(`[Wiki API] Otrzymano sygnał ${signal}. Bezpieczne zamykanie serwera...`);

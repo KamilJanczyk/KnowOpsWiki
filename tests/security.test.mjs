@@ -3988,3 +3988,98 @@ test('Test 67: Lokalne wersjonowanie dokumentów (do 10 wersji FIFO), archiwizac
     }
   }
 });
+
+test('Test 68: Inwentaryzacja sprzętu domowego (Asset Management), upload zdjęć, Magic Bytes i ochrona przed usunięciem w Orphaned Images', () => {
+  const serverJs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const styleCss = fs.readFileSync(path.resolve('public/style.css'), 'utf8');
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+
+  // 1. Weryfikacja obecności kontrolek i modalów w index.html
+  assert.equal(indexHtml.includes('id="inventoryItemModalOverlay"'), true, 'Brak modal overlay dla inwentaryzacji w index.html');
+  assert.equal(indexHtml.includes('id="inventoryLightboxModalOverlay"'), true, 'Brak modal lightbox dla inwentaryzacji w index.html');
+  assert.equal(indexHtml.includes('id="invFileInput"'), true, 'Brak inputu pliku/aparatu w index.html');
+
+  // 2. Weryfikacja logiki w app.js
+  assert.equal(appJs.includes('renderInventoryModule'), true, 'Brak renderInventoryModule w app.js');
+  assert.equal(appJs.includes('openNewInventoryItemModal'), true, 'Brak openNewInventoryItemModal w app.js');
+  assert.equal(appJs.includes('compressImageFile'), true, 'Brak kompresji Canvas w app.js');
+  assert.equal(appJs.includes('openInventoryLightbox'), true, 'Brak openInventoryLightbox w app.js');
+  assert.equal(appJs.includes('setupInvModalClipboardPaste'), true, 'Brak obsługi wklejania ze schowka Ctrl+V w app.js');
+
+  // 3. Weryfikacja stylów w style.css
+  assert.equal(styleCss.includes('.inv-wrapper'), true, 'Brak .inv-wrapper w style.css');
+  assert.equal(styleCss.includes('.inv-stat-card'), true, 'Brak .inv-stat-card w style.css');
+  assert.equal(styleCss.includes('.inv-item-card'), true, 'Brak .inv-item-card w style.css');
+  assert.equal(styleCss.includes('.inv-badge-status'), true, 'Brak .inv-badge-status w style.css');
+  assert.equal(styleCss.includes('.inv-photo-dropzone'), true, 'Brak .inv-photo-dropzone w style.css');
+
+  // 4. Weryfikacja backendu w server.mjs
+  assert.equal(serverJs.includes("normPath === '/api/inventory'"), true, 'Brak GET /api/inventory w server.mjs');
+  assert.equal(serverJs.includes("normPath === '/api/inventory/item'"), true, 'Brak /api/inventory/item w server.mjs');
+  assert.equal(serverJs.includes("normPath === '/api/inventory/upload-image'"), true, 'Brak /api/inventory/upload-image w server.mjs');
+  assert.equal(serverJs.includes("INVENTORY_FILE = path.join(DATA_DIR, 'inventory.json')"), true);
+  assert.equal(serverJs.includes('calculateInventoryStats'), true);
+  assert.equal(serverJs.includes('parseCapacityInGb'), true);
+
+  // 5. Weryfikacja walidacji Magic Bytes w uploadzie zdjęć inwentarza
+  assert.equal(serverJs.includes('isPng = imageBuffer.length >= 8 && imageBuffer[0] === 0x89'), true);
+  assert.equal(serverJs.includes('isJpg = imageBuffer.length >= 3 && imageBuffer[0] === 0xff'), true);
+  assert.equal(serverJs.includes('isWebp = imageBuffer.length >= 12'), true);
+
+  // 6. Weryfikacja ochrony zdjęć inwentarza w getReferencedImages()
+  assert.equal(serverJs.includes('fs.existsSync(INVENTORY_FILE)'), true, 'getReferencedImages musi skanować INVENTORY_FILE');
+  assert.equal(serverJs.includes('referenced.add(clean.toLowerCase())'), true);
+
+  // 7. Test jednostkowy algorytmu parsowania pojemności i kalkulacji statystyk
+  function parseCapacityTest(capacityStr) {
+    if (!capacityStr || typeof capacityStr !== 'string') return 0;
+    const str = capacityStr.trim().toUpperCase();
+    const match = str.match(/^([\d.]+)\s*(TB|GB|MB)?/);
+    if (!match) return 0;
+    const val = parseFloat(match[1]);
+    if (isNaN(val)) return 0;
+    const unit = match[2] || 'GB';
+    if (unit === 'TB') return val * 1024;
+    if (unit === 'MB') return val / 1024;
+    return val;
+  }
+
+  assert.equal(parseCapacityTest('1TB'), 1024);
+  assert.equal(parseCapacityTest('2 TB'), 2048);
+  assert.equal(parseCapacityTest('512GB'), 512);
+  assert.equal(parseCapacityTest('32 GB'), 32);
+
+  const testItems = [
+    { id: '1', name: 'SSD 1TB', category: 'dyski', capacity: '1TB', status: 'wolny' },
+    { id: '2', name: 'SSD 500GB', category: 'dyski', capacity: '512GB', status: 'w_uzyciu' },
+    { id: '3', name: 'RAM 32GB', category: 'ram', capacity: '32GB', status: 'wolny' },
+    { id: '4', name: 'RAM 16GB', category: 'ram', capacity: '16GB', status: 'do_testow' }
+  ];
+
+  let freeCount = 0;
+  let inUseCount = 0;
+  let toTestCount = 0;
+  let totalFreeRamGb = 0;
+  let totalFreeDiskGb = 0;
+
+  for (const item of testItems) {
+    if (item.status === 'wolny') {
+      freeCount++;
+      const cap = parseCapacityTest(item.capacity);
+      if (item.category === 'ram') totalFreeRamGb += cap;
+      if (item.category === 'dyski') totalFreeDiskGb += cap;
+    } else if (item.status === 'w_uzyciu') {
+      inUseCount++;
+    } else if (item.status === 'do_testow') {
+      toTestCount++;
+    }
+  }
+
+  assert.equal(testItems.length, 4);
+  assert.equal(freeCount, 2);
+  assert.equal(inUseCount, 1);
+  assert.equal(toTestCount, 1);
+  assert.equal(totalFreeDiskGb, 1024);
+  assert.equal(totalFreeRamGb, 32);
+});

@@ -1254,6 +1254,7 @@ async function renderSidebar() {
     const isCveActive = (currentHash === 'tool/cve');
     const isOvertimeActive = (currentHash === 'tool/overtime');
     const isMpkActive = (currentHash === 'tool/mpk');
+    const isInventoryActive = (currentHash === 'tool/inventory');
     const isInstrukcjaActive = (currentHash === 'tool/instrukcja');
     const isAdminActive = (currentHash === 'tool/admin');
 
@@ -1276,6 +1277,9 @@ async function renderSidebar() {
         </a>
         <a href="#/tool/mpk" class="sidebar-tile-btn ${isMpkActive ? 'active' : ''}">
           <span class="label">Projekty MPK</span>
+        </a>
+        <a href="#/tool/inventory" class="sidebar-tile-btn ${isInventoryActive ? 'active' : ''}">
+          <span class="label">Inwentaryzacja Sprzętu</span>
         </a>
         <a href="#/tool/passgen" class="sidebar-tile-btn ${isPassgenActive ? 'active' : ''}">
           <span class="label">Hasłomat SecOps</span>
@@ -1676,6 +1680,7 @@ function getDocTabTitleForPath(path, customTitle = null) {
   if (clean === 'tool/rss') return 'Biuletyn RSS';
   if (clean === 'tool/overtime') return 'Ewidencja Nadgodzin';
   if (clean === 'tool/mpk') return 'Projekty MPK';
+  if (clean === 'tool/inventory') return 'Inwentaryzacja Sprzętu';
   if (clean === 'tool/instrukcja') return 'Instrukcja Obsługi';
   if (clean === 'tool/admin') return 'Centrum Administracyjne';
 
@@ -2501,6 +2506,12 @@ async function handleHashNavigation() {
     selectCategory('kanban_board', '');
     renderDocTabs();
     renderMpkModule();
+    return;
+  }
+  if (hash === 'tool/inventory') {
+    selectCategory('kanban_board', '');
+    renderDocTabs();
+    renderInventoryModule();
     return;
   }
   if (hash === 'tool/instrukcja') {
@@ -12491,4 +12502,753 @@ function setupInlineCodeCopy(container = null) {
   });
 }
 window.setupInlineCodeCopy = setupInlineCodeCopy;
+
+/* ========================================================================== */
+/* MODUŁ: INWENTARYZACJA SPRZĘTU (HOMELAB & IT ASSET MANAGEMENT)              */
+/* ========================================================================== */
+
+const inventoryState = {
+  items: [],
+  stats: {},
+  filterCategory: '',
+  filterStatus: '',
+  filterLocation: '',
+  searchQuery: '',
+  currentUploadedImages: []
+};
+window.inventoryState = inventoryState;
+
+const INV_CATEGORY_LABELS = {
+  'dyski': 'Dyski i Pamięci Masowe',
+  'ram': 'Pamięć RAM',
+  'pcie': 'Karty rozszerzeń (PCIe)',
+  'zasilanie': 'Zasilanie',
+  'siec': 'Sieć i Łączność',
+  'sbc': 'Platformy i SBC',
+  'akcesoria': 'Akcesoria i Montaż',
+  'inne': 'Inne'
+};
+
+const INV_STATUS_LABELS = {
+  'wolny': 'Wolny (w zapasie)',
+  'w_uzyciu': 'W użyciu',
+  'do_testow': 'Do przetestowania',
+  'zarezerwowany': 'Zarezerwowany',
+  'uszkodzony': 'Uszkodzony'
+};
+
+async function loadInventoryData() {
+  try {
+    const res = await fetch('/api/inventory', {
+      headers: {
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      }
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      inventoryState.items = Array.isArray(data.items) ? data.items : [];
+      inventoryState.stats = data.stats || {};
+      updateInventoryLocationSuggestions();
+      renderInventoryListAndStats();
+    } else {
+      console.warn('[Inventory] Błąd pobierania danych:', data.error);
+    }
+  } catch (err) {
+    console.error('[Inventory] Błąd sieciowy podczas pobierania inwentarza:', err);
+  }
+}
+window.loadInventoryData = loadInventoryData;
+
+function updateInventoryLocationSuggestions() {
+  const datalist = document.getElementById('invLocationSuggestions');
+  if (!datalist) return;
+  const locations = new Set();
+  for (const item of inventoryState.items) {
+    if (item.location && item.location.trim()) {
+      locations.add(item.location.trim());
+    }
+  }
+  datalist.innerHTML = Array.from(locations).sort().map(loc => `<option value="${escapeHtml(loc)}"></option>`).join('');
+}
+
+async function renderInventoryModule() {
+  const contentArea = document.getElementById('articleContentArea');
+  const breadcrumbArea = document.getElementById('breadcrumbArea');
+  if (breadcrumbArea) breadcrumbArea.innerHTML = 'Pulpit &gt; Inwentaryzacja Sprzętu';
+  if (!contentArea) return;
+
+  contentArea.innerHTML = `
+    <div class="inv-wrapper">
+      <!-- Pasek tytułowy modułu -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px; border-bottom:1px solid #27272a; padding-bottom:14px;">
+        <div>
+          <h2 style="color:var(--sw-gold); margin:0 0 6px 0; text-transform:uppercase; font-size:1.3rem; letter-spacing:0.5px;">INWENTARYZACJA SPRZĘTU (IT ASSET MANAGEMENT)</h2>
+          <p style="font-size:0.78rem; color:#aaa; margin:0;">
+            Katalog podzespołów, pamięci RAM, dysków, kart rozszerzeń i peryferiów domowych z lokalizacją fizyczną i dokumentacją fotograficzną.
+          </p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn-action" onclick="window.openNewInventoryItemModal()" style="font-size:0.75rem; padding:6px 14px;">
+            + Dodaj Sprzęt
+          </button>
+          <button type="button" class="btn-secondary" onclick="window.loadInventoryData()" style="font-size:0.75rem; padding:6px 12px;">
+            Odśwież
+          </button>
+        </div>
+      </div>
+
+      <!-- Kafelki kluczowych metryk magazynowych -->
+      <div id="invStatsRow" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:16px;">
+        <div class="inv-stat-card">
+          <span class="label">Łącznie podzespołów</span>
+          <span class="value" id="invStatTotal">-</span>
+        </div>
+        <div class="inv-stat-card">
+          <span class="label">Wolne w zapasie</span>
+          <span class="value" style="color:#4ade80;" id="invStatFree">-</span>
+        </div>
+        <div class="inv-stat-card">
+          <span class="label">W użyciu (hosty)</span>
+          <span class="value" style="color:#60a5fa;" id="invStatInUse">-</span>
+        </div>
+        <div class="inv-stat-card">
+          <span class="label">Wolny RAM w zapasie</span>
+          <span class="value" style="color:#c084fc;" id="invStatRam">-</span>
+        </div>
+        <div class="inv-stat-card">
+          <span class="label">Wolne dyski w zapasie</span>
+          <span class="value" style="color:#38bdf8;" id="invStatDisk">-</span>
+        </div>
+        <div class="inv-stat-card">
+          <span class="label">Do testów / Uszkodzone</span>
+          <span class="value" style="color:#fbbf24;" id="invStatToTest">-</span>
+        </div>
+      </div>
+
+      <!-- Pasek filtrów i wyszukiwarki -->
+      <div style="background:#18181b; border:1px solid #27272a; border-radius:6px; padding:12px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+        <div style="flex:1; min-width:240px;">
+          <input type="text" id="invSearchInput" oninput="window.handleInventorySearchInput(event)" placeholder="Wyszukaj po nazwie, S/N, lokalizacji, parametrach..." style="width:100%; background:#111; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.78rem; box-sizing:border-box;">
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <select id="invFilterCategory" onchange="window.handleInventoryCategoryFilter(event)" class="modal-select" style="font-size:0.75rem; padding:5px 8px; width:auto;">
+            <option value="">Wszystkie kategorie</option>
+            <option value="dyski">Dyski i Pamięci Masowe</option>
+            <option value="ram">Pamięć RAM</option>
+            <option value="pcie">Karty rozszerzeń (PCIe)</option>
+            <option value="zasilanie">Zasilanie</option>
+            <option value="siec">Sieć i Łączność</option>
+            <option value="sbc">Platformy i SBC</option>
+            <option value="akcesoria">Akcesoria i Montaż</option>
+            <option value="inne">Inne</option>
+          </select>
+          <select id="invFilterStatus" onchange="window.handleInventoryStatusFilter(event)" class="modal-select" style="font-size:0.75rem; padding:5px 8px; width:auto;">
+            <option value="">Wszystkie statusy</option>
+            <option value="wolny">Tylko wolne (w zapasie)</option>
+            <option value="w_uzyciu">W użyciu</option>
+            <option value="do_testow">Do przetestowania</option>
+            <option value="zarezerwowany">Zarezerwowane</option>
+            <option value="uszkodzony">Uszkodzone</option>
+          </select>
+          <button type="button" class="btn-secondary" onclick="window.resetInventoryFilters()" style="font-size:0.72rem; padding:5px 10px;">
+            Wyczyść filtry
+          </button>
+        </div>
+      </div>
+
+      <!-- Kontener listy sprzętu -->
+      <div id="invItemsListContainer" style="display:flex; flex-direction:column; gap:10px;">
+        <div style="text-align:center; padding:30px; color:#71717a; font-size:0.85rem;">
+          Ładowanie inwentarza sprzętu...
+        </div>
+      </div>
+    </div>
+  `;
+
+  await loadInventoryData();
+}
+window.renderInventoryModule = renderInventoryModule;
+
+function renderInventoryListAndStats() {
+  const statTotal = document.getElementById('invStatTotal');
+  const statFree = document.getElementById('invStatFree');
+  const statInUse = document.getElementById('invStatInUse');
+  const statRam = document.getElementById('invStatRam');
+  const statDisk = document.getElementById('invStatDisk');
+  const statToTest = document.getElementById('invStatToTest');
+
+  const stats = inventoryState.stats || {};
+  if (statTotal) statTotal.textContent = stats.totalCount || 0;
+  if (statFree) statFree.textContent = stats.freeCount || 0;
+  if (statInUse) statInUse.textContent = stats.inUseCount || 0;
+  if (statRam) statRam.textContent = stats.totalFreeRamFormatted || '0 GB';
+  if (statDisk) statDisk.textContent = stats.totalFreeDiskFormatted || '0 GB';
+  if (statToTest) statToTest.textContent = (stats.toTestCount || 0) + (stats.damagedCount || 0);
+
+  const container = document.getElementById('invItemsListContainer');
+  if (!container) return;
+
+  const q = (inventoryState.searchQuery || '').toLowerCase().trim();
+  const fCat = inventoryState.filterCategory;
+  const fStat = inventoryState.filterStatus;
+
+  const filtered = inventoryState.items.filter(item => {
+    if (fCat && item.category !== fCat) return false;
+    if (fStat && item.status !== fStat) return false;
+    if (q) {
+      const matchName = String(item.name || '').toLowerCase().includes(q);
+      const matchSub = String(item.subcategory || '').toLowerCase().includes(q);
+      const matchCap = String(item.capacity || '').toLowerCase().includes(q);
+      const matchSerial = String(item.serialNumber || '').toLowerCase().includes(q);
+      const matchLoc = String(item.location || '').toLowerCase().includes(q);
+      const matchHost = String(item.assignedHost || '').toLowerCase().includes(q);
+      const matchNotes = String(item.notes || '').toLowerCase().includes(q);
+      const matchSpecs = typeof item.specs === 'object' ? JSON.stringify(item.specs).toLowerCase().includes(q) : String(item.specs || '').toLowerCase().includes(q);
+      if (!matchName && !matchSub && !matchCap && !matchSerial && !matchLoc && !matchHost && !matchNotes && !matchSpecs) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="background:#18181b; border:1px solid #27272a; border-radius:6px; padding:36px; text-align:center;">
+        <div style="color:var(--sw-gold); font-size:0.95rem; font-weight:700; margin-bottom:6px; text-transform:uppercase;">Brak elementów spełniających kryteria</div>
+        <p style="font-size:0.78rem; color:#71717a; margin:0 0 14px 0;">
+          ${inventoryState.items.length === 0 ? 'W Twoim inwentarzu nie ma jeszcze żadnych zarejestrowanych podzespołów.' : 'Żaden podzespół nie pasuje do wpisanej frazy wyszukiwania lub wybranych filtrów.'}
+        </p>
+        <button type="button" class="btn-action" onclick="window.openNewInventoryItemModal()" style="font-size:0.75rem; padding:6px 14px;">
+          + Dodaj Pierwszy Podzespół
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(item => {
+    const catLabel = INV_CATEGORY_LABELS[item.category] || item.category || 'Inne';
+    const statusLabel = INV_STATUS_LABELS[item.status] || item.status || 'wolny';
+    const images = Array.isArray(item.images) ? item.images : [];
+    const hasImages = images.length > 0;
+    const firstImage = hasImages ? images[0] : '';
+
+    let specsHtml = '';
+    if (item.capacity) {
+      specsHtml += `<span style="background:#27272a; border:1px solid #3f3f46; color:#e4e4e7; padding:2px 6px; border-radius:3px; font-size:0.72rem; font-weight:700;">${escapeHtml(item.capacity)}</span>`;
+    }
+    if (item.subcategory) {
+      specsHtml += `<span style="background:#27272a; border:1px solid #3f3f46; color:#a1a1aa; padding:2px 6px; border-radius:3px; font-size:0.72rem;">${escapeHtml(item.subcategory)}</span>`;
+    }
+    const specsText = typeof item.specs === 'object' && item.specs !== null ? (item.specs.details || Object.values(item.specs).join(' | ')) : String(item.specs || '');
+    if (specsText && specsText.trim()) {
+      specsHtml += `<span style="color:#d4d4d8; font-size:0.74rem;">${escapeHtml(specsText)}</span>`;
+    }
+
+    return `
+      <div class="inv-item-card" id="invCard_${item.id}">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+          <!-- Sekcja lewa: miniaturka i opis -->
+          <div style="display:flex; gap:12px; align-items:flex-start; flex:1; min-width:280px;">
+            <!-- Miniaturka zdjęcia -->
+            <div style="position:relative; flex-shrink:0;">
+              ${hasImages ? `
+                <img src="${escapeHtml(firstImage)}" alt="${escapeHtml(item.name)}" class="inv-thumb-img" onclick="window.openInventoryLightbox('${escapeHtml(firstImage)}', '${escapeHtml(item.name)}')">
+                ${images.length > 1 ? `<span style="position:absolute; bottom:-4px; right:-4px; background:#000; border:1px solid var(--sw-gold); color:var(--sw-gold); font-size:0.62rem; font-weight:700; padding:1px 4px; border-radius:3px;">+${images.length - 1}</span>` : ''}
+              ` : `
+                <div style="width:54px; height:54px; border-radius:4px; background:#111; border:1px dashed #333; display:flex; align-items:center; justify-content:center; color:#52525b; font-size:0.62rem; text-align:center; padding:2px; box-sizing:border-box;">
+                  Brak zdjęć
+                </div>
+              `}
+            </div>
+
+            <!-- Dane sprzętu -->
+            <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span style="color:#ffffff; font-weight:700; font-size:0.92rem;">${escapeHtml(item.name)}</span>
+                <span class="inv-badge-category">${escapeHtml(catLabel)}</span>
+                <span class="inv-badge-status status-${escapeHtml(item.status)}">${escapeHtml(statusLabel)}</span>
+              </div>
+
+              <!-- Parametry / Specyfikacja -->
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:2px;">
+                ${specsHtml}
+              </div>
+
+              <!-- Lokalizacja i S/N -->
+              <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:0.73rem; color:#a1a1aa; margin-top:4px;">
+                <span>Lokalizacja: <strong style="color:#e4e4e7;">${escapeHtml(item.location || 'Nieokreślona')}</strong></span>
+                ${item.assignedHost ? `<span>Host: <strong style="color:#60a5fa;">${escapeHtml(item.assignedHost)}</strong></span>` : ''}
+                ${item.serialNumber ? `<span>S/N: <code style="color:#d4d4d8; font-family:monospace; background:#111; padding:1px 5px; border-radius:3px; border:1px solid #333;">${escapeHtml(item.serialNumber)}</code></span>` : ''}
+              </div>
+
+              <!-- Notatki -->
+              ${item.notes ? `
+                <div style="font-size:0.73rem; color:#71717a; margin-top:4px; background:#111113; border-left:2px solid #3f3f46; padding:4px 8px; border-radius:0 3px 3px 0;">
+                  ${escapeHtml(item.notes)}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Sekcja prawa: Szybkie akcje -->
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex-shrink:0;">
+            <select onchange="window.quickChangeInventoryStatus('${item.id}', this.value)" class="modal-select" style="font-size:0.72rem; padding:4px 6px; width:auto; height:28px;" title="Szybka zmiana statusu">
+              <option value="wolny" ${item.status === 'wolny' ? 'selected' : ''}>Status: Wolny</option>
+              <option value="w_uzyciu" ${item.status === 'w_uzyciu' ? 'selected' : ''}>Status: W użyciu</option>
+              <option value="do_testow" ${item.status === 'do_testow' ? 'selected' : ''}>Status: Do testów</option>
+              <option value="zarezerwowany" ${item.status === 'zarezerwowany' ? 'selected' : ''}>Status: Zarezerwowany</option>
+              <option value="uszkodzony" ${item.status === 'uszkodzony' ? 'selected' : ''}>Status: Uszkodzony</option>
+            </select>
+            <button type="button" class="btn-secondary" onclick="window.openEditInventoryItemModal('${item.id}')" style="font-size:0.72rem; padding:4px 8px; height:28px;" title="Edytuj szczegóły i zdjęcia">
+              Edytuj
+            </button>
+            <button type="button" class="btn-secondary" onclick="window.duplicateInventoryItem('${item.id}')" style="font-size:0.72rem; padding:4px 8px; height:28px;" title="Zduplikuj ten podzespół">
+              Klonuj
+            </button>
+            <button type="button" class="btn-secondary" onclick="window.deleteInventoryItem('${item.id}')" style="font-size:0.72rem; padding:4px 8px; height:28px; color:#ef4444;" title="Usuń z inwentarza">
+              Usuń
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+window.renderInventoryListAndStats = renderInventoryListAndStats;
+
+window.handleInventorySearchInput = function(event) {
+  inventoryState.searchQuery = event.target.value;
+  renderInventoryListAndStats();
+};
+
+window.handleInventoryCategoryFilter = function(event) {
+  inventoryState.filterCategory = event.target.value;
+  renderInventoryListAndStats();
+};
+
+window.handleInventoryStatusFilter = function(event) {
+  inventoryState.filterStatus = event.target.value;
+  renderInventoryListAndStats();
+};
+
+window.resetInventoryFilters = function() {
+  inventoryState.searchQuery = '';
+  inventoryState.filterCategory = '';
+  inventoryState.filterStatus = '';
+  const sInput = document.getElementById('invSearchInput');
+  const cSelect = document.getElementById('invFilterCategory');
+  const stSelect = document.getElementById('invFilterStatus');
+  if (sInput) sInput.value = '';
+  if (cSelect) cSelect.value = '';
+  if (stSelect) stSelect.value = '';
+  renderInventoryListAndStats();
+};
+
+window.quickChangeInventoryStatus = async function(id, newStatus) {
+  const item = inventoryState.items.find(i => i.id === id);
+  if (!item) return;
+  try {
+    const updatedPayload = { ...item, status: newStatus };
+    const res = await fetch('/api/inventory/item', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify(updatedPayload)
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      item.status = newStatus;
+      inventoryState.stats = data.stats || inventoryState.stats;
+      renderInventoryListAndStats();
+      if (typeof showToast === 'function') {
+        showToast(`Zaktualizowano status pozycji "${item.name}" na ${INV_STATUS_LABELS[newStatus] || newStatus}`, 'info');
+      }
+    } else {
+      alert('Nie udało się zaktualizować statusu: ' + (data.error || 'Błąd API'));
+    }
+  } catch (err) {
+    alert('Błąd sieciowy: ' + err.message);
+  }
+};
+
+window.openNewInventoryItemModal = function() {
+  const modal = document.getElementById('inventoryItemModalOverlay');
+  if (!modal) return;
+
+  document.getElementById('invModalTitle').textContent = 'DODAJ SPRZĘT DO INWENTARZA';
+  document.getElementById('invItemId').value = '';
+  document.getElementById('invItemName').value = '';
+  document.getElementById('invItemCategory').value = 'dyski';
+  document.getElementById('invItemSubcategory').value = '';
+  document.getElementById('invItemCapacity').value = '';
+  document.getElementById('invItemSpecs').value = '';
+  document.getElementById('invItemStatus').value = 'wolny';
+  document.getElementById('invItemLocation').value = '';
+  document.getElementById('invItemSerial').value = '';
+  document.getElementById('invItemHost').value = '';
+  document.getElementById('invItemNotes').value = '';
+
+  inventoryState.currentUploadedImages = [];
+  renderInvModalPhotos();
+
+  modal.style.display = 'flex';
+  window.setupInvModalClipboardPaste(true);
+  setTimeout(() => document.getElementById('invItemName')?.focus(), 50);
+};
+
+window.openEditInventoryItemModal = function(id) {
+  const item = inventoryState.items.find(i => i.id === id);
+  if (!item) return;
+
+  const modal = document.getElementById('inventoryItemModalOverlay');
+  if (!modal) return;
+
+  document.getElementById('invModalTitle').textContent = 'EDYTUJ POZYCJĘ INWENTARZA';
+  document.getElementById('invItemId').value = item.id;
+  document.getElementById('invItemName').value = item.name || '';
+  document.getElementById('invItemCategory').value = item.category || 'inne';
+  document.getElementById('invItemSubcategory').value = item.subcategory || '';
+  document.getElementById('invItemCapacity').value = item.capacity || '';
+  document.getElementById('invItemSpecs').value = typeof item.specs === 'object' && item.specs !== null ? (item.specs.details || Object.values(item.specs).join(' | ')) : String(item.specs || '');
+  document.getElementById('invItemStatus').value = item.status || 'wolny';
+  document.getElementById('invItemLocation').value = item.location || '';
+  document.getElementById('invItemSerial').value = item.serialNumber || '';
+  document.getElementById('invItemHost').value = item.assignedHost || '';
+  document.getElementById('invItemNotes').value = item.notes || '';
+
+  inventoryState.currentUploadedImages = Array.isArray(item.images) ? [...item.images] : [];
+  renderInvModalPhotos();
+
+  modal.style.display = 'flex';
+  window.setupInvModalClipboardPaste(true);
+};
+
+window.closeInventoryItemModal = function() {
+  const modal = document.getElementById('inventoryItemModalOverlay');
+  if (modal) modal.style.display = 'none';
+  window.setupInvModalClipboardPaste(false);
+};
+
+window.handleInvCategoryChange = function() {
+  const cat = document.getElementById('invItemCategory')?.value;
+  const subInput = document.getElementById('invItemSubcategory');
+  if (!subInput || subInput.value.trim()) return;
+
+  const placeholders = {
+    'dyski': 'M.2 NVMe PCIe',
+    'ram': 'DDR4 UDIMM',
+    'pcie': 'Karta sieciowa 10G',
+    'zasilanie': 'Zasilacz ATX',
+    'siec': 'Wkładka SFP+',
+    'sbc': 'Mini PC',
+    'akcesoria': 'Sanki HDD'
+  };
+  if (placeholders[cat]) {
+    subInput.placeholder = placeholders[cat];
+  }
+};
+
+window.duplicateInventoryItem = async function(id) {
+  const item = inventoryState.items.find(i => i.id === id);
+  if (!item) return;
+
+  const duplicated = {
+    ...item,
+    id: undefined,
+    name: `${item.name} (kopia)`,
+    serialNumber: '',
+    createdAt: undefined,
+    updatedAt: undefined
+  };
+
+  try {
+    const res = await fetch('/api/inventory/item', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify(duplicated)
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      await loadInventoryData();
+      if (typeof showToast === 'function') {
+        showToast(`Zduplikowano pozycję "${item.name}".`, 'success');
+      }
+    } else {
+      alert('Nie udało się zduplikować pozycji: ' + (data.error || 'Błąd API'));
+    }
+  } catch (err) {
+    alert('Błąd sieciowy: ' + err.message);
+  }
+};
+
+window.deleteInventoryItem = async function(id) {
+  const item = inventoryState.items.find(i => i.id === id);
+  const name = item ? item.name : 'podzespół';
+
+  try {
+    const res = await fetch(`/api/inventory/item?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: {
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      }
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      inventoryState.items = inventoryState.items.filter(i => i.id !== id);
+      inventoryState.stats = data.stats || inventoryState.stats;
+      renderInventoryListAndStats();
+      if (typeof showToast === 'function') {
+        showToast(`Usunięto pozycję "${name}" z inwentarza.`, 'info');
+      }
+    } else {
+      alert('Błąd usuwania pozycji: ' + (data.error || 'Nieznany błąd'));
+    }
+  } catch (err) {
+    alert('Błąd sieciowy: ' + err.message);
+  }
+};
+
+window.saveInventoryItemSubmit = async function() {
+  const id = document.getElementById('invItemId')?.value.trim();
+  const name = document.getElementById('invItemName')?.value.trim();
+  const category = document.getElementById('invItemCategory')?.value;
+  const subcategory = document.getElementById('invItemSubcategory')?.value.trim();
+  const capacity = document.getElementById('invItemCapacity')?.value.trim();
+  const specs = document.getElementById('invItemSpecs')?.value.trim();
+  const status = document.getElementById('invItemStatus')?.value;
+  const location = document.getElementById('invItemLocation')?.value.trim();
+  const serialNumber = document.getElementById('invItemSerial')?.value.trim();
+  const assignedHost = document.getElementById('invItemHost')?.value.trim();
+  const notes = document.getElementById('invItemNotes')?.value.trim();
+
+  if (!name) {
+    alert('Podaj nazwę podzespołu / sprzętu.');
+    document.getElementById('invItemName')?.focus();
+    return;
+  }
+
+  const payload = {
+    id: id || undefined,
+    name,
+    category,
+    subcategory,
+    capacity,
+    specs,
+    status,
+    location: location || 'Nieokreślona',
+    serialNumber,
+    assignedHost,
+    notes,
+    images: [...inventoryState.currentUploadedImages]
+  };
+
+  try {
+    const res = await fetch('/api/inventory/item', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      window.closeInventoryItemModal();
+      await loadInventoryData();
+      if (typeof showToast === 'function') {
+        showToast(id ? `Zapisano zmiany w "${name}".` : `Dodano "${name}" do inwentarza.`, 'success');
+      }
+    } else {
+      alert('Nie udało się zapisać pozycji: ' + (data.error || 'Błąd serwera'));
+    }
+  } catch (err) {
+    alert('Błąd sieciowy podczas zapisu: ' + err.message);
+  }
+};
+
+/* ===== OBSŁUGA ZDJĘĆ, KOMPRESJA I DRAG & DROP ===== */
+
+function renderInvModalPhotos() {
+  const container = document.getElementById('invPhotosContainer');
+  const counter = document.getElementById('invPhotoCounter');
+  if (!container) return;
+
+  const images = inventoryState.currentUploadedImages || [];
+  if (counter) counter.textContent = `${images.length} zdjęć`;
+
+  container.innerHTML = images.map((url, idx) => `
+    <div class="inv-modal-photo-item">
+      <img src="${escapeHtml(url)}" alt="Zdjęcie ${idx + 1}" onclick="window.openInventoryLightbox('${escapeHtml(url)}', 'Zdjęcie dokumentacyjne ${idx + 1}')">
+      <button type="button" class="inv-modal-photo-remove" onclick="window.removeInvModalPhoto(${idx})" title="Usuń to zdjęcie">X</button>
+    </div>
+  `).join('');
+}
+
+window.removeInvModalPhoto = function(index) {
+  if (index >= 0 && index < inventoryState.currentUploadedImages.length) {
+    inventoryState.currentUploadedImages.splice(index, 1);
+    renderInvModalPhotos();
+  }
+};
+
+function compressImageFile(file, maxWidth = 1920, maxHeight = 1920, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({
+          dataUrl,
+          filename: (file.name || 'photo.jpg').replace(/\.[^.]+$/, '.jpg')
+        });
+      };
+      img.onerror = () => reject(new Error('Błąd odczytu struktury pliku graficznego'));
+      img.src = e.target.result;
+    };
+    reader.onerror = (e) => reject(e);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadInventoryImageFile(file) {
+  const progress = document.getElementById('invUploadProgress');
+  if (progress) progress.style.display = 'block';
+
+  try {
+    const { dataUrl, filename } = await compressImageFile(file);
+    const res = await fetch('/api/inventory/upload-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({
+        filename,
+        base64Data: dataUrl
+      })
+    });
+    const data = await res.json();
+    if (res.ok && data.success && data.url) {
+      inventoryState.currentUploadedImages.push(data.url);
+      renderInvModalPhotos();
+      if (typeof showToast === 'function') {
+        showToast('Pomyślnie załączono zdjęcie podzespołu.', 'success');
+      }
+    } else {
+      alert('Błąd przesyłania zdjęcia: ' + (data.error || 'Niezgodny format'));
+    }
+  } catch (err) {
+    alert('Błąd optymalizacji lub uploadu: ' + err.message);
+  } finally {
+    if (progress) progress.style.display = 'none';
+  }
+}
+
+window.handleInvFileInputChange = async function(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+  for (let i = 0; i < files.length; i++) {
+    await uploadInventoryImageFile(files[i]);
+  }
+  event.target.value = '';
+};
+
+window.handleInvPhotoDragOver = function(event) {
+  event.preventDefault();
+  const dz = document.getElementById('invPhotoDropzone');
+  if (dz) dz.classList.add('drag-active');
+};
+
+window.handleInvPhotoDragLeave = function(event) {
+  const dz = document.getElementById('invPhotoDropzone');
+  if (dz) dz.classList.remove('drag-active');
+};
+
+window.handleInvPhotoDrop = async function(event) {
+  event.preventDefault();
+  const dz = document.getElementById('invPhotoDropzone');
+  if (dz) dz.classList.remove('drag-active');
+
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  for (let i = 0; i < files.length; i++) {
+    if (files[i].type.startsWith('image/')) {
+      await uploadInventoryImageFile(files[i]);
+    }
+  }
+};
+
+let invClipboardPasteHandler = null;
+window.setupInvModalClipboardPaste = function(enable) {
+  if (enable) {
+    if (invClipboardPasteHandler) return;
+    invClipboardPasteHandler = async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            e.preventDefault();
+            await uploadInventoryImageFile(blob);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', invClipboardPasteHandler);
+  } else {
+    if (invClipboardPasteHandler) {
+      window.removeEventListener('paste', invClipboardPasteHandler);
+      invClipboardPasteHandler = null;
+    }
+  }
+};
+
+/* ===== LIGHTBOX (PEŁNOEKRANOWY PODGLĄD ZDJĘCIA) ===== */
+
+window.openInventoryLightbox = function(imageUrl, caption = '') {
+  const modal = document.getElementById('inventoryLightboxModalOverlay');
+  const img = document.getElementById('invLightboxImage');
+  const cap = document.getElementById('invLightboxCaption');
+  const dlBtn = document.getElementById('invLightboxDownloadBtn');
+  if (!modal || !img) return;
+
+  img.src = imageUrl;
+  if (cap) cap.textContent = caption;
+  if (dlBtn) dlBtn.href = imageUrl;
+  modal.style.display = 'flex';
+};
+
+window.closeInventoryLightbox = function(event) {
+  if (event && event.target && event.target.id === 'invLightboxImage') return;
+  const modal = document.getElementById('inventoryLightboxModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
 

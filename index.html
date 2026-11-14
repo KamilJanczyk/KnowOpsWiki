@@ -801,6 +801,128 @@
     </div>
   </div>
 
+  <!-- Modal Dodawania / Edycji Sprzętu (Homelab Inventory) -->
+  <div id="inventoryItemModalOverlay" class="custom-modal-overlay" style="display:none; z-index:3200;">
+    <div class="custom-modal" style="max-width: 840px; width: 95%; max-height: 92vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 id="invModalTitle" style="color:var(--sw-gold); margin:0; font-size:1.05rem; text-transform:uppercase;">DODAJ SPRZĘT DO INWENTARZA</h3>
+        <button class="modal-close-btn" onclick="window.closeInventoryItemModal()">X</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; padding: 18px; flex: 1;">
+        <input type="hidden" id="invItemId" value="">
+        
+        <div style="margin-bottom:12px;">
+          <label class="modal-label" for="invItemName">NAZWA PODZESPOŁU / SPRZĘTU *</label>
+          <input type="text" id="invItemName" class="modal-input" placeholder="np. Samsung 970 EVO Plus 1TB, Kingston Fury 32GB DDR4, Intel X520-DA2" required>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:12px;">
+          <div>
+            <label class="modal-label" for="invItemCategory">KATEGORIA *</label>
+            <select id="invItemCategory" class="modal-select" onchange="window.handleInvCategoryChange()">
+              <option value="dyski">Dyski i Pamięci Masowe (NVMe, SSD, HDD)</option>
+              <option value="ram">Pamięć RAM (DDR4, DDR5, ECC, SODIMM)</option>
+              <option value="pcie">Karty rozszerzeń (PCIe, Sieć, HBA, GPU)</option>
+              <option value="zasilanie">Zasilanie (Zasilacze ATX, SFX, PoE)</option>
+              <option value="siec">Sieć i Łączność (SFP+, DAC, Switche, AP)</option>
+              <option value="sbc">Platformy, SBC i Komputery (Mini PC, RPi)</option>
+              <option value="akcesoria">Akcesoria, Kable i Montaż (Caddy, Wentylatory)</option>
+              <option value="inne">Inne podzespoły</option>
+            </select>
+          </div>
+          <div>
+            <label class="modal-label" for="invItemSubcategory">PODKATEGORIA / FORMAT</label>
+            <input type="text" id="invItemSubcategory" class="modal-input" placeholder="np. M.2 2280 NVMe, DDR4 UDIMM, 10G SFP+, SATA 2.5">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:12px;">
+          <div>
+            <label class="modal-label" for="invItemCapacity">POJEMNOŚĆ / ROZMIAR (opcjonalnie)</label>
+            <input type="text" id="invItemCapacity" class="modal-input" placeholder="np. 1TB, 32GB, 512GB, 16GB">
+          </div>
+          <div>
+            <label class="modal-label" for="invItemSpecs">PARAMETRY / INTERFEJS</label>
+            <input type="text" id="invItemSpecs" class="modal-input" placeholder="np. 3200MHz CL16, PCIe 3.0 x4, 10Gbps, 650W Gold">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:12px;">
+          <div>
+            <label class="modal-label" for="invItemStatus">STATUS</label>
+            <select id="invItemStatus" class="modal-select">
+              <option value="wolny">Wolny (w zapasie / dostępny)</option>
+              <option value="w_uzyciu">W użyciu (zamontowany w hoscie)</option>
+              <option value="do_testow">Do przetestowania / weryfikacji</option>
+              <option value="zarezerwowany">Zarezerwowany pod projekt</option>
+              <option value="uszkodzony">Uszkodzony / na części</option>
+            </select>
+          </div>
+          <div>
+            <label class="modal-label" for="invItemLocation">LOKALIZACJA FIZYCZNA *</label>
+            <input type="text" id="invItemLocation" list="invLocationSuggestions" class="modal-input" placeholder="np. Pudełko A - Szafa Rack, Szuflada 2 Biurko, Regał">
+            <datalist id="invLocationSuggestions"></datalist>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:12px;">
+          <div>
+            <label class="modal-label" for="invItemSerial">NUMER SERYJNY (S/N) LUB PART NUMBER (P/N)</label>
+            <input type="text" id="invItemSerial" class="modal-input" placeholder="np. S4EWNX0M123456, KF432C16BBK2/32">
+          </div>
+          <div>
+            <label class="modal-label" for="invItemHost">PRZYPISANY HOST / MASZYNA (opcjonalnie)</label>
+            <input type="text" id="invItemHost" class="modal-input" placeholder="np. Proxmox-Node-01, TrueNAS, Domowy PC">
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label class="modal-label" for="invItemNotes">NOTATKI / WYNIKI TESTÓW / UWAGI</label>
+          <textarea id="invItemNotes" class="modal-textarea" style="height:60px;" placeholder="np. SMART 100%, 0 bad sectorów, przetestowany MemTestem, zdemontowany z Dell R730..."></textarea>
+        </div>
+
+        <!-- Sekcja Załączania Zdjęć -->
+        <div style="margin-top:16px; border-top:1px solid #27272a; padding-top:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label class="modal-label" style="margin:0;">DOKUMENTACJA ZDJĘCIOWA (ZDJĘCIA TABLICZEK, NAKLEJEK, TESTÓW):</label>
+            <span id="invPhotoCounter" style="font-size:0.7rem; color:#a1a1aa;">0 zdjęć</span>
+          </div>
+
+          <!-- Strefa upuszczania i wyboru pliku / zrobienia zdjęcia -->
+          <div id="invPhotoDropzone" class="inv-photo-dropzone" onclick="document.getElementById('invFileInput').click()" ondragover="window.handleInvPhotoDragOver(event)" ondragleave="window.handleInvPhotoDragLeave(event)" ondrop="window.handleInvPhotoDrop(event)">
+            <input type="file" id="invFileInput" accept="image/*" capture="environment" multiple style="display:none;" onchange="window.handleInvFileInputChange(event)">
+            <div style="color:var(--sw-gold); font-size:0.82rem; font-weight:700; margin-bottom:4px;">+ WYBIERZ PLIKI LUB ZRÓB ZDJĘCIE APARATEM</div>
+            <div style="color:#71717a; font-size:0.72rem;">Możesz również przeciągnąć pliki tutaj lub wkleić bezpośrednio ze schowka (Ctrl + V)</div>
+          </div>
+
+          <!-- Pasek postępu uploadu -->
+          <div id="invUploadProgress" style="display:none; margin-top:8px; font-size:0.72rem; color:var(--sw-gold); background:#18181b; padding:6px 10px; border-radius:4px; border:1px solid #333;">
+            Przesyłanie i optymalizacja zdjęcia...
+          </div>
+
+          <!-- Lista załączonych zdjęć z miniaturkami -->
+          <div id="invPhotosContainer" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn-secondary" onclick="window.closeInventoryItemModal()">Anuluj</button>
+        <button type="button" class="btn-action" onclick="window.saveInventoryItemSubmit()">Zapisz Pozycję</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Lightbox (Pełny Podgląd Zdjęcia) -->
+  <div id="inventoryLightboxModalOverlay" class="custom-modal-overlay" style="display:none; z-index:3300; background:rgba(0,0,0,0.92); justify-content:center; align-items:center;" onclick="window.closeInventoryLightbox(event)">
+    <div style="position:relative; max-width:92vw; max-height:92vh; display:flex; flex-direction:column; align-items:center;" onclick="event.stopPropagation()">
+      <div style="position:absolute; top:-38px; right:0; display:flex; gap:10px;">
+        <a id="invLightboxDownloadBtn" href="" download target="_blank" class="btn-secondary" style="font-size:0.72rem; padding:4px 10px; text-decoration:none;">Pobierz plik</a>
+        <button type="button" class="modal-close-btn" onclick="window.closeInventoryLightbox()">X</button>
+      </div>
+      <img id="invLightboxImage" src="" alt="Podgląd podzespołu" style="max-width:90vw; max-height:85vh; border-radius:6px; box-shadow:0 10px 40px rgba(0,0,0,0.9); border:1px solid #333; object-fit:contain;">
+      <div id="invLightboxCaption" style="margin-top:10px; font-size:0.8rem; color:#ccc; text-align:center;"></div>
+    </div>
+  </div>
+
   <!-- Fullscreen Auth Lock Overlay (Single-User Gatekeeper) -->
   <div id="authLockOverlay" class="auth-lock-overlay" style="display:none;">
     <div class="auth-lock-card">
