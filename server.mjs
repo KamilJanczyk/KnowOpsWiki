@@ -3221,7 +3221,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST') {
         if (!checkMutatingRateLimit(req, res)) return;
         const body = await getBody();
-        const { id, name, category, subcategory, capacity, specs, serialNumber, location, status, assignedHost, images, notes } = body;
+        const { id, name, category, subcategory, capacity, specs, serialNumber, location, status, assignedHost, images, notes, createdAt } = body;
 
         const itemName = String(name || '').trim().slice(0, 200);
         if (!itemName) {
@@ -3238,6 +3238,11 @@ const server = http.createServer(async (req, res) => {
         const items = getInventoryData();
         let item = id ? items.find(i => i.id === id) : null;
         const now = Date.now();
+        let itemCreatedAt = now;
+        if (createdAt) {
+          const parsed = typeof createdAt === 'number' ? createdAt : new Date(createdAt).getTime();
+          if (!isNaN(parsed) && parsed > 0) itemCreatedAt = parsed;
+        }
 
         if (item) {
           item.name = itemName;
@@ -3251,6 +3256,9 @@ const server = http.createServer(async (req, res) => {
           item.assignedHost = String(assignedHost || '').trim().slice(0, 150);
           item.images = sanitizedImages;
           item.notes = String(notes || '').trim().slice(0, 2000);
+          if (createdAt) {
+            item.createdAt = itemCreatedAt;
+          }
           item.updatedAt = now;
         } else {
           item = {
@@ -3266,7 +3274,7 @@ const server = http.createServer(async (req, res) => {
             assignedHost: String(assignedHost || '').trim().slice(0, 150),
             images: sanitizedImages,
             notes: String(notes || '').trim().slice(0, 2000),
-            createdAt: now,
+            createdAt: itemCreatedAt,
             updatedAt: now
           };
           items.unshift(item);
@@ -3306,6 +3314,73 @@ const server = http.createServer(async (req, res) => {
         return sendJson(200, {
           success: true,
           deletedId: id,
+          items,
+          stats: calculateInventoryStats(items)
+        });
+      }
+    }
+
+    if (normPath === '/api/inventory/bulk') {
+      if (req.method === 'POST') {
+        if (!checkMutatingRateLimit(req, res)) return;
+        const body = await getBody();
+        const rawItems = Array.isArray(body?.items) ? body.items : null;
+        if (!rawItems || rawItems.length === 0) {
+          return sendJson(400, { error: 'Wymagana tablica items zawierająca co najmniej 1 pozycję' });
+        }
+
+        if (rawItems.length > 500) {
+          return sendJson(400, { error: 'Maksymalna liczba pozycji w jednym imporcie wynosi 500' });
+        }
+
+        const validStatuses = ['wolny', 'w_uzyciu', 'do_testow', 'zarezerwowany', 'uszkodzony'];
+        const items = getInventoryData();
+        const now = Date.now();
+        const added = [];
+
+        for (let i = 0; i < rawItems.length; i++) {
+          const raw = rawItems[i];
+          if (!raw || typeof raw !== 'object') continue;
+          const itemName = String(raw.name || '').trim().slice(0, 200);
+          if (!itemName) continue;
+
+          const itemStatus = validStatuses.includes(raw.status) ? raw.status : 'wolny';
+          let itemCreatedAt = now;
+          if (raw.createdAt) {
+            const parsed = typeof raw.createdAt === 'number' ? raw.createdAt : new Date(raw.createdAt).getTime();
+            if (!isNaN(parsed) && parsed > 0) itemCreatedAt = parsed;
+          }
+
+          const newItem = {
+            id: `inv_${now}_${crypto.randomBytes(3).toString('hex')}_${i}`,
+            name: itemName,
+            category: String(raw.category || 'inne').trim().toLowerCase().slice(0, 50),
+            subcategory: String(raw.subcategory || '').trim().slice(0, 50),
+            capacity: String(raw.capacity || '').trim().slice(0, 50),
+            specs: (typeof raw.specs === 'object' && raw.specs !== null) ? raw.specs : { details: String(raw.specs || '').trim().slice(0, 500) },
+            serialNumber: String(raw.serialNumber || '').trim().slice(0, 100),
+            location: String(raw.location || 'Magazyn').trim().slice(0, 150),
+            status: itemStatus,
+            assignedHost: String(raw.assignedHost || '').trim().slice(0, 150),
+            images: [],
+            notes: String(raw.notes || '').trim().slice(0, 2000),
+            createdAt: itemCreatedAt,
+            updatedAt: now
+          };
+
+          items.unshift(newItem);
+          added.push(newItem);
+        }
+
+        if (added.length === 0) {
+          return sendJson(400, { error: 'Żadna z przesłanych pozycji nie zawierała poprawnej nazwy' });
+        }
+
+        saveInventoryData(items);
+        return sendJson(200, {
+          success: true,
+          count: added.length,
+          added,
           items,
           stats: calculateInventoryStats(items)
         });

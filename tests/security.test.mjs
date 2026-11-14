@@ -4083,3 +4083,115 @@ test('Test 68: Inwentaryzacja sprzętu domowego (Asset Management), upload zdję
   assert.equal(totalFreeDiskGb, 1024);
   assert.equal(totalFreeRamGb, 32);
 });
+
+test('Test 69: Smart Text Importer (Wariant 1: Pipe |), obsługa daty dodania (createdAt) i endpoint /api/inventory/bulk', () => {
+  const serverJs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+
+  // 1. Weryfikacja kontrolek importu i pola daty w index.html
+  assert.equal(indexHtml.includes('id="inventoryImportModalOverlay"'), true, 'Brak inventoryImportModalOverlay w index.html');
+  assert.equal(indexHtml.includes('id="invImportTextarea"'), true, 'Brak invImportTextarea w index.html');
+  assert.equal(indexHtml.includes('id="invImportDropzone"'), true, 'Brak invImportDropzone w index.html');
+  assert.equal(indexHtml.includes('id="invImportTableBody"'), true, 'Brak invImportTableBody w index.html');
+  assert.equal(indexHtml.includes('id="invItemCreatedAt"'), true, 'Brak invItemCreatedAt w formularzu edycji/dodawania');
+
+  // 2. Weryfikacja logiki importu i daty w app.js
+  assert.equal(appJs.includes('openInventoryImportModal'), true, 'Brak openInventoryImportModal w app.js');
+  assert.equal(appJs.includes('downloadInventoryTemplate'), true, 'Brak downloadInventoryTemplate w app.js');
+  assert.equal(appJs.includes('parseInventoryImportText'), true, 'Brak parseInventoryImportText w app.js');
+  assert.equal(appJs.includes('confirmInventoryImport'), true, 'Brak confirmInventoryImport w app.js');
+  assert.equal(appJs.includes('invItemCreatedAt'), true, 'Brak obsługi invItemCreatedAt w logice modala app.js');
+  assert.equal(appJs.includes('Dodano:'), true, 'Brak etykiety "Dodano:" na kartach sprzętu w app.js');
+
+  // 3. Weryfikacja backendu w server.mjs
+  assert.equal(serverJs.includes("normPath === '/api/inventory/bulk'"), true, 'Brak POST /api/inventory/bulk w server.mjs');
+  assert.equal(serverJs.includes('rawItems.length > 500'), true, 'Brak limitu 500 pozycji w imporcie masowym');
+  assert.equal(serverJs.includes('itemCreatedAt'), true, 'Brak obsługi itemCreatedAt w server.mjs');
+
+  // 4. Test jednostkowy algorytmu parsowania tekstu (Wariant 1)
+  function parseInventoryImportTextTest(rawText) {
+    if (!rawText || typeof rawText !== 'string') return [];
+    const lines = rawText.split(/\r?\n/);
+    const items = [];
+    const now = 1700000000000;
+
+    const categoryMap = {
+      'dysk': 'dyski', 'dyski': 'dyski', 'ssd': 'dyski', 'nvme': 'dyski',
+      'ram': 'ram', 'pamiec': 'ram',
+      'pcie': 'pcie', 'gpu': 'pcie',
+      'siec': 'siec', 'switch': 'siec'
+    };
+
+    const statusMap = {
+      'wolny': 'wolny', 'wolne': 'wolny', 'sprawny': 'wolny', 'zapas': 'wolny',
+      'w_uzyciu': 'w_uzyciu', 'w uzyciu': 'w_uzyciu',
+      'do_testow': 'do_testow',
+      'uszkodzony': 'uszkodzony'
+    };
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith('#')) continue;
+      const parts = line.split('|').map(p => p.trim());
+      if (parts.length === 0) continue;
+      const name = parts[0] || '';
+      if (!name) continue;
+
+      const rawCat = (parts[1] || '').toLowerCase();
+      const cat = categoryMap[rawCat] || 'inne';
+      const capacity = parts[2] || '';
+      const location = parts[3] || 'Magazyn';
+      const rawStat = (parts[4] || '').toLowerCase();
+      const status = statusMap[rawStat] || 'wolny';
+      const serialNumber = parts[5] || '';
+      const rawDate = parts[6] || '';
+      let createdAt = now;
+      if (rawDate) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+          createdAt = new Date(rawDate).getTime();
+        } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(rawDate)) {
+          const [d, m, y] = rawDate.split('.');
+          createdAt = new Date(`${y}-${m}-${d}`).getTime();
+        }
+      }
+      const notes = parts[7] || '';
+
+      items.push({ name, category: cat, capacity, location, status, serialNumber, createdAt, notes });
+    }
+    return items;
+  }
+
+  const sampleRaw = [
+    '# Komentarz ignorowany',
+    'Samsung 980 PRO NVMe | dyski | 1 TB | Pudelko NVMe | wolny | S5GXNF0R204123 | 2026-11-14 | Sprawny 100%',
+    'Crucial Ballistix | ram | 16 GB | Szuflada RAM | zapas | BL16G32C16U4B | 05.10.2026 | Kosc 1x16GB',
+    'Intel X520-DA2 | siec | 10 GbE | Polka B2 | w uzyciu | 001B2189ABCD | | W serwerze pve',
+    ''
+  ].join('\n');
+
+  const parsed = parseInventoryImportTextTest(sampleRaw);
+  assert.equal(parsed.length, 3, 'Powinny zostać sparsowane 3 poprawne pozycje');
+
+  // Pozycja 1: Samsung 980 PRO
+  assert.equal(parsed[0].name, 'Samsung 980 PRO NVMe');
+  assert.equal(parsed[0].category, 'dyski');
+  assert.equal(parsed[0].capacity, '1 TB');
+  assert.equal(parsed[0].location, 'Pudelko NVMe');
+  assert.equal(parsed[0].status, 'wolny');
+  assert.equal(parsed[0].serialNumber, 'S5GXNF0R204123');
+  assert.equal(parsed[0].createdAt, new Date('2026-11-14').getTime());
+  assert.equal(parsed[0].notes, 'Sprawny 100%');
+
+  // Pozycja 2: Crucial Ballistix (normalizacja statusu "zapas" -> "wolny", data DD.MM.YYYY)
+  assert.equal(parsed[1].name, 'Crucial Ballistix');
+  assert.equal(parsed[1].category, 'ram');
+  assert.equal(parsed[1].status, 'wolny');
+  assert.equal(parsed[1].createdAt, new Date('2026-10-05').getTime());
+
+  // Pozycja 3: Intel X520-DA2 (normalizacja statusu "w uzyciu" -> "w_uzyciu", pusta data -> domyślna now)
+  assert.equal(parsed[2].name, 'Intel X520-DA2');
+  assert.equal(parsed[2].category, 'siec');
+  assert.equal(parsed[2].status, 'w_uzyciu');
+  assert.equal(parsed[2].createdAt, 1700000000000);
+});

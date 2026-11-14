@@ -12588,6 +12588,9 @@ async function renderInventoryModule() {
           </p>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn-secondary" onclick="window.openInventoryImportModal()" style="font-size:0.75rem; padding:6px 12px;">
+            Import Masowy (Plik / Tekst)
+          </button>
           <button type="button" class="btn-action" onclick="window.openNewInventoryItemModal()" style="font-size:0.75rem; padding:6px 14px;">
             + Dodaj Sprzęt
           </button>
@@ -12745,6 +12748,8 @@ function renderInventoryListAndStats() {
       specsHtml += `<span style="color:#d4d4d8; font-size:0.74rem;">${escapeHtml(specsText)}</span>`;
     }
 
+    const dateFormatted = item.createdAt ? new Date(item.createdAt).toLocaleDateString('pl-PL', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '';
+
     return `
       <div class="inv-item-card" id="invCard_${item.id}">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
@@ -12775,11 +12780,12 @@ function renderInventoryListAndStats() {
                 ${specsHtml}
               </div>
 
-              <!-- Lokalizacja i S/N -->
+              <!-- Lokalizacja, S/N i Data dodania -->
               <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:0.73rem; color:#a1a1aa; margin-top:4px;">
                 <span>Lokalizacja: <strong style="color:#e4e4e7;">${escapeHtml(item.location || 'Nieokreślona')}</strong></span>
                 ${item.assignedHost ? `<span>Host: <strong style="color:#60a5fa;">${escapeHtml(item.assignedHost)}</strong></span>` : ''}
                 ${item.serialNumber ? `<span>S/N: <code style="color:#d4d4d8; font-family:monospace; background:#111; padding:1px 5px; border-radius:3px; border:1px solid #333;">${escapeHtml(item.serialNumber)}</code></span>` : ''}
+                ${dateFormatted ? `<span>Dodano: <strong style="color:#d4d4d8;">${escapeHtml(dateFormatted)}</strong></span>` : ''}
               </div>
 
               <!-- Notatki -->
@@ -12891,6 +12897,11 @@ window.openNewInventoryItemModal = function() {
   document.getElementById('invItemHost').value = '';
   document.getElementById('invItemNotes').value = '';
 
+  const dateInput = document.getElementById('invItemCreatedAt');
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+
   inventoryState.currentUploadedImages = [];
   renderInvModalPhotos();
 
@@ -12918,6 +12929,19 @@ window.openEditInventoryItemModal = function(id) {
   document.getElementById('invItemSerial').value = item.serialNumber || '';
   document.getElementById('invItemHost').value = item.assignedHost || '';
   document.getElementById('invItemNotes').value = item.notes || '';
+
+  const editDateInput = document.getElementById('invItemCreatedAt');
+  if (editDateInput) {
+    if (item.createdAt) {
+      try {
+        editDateInput.value = new Date(item.createdAt).toISOString().split('T')[0];
+      } catch (e) {
+        editDateInput.value = '';
+      }
+    } else {
+      editDateInput.value = '';
+    }
+  }
 
   inventoryState.currentUploadedImages = Array.isArray(item.images) ? [...item.images] : [];
   renderInvModalPhotos();
@@ -13026,6 +13050,7 @@ window.saveInventoryItemSubmit = async function() {
   const serialNumber = document.getElementById('invItemSerial')?.value.trim();
   const assignedHost = document.getElementById('invItemHost')?.value.trim();
   const notes = document.getElementById('invItemNotes')?.value.trim();
+  const createdAtVal = document.getElementById('invItemCreatedAt')?.value;
 
   if (!name) {
     alert('Podaj nazwę podzespołu / sprzętu.');
@@ -13045,6 +13070,7 @@ window.saveInventoryItemSubmit = async function() {
     serialNumber,
     assignedHost,
     notes,
+    createdAt: createdAtVal ? new Date(createdAtVal).getTime() : undefined,
     images: [...inventoryState.currentUploadedImages]
   };
 
@@ -13250,5 +13276,299 @@ window.closeInventoryLightbox = function(event) {
   if (event && event.target && event.target.id === 'invLightboxImage') return;
   const modal = document.getElementById('inventoryLightboxModalOverlay');
   if (modal) modal.style.display = 'none';
+};
+
+/* ===== SMART TEXT IMPORTER (WARIANT 1: PIPE | ) ===== */
+
+const inventoryImportState = {
+  parsedItems: []
+};
+window.inventoryImportState = inventoryImportState;
+
+window.openInventoryImportModal = function() {
+  const modal = document.getElementById('inventoryImportModalOverlay');
+  if (!modal) return;
+  inventoryImportState.parsedItems = [];
+  const ta = document.getElementById('invImportTextarea');
+  if (ta) ta.value = '';
+  const prevSec = document.getElementById('invImportPreviewSection');
+  if (prevSec) prevSec.style.display = 'none';
+  const btn = document.getElementById('invImportConfirmBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.textContent = 'Zatwierdź i Zaimportuj (0 pozycji)';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => ta?.focus(), 50);
+};
+
+window.closeInventoryImportModal = function() {
+  const modal = document.getElementById('inventoryImportModalOverlay');
+  if (modal) modal.style.display = 'none';
+};
+
+window.clearInventoryImportText = function() {
+  const ta = document.getElementById('invImportTextarea');
+  if (ta) ta.value = '';
+  inventoryImportState.parsedItems = [];
+  window.renderInventoryImportPreview([]);
+};
+
+window.downloadInventoryTemplate = function() {
+  const templateContent = [
+    '# Szablon importu sprzetu KnowOps',
+    '# Kolumny: Nazwa | Kategoria | Pojemnosc | Lokalizacja | Status | Numer seryjny | Data dodania | Notatki',
+    '# Dostepne kategorie: dyski, ram, pcie, zasilanie, siec, sbc, akcesoria, inne',
+    '# Dostepne statusy: wolny, w_uzyciu, do_testow, zarezerwowany, uszkodzony',
+    '# Format daty: RRRR-MM-DD (pozostaw puste || aby uzyc dzisiejszej daty)',
+    '',
+    'Samsung 980 PRO NVMe | dyski | 1 TB | Pudelko NVMe | wolny | S5GXNF0R204123 | 2026-11-14 | Sprawny 100%, TBW: 14TB',
+    'Crucial Ballistix DDR4 3200 | ram | 16 GB | Szuflada RAM | wolny | BL16G32C16U4B | 2026-10-05 | Kosc 1x16GB UDIMM',
+    'Seagate IronWolf 3.5 SATA | dyski | 4 TB | Szafa Rack | w_uzyciu | ZA1E8974 | 2026-08-20 | Host: pve-node-01',
+    'Intel X520-DA2 Dual SFP+ | siec | 10 GbE | Polka B2 | wolny | 001B2189ABCD | 2026-09-12 | Sledz niski profil',
+    'Seasonic Focus GX-750 | zasilanie | 750 W | Karton Zasilacze | wolny | 2104AA894001 | 2026-11-01 | Zestaw kabli modularnych',
+    'WD Blue 2.5 SATA SSD | dyski | 500 GB | Biurko | do_testow | WDBNCE5000PNC | | Sprawdzic badblocki',
+    'Raspberry Pi 4B 4GB | sbc | 4 GB | Pudelko Projekty | wolny | 10000000abcdef | 2026-07-15 | Rewizja 1.4'
+  ].join('\r\n');
+
+  const blob = new Blob([templateContent], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'szablon_inwentaryzacji.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+window.handleInvImportDragOver = function(event) {
+  event.preventDefault();
+  const dz = document.getElementById('invImportDropzone');
+  if (dz) dz.classList.add('drag-active');
+};
+
+window.handleInvImportDragLeave = function(event) {
+  const dz = document.getElementById('invImportDropzone');
+  if (dz) dz.classList.remove('drag-active');
+};
+
+window.handleInvImportDrop = function(event) {
+  event.preventDefault();
+  const dz = document.getElementById('invImportDropzone');
+  if (dz) dz.classList.remove('drag-active');
+
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  const file = files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const ta = document.getElementById('invImportTextarea');
+    if (ta) ta.value = text;
+    window.handleInventoryImportTextInput();
+  };
+  reader.readAsText(file);
+};
+
+window.handleInvImportFileInputChange = function(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+  const file = files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const ta = document.getElementById('invImportTextarea');
+    if (ta) ta.value = text;
+    window.handleInventoryImportTextInput();
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+};
+
+window.parseInventoryImportText = function(rawText) {
+  if (!rawText || typeof rawText !== 'string') return [];
+  const lines = rawText.split(/\r?\n/);
+  const items = [];
+  const now = Date.now();
+
+  const categoryMap = {
+    'dysk': 'dyski', 'dyski': 'dyski', 'ssd': 'dyski', 'hdd': 'dyski', 'nvme': 'dyski', 'm.2': 'dyski',
+    'ram': 'ram', 'pamiec': 'ram', 'pamięć': 'ram', 'ddr': 'ram', 'ddr4': 'ram', 'ddr5': 'ram', 'ecc': 'ram',
+    'pcie': 'pcie', 'gpu': 'pcie', 'karta': 'pcie', 'rtx': 'pcie', 'gtx': 'pcie', 'hba': 'pcie', 'sas': 'pcie',
+    'zasilanie': 'zasilanie', 'zasilacz': 'zasilanie', 'psu': 'zasilanie', 'ups': 'zasilanie',
+    'siec': 'siec', 'sieć': 'siec', 'switch': 'siec', 'router': 'siec', 'nic': 'siec', 'sfp': 'siec', 'sfp+': 'siec', 'lan': 'siec',
+    'sbc': 'sbc', 'rpi': 'sbc', 'raspberry': 'sbc', 'thinclient': 'sbc', 'futro': 'sbc', 'wyse': 'sbc',
+    'akcesoria': 'akcesoria', 'kabel': 'akcesoria', 'adapter': 'akcesoria', 'sanki': 'akcesoria', 'montaz': 'akcesoria'
+  };
+
+  const statusMap = {
+    'wolny': 'wolny', 'wolne': 'wolny', 'sprawny': 'wolny', 'sprawne': 'wolny', 'zapas': 'wolny', 'wolna': 'wolny',
+    'w_uzyciu': 'w_uzyciu', 'w uzyciu': 'w_uzyciu', 'uzywany': 'w_uzyciu', 'serwer': 'w_uzyciu', 'host': 'w_uzyciu',
+    'do_testow': 'do_testow', 'do testow': 'do_testow', 'do testów': 'do_testow', 'test': 'do_testow',
+    'zarezerwowany': 'zarezerwowany', 'rezerwacja': 'zarezerwowany',
+    'uszkodzony': 'uszkodzony', 'zepsuty': 'uszkodzony', 'error': 'uszkodzony', 'bad': 'uszkodzony'
+  };
+
+  for (let line of lines) {
+    line = line.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const parts = line.split('|').map(p => p.trim());
+    if (parts.length === 0) continue;
+
+    const name = parts[0] || '';
+    if (!name) continue;
+
+    // Kategoria
+    const rawCat = (parts[1] || '').toLowerCase();
+    const cat = categoryMap[rawCat] || (INV_CATEGORY_LABELS[rawCat] ? rawCat : 'inne');
+
+    // Pojemność
+    const capacity = parts[2] || '';
+
+    // Lokalizacja
+    const location = parts[3] || 'Magazyn';
+
+    // Status
+    const rawStat = (parts[4] || '').toLowerCase();
+    const status = statusMap[rawStat] || 'wolny';
+
+    // Numer seryjny
+    const serialNumber = parts[5] || '';
+
+    // Data dodania
+    const rawDate = parts[6] || '';
+    let createdAt = now;
+    if (rawDate) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+        const parsed = new Date(rawDate).getTime();
+        if (!isNaN(parsed) && parsed > 0) createdAt = parsed;
+      } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(rawDate)) {
+        const [d, m, y] = rawDate.split('.');
+        const parsed = new Date(`${y}-${m}-${d}`).getTime();
+        if (!isNaN(parsed) && parsed > 0) createdAt = parsed;
+      }
+    }
+
+    // Notatki
+    const notes = parts[7] || '';
+
+    items.push({
+      name,
+      category: cat,
+      capacity,
+      location,
+      status,
+      serialNumber,
+      createdAt,
+      notes
+    });
+  }
+
+  return items;
+};
+
+window.handleInventoryImportTextInput = function() {
+  const ta = document.getElementById('invImportTextarea');
+  const text = ta ? ta.value : '';
+  const items = window.parseInventoryImportText(text);
+  inventoryImportState.parsedItems = items;
+  window.renderInventoryImportPreview(items);
+};
+
+window.renderInventoryImportPreview = function(items) {
+  const sec = document.getElementById('invImportPreviewSection');
+  const tbody = document.getElementById('invImportTableBody');
+  const countEl = document.getElementById('invImportCount');
+  const btn = document.getElementById('invImportConfirmBtn');
+  if (!sec || !tbody) return;
+
+  if (items.length === 0) {
+    sec.style.display = 'none';
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.textContent = 'Zatwierdź i Zaimportuj (0 pozycji)';
+    }
+    return;
+  }
+
+  sec.style.display = 'block';
+  if (countEl) countEl.textContent = items.length;
+  if (btn) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = `Zatwierdź i Zaimportuj (${items.length} pozycji)`;
+  }
+
+  tbody.innerHTML = items.map((item, idx) => {
+    const catLabel = INV_CATEGORY_LABELS[item.category] || item.category;
+    const statusLabel = INV_STATUS_LABELS[item.status] || item.status;
+    const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('pl-PL') : '-';
+
+    return `
+      <tr style="border-bottom:1px solid #27272a; background:${idx % 2 === 0 ? '#18181b' : '#141416'};">
+        <td style="padding:6px 8px; color:#71717a;">${idx + 1}</td>
+        <td style="padding:6px 8px; color:#fff; font-weight:600;">${escapeHtml(item.name)}</td>
+        <td style="padding:6px 8px;"><span class="inv-badge-category" style="font-size:0.65rem; height:20px; padding:0 6px;">${escapeHtml(catLabel)}</span></td>
+        <td style="padding:6px 8px; color:#e4e4e7; font-family:monospace;">${escapeHtml(item.capacity || '-')}</td>
+        <td style="padding:6px 8px; color:#d4d4d8;">${escapeHtml(item.location || '-')}</td>
+        <td style="padding:6px 8px;"><span class="inv-badge-status status-${escapeHtml(item.status)}" style="font-size:0.65rem; height:20px; padding:0 6px;">${escapeHtml(statusLabel)}</span></td>
+        <td style="padding:6px 8px; color:#a1a1aa; font-family:monospace;">${escapeHtml(item.serialNumber || '-')}</td>
+        <td style="padding:6px 8px; color:#a1a1aa;">${escapeHtml(dateStr)}</td>
+        <td style="padding:6px 8px; text-align:center;">
+          <button type="button" onclick="window.removeInventoryImportRow(${idx})" class="btn-secondary" style="font-size:0.68rem; padding:2px 6px; color:#ef4444;" title="Usuń z importu">X</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.removeInventoryImportRow = function(index) {
+  if (index >= 0 && index < inventoryImportState.parsedItems.length) {
+    inventoryImportState.parsedItems.splice(index, 1);
+    window.renderInventoryImportPreview(inventoryImportState.parsedItems);
+  }
+};
+
+window.confirmInventoryImport = async function() {
+  const items = inventoryImportState.parsedItems || [];
+  if (items.length === 0) return;
+
+  const btn = document.getElementById('invImportConfirmBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Importowanie danych...';
+  }
+
+  try {
+    const res = await fetch('/api/inventory/bulk', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(typeof getStoredToken === 'function' && getStoredToken() ? { 'Authorization': 'Bearer ' + getStoredToken() } : {})
+      },
+      body: JSON.stringify({ items })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      window.closeInventoryImportModal();
+      await loadInventoryData();
+      if (typeof showToast === 'function') {
+        showToast(`Pomyślnie zaimportowano ${data.count || items.length} pozycji do inwentarza.`, 'success');
+      }
+    } else {
+      alert('Błąd importu masowego: ' + (data.error || 'Błąd serwera'));
+    }
+  } catch (err) {
+    alert('Błąd sieciowy podczas importu masowego: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = `Zatwierdź i Zaimportuj (${items.length} pozycji)`;
+    }
+  }
 };
 
