@@ -5,9 +5,209 @@ const DATA_DIR = path.resolve('data');
 const CVE_CACHE_FILE = path.join(DATA_DIR, 'cve_cache.json');
 const CVE_WATCHLIST_FILE = path.join(DATA_DIR, 'cve_watchlist.json');
 const CVE_TRANSLATIONS_FILE = path.join(DATA_DIR, 'cve_translations.json');
+export const CVE_EXTERNAL_CACHE_FILE = path.join(DATA_DIR, 'cve_external_cache.json');
 
 const CISA_KEV_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 godziny
+
+/**
+ * Odczyt lokalnego bufora zewnętrznych podatności pobranych z globalnych rejestrów (Pre-KEV)
+ */
+export function getExternalCveItems() {
+  if (fs.existsSync(CVE_EXTERNAL_CACHE_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(CVE_EXTERNAL_CACHE_FILE, 'utf8'));
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.items)) return data.items;
+    } catch (e) {
+      console.error('[CVE Engine] Błąd odczytu cve_external_cache.json:', e.message);
+    }
+  }
+  return [];
+}
+
+/**
+ * Zapis nowej lub zaktualizowanej zewnętrznej podatności do cve_external_cache.json
+ */
+export function saveExternalCveItem(item) {
+  if (!item || !item.id) return null;
+  const items = getExternalCveItems();
+  const cleanId = String(item.id).toUpperCase();
+  const existingIdx = items.findIndex(i => i.id.toUpperCase() === cleanId);
+  if (existingIdx >= 0) {
+    items[existingIdx] = { ...items[existingIdx], ...item, updatedAt: new Date().toISOString() };
+  } else {
+    items.unshift({ ...item, createdAt: new Date().toISOString() });
+  }
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(CVE_EXTERNAL_CACHE_FILE, JSON.stringify(items, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[CVE Engine] Błąd zapisu cve_external_cache.json:', e.message);
+  }
+  return item;
+}
+
+/**
+ * Wyszukiwanie pojedynczej podatności w globalnych rejestrach (CVE.org MITRE v5 API oraz OSV.dev)
+ */
+export async function lookupCveGlobal(cveId) {
+  if (!cveId || typeof cveId !== 'string') {
+    return { success: false, error: 'Brak identyfikatora CVE' };
+  }
+  const cleanId = cveId.trim().toUpperCase();
+  if (!/^CVE-\d{4}-\d{4,}$/i.test(cleanId)) {
+    return { success: false, error: 'Nieprawidłowy format identyfikatora CVE (oczekiwany np. CVE-2026-119618)' };
+  }
+
+  // 1. Sprawdzenie, czy podatność znajduje się w głównym katalogu CISA KEV
+  if (fs.existsSync(CVE_CACHE_FILE)) {
+    try {
+      const cache = JSON.parse(fs.readFileSync(CVE_CACHE_FILE, 'utf8'));
+      if (cache && Array.isArray(cache.items)) {
+        const found = cache.items.find(i => i.id.toUpperCase() === cleanId);
+        if (found) {
+          return { success: true, item: found, source: 'cisa_kev' };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. Sprawdzenie, czy podatność znajduje się już w cve_external_cache.json
+  const extItems = getExternalCveItems();
+  const cachedExt = extItems.find(i => i.id.toUpperCase() === cleanId);
+  if (cachedExt) {
+    return { success: true, item: cachedExt, source: 'external_cache' };
+  }
+
+  // 3. Pobranie z oficjalnego globalnego API CVE.org (MITRE v5)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const mitreUrl = `https://cveawg.mitre.org/api/cve/${encodeURIComponent(cleanId)}`;
+    const res = await fetch(mitreUrl, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'KnowOps-SecOps-Radar/1.0', 'Accept': 'application/json' }
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      const cna = data?.containers?.cna || {};
+      const meta = data?.cveMetadata || {};
+
+      const vendor = String(cna?.affected?.[0]?.vendor || meta?.assignerShortName || 'Nieokreślony').trim();
+      const product = String(cna?.affected?.[0]?.product || 'Nieokreślony').trim();
+      const descObj = Array.isArray(cna?.descriptions) ? (cna.descriptions.find(d => d.lang === 'en') || cna.descriptions[0]) : null;
+      const description = String(descObj?.value || '').trim();
+      const title = String(cna?.title || `${vendor} ${product} Vulnerability`).trim();
+      const datePublished = String(meta?.datePublished || meta?.dateUpdated || new Date().toISOString()).slice(0, 10);
+
+      // Kategoryzacja SecOps
+      const category = categorizeVulnerability(vendor, product, `${title} ${description}`);
+
+      // CVSS punktacja
+      let score = 8.5;
+      let severity = 'HIGH';
+
+      if (Array.isArray(cna?.metrics)) {
+        for (const m of cna.metrics) {
+          const cvss31 = m.cvssV3_1 || m.cvssV3_0;
+          if (cvss31 && typeof cvss31.baseScore === 'number') {
+            score = cvss31.baseScore;
+            severity = cvss31.baseSeverity || (score >= 9.0 ? 'CRITICAL' : (score >= 7.0 ? 'HIGH' : 'MEDIUM'));
+            break;
+          }
+          if (m.other?.content?.text) {
+            const txt = String(m.other.content.text).toLowerCase();
+            if (txt.includes('critical')) { score = 9.8; severity = 'CRITICAL'; break; }
+            if (txt.includes('high') || txt.includes('important')) { score = 8.4; severity = 'HIGH'; break; }
+            if (txt.includes('moderate') || txt.includes('medium')) { score = 6.5; severity = 'MEDIUM'; break; }
+          }
+        }
+      }
+
+      if (score === 8.5) {
+        const est = estimateSeverity({ vulnerabilityName: title, shortDescription: description });
+        score = est.score;
+        severity = est.severity;
+      }
+
+      const requiredAction = 'Zastosować oficjalną aktualizację producenta lub wdrożyć reguły mitygujące w konfiguracji.';
+
+      const newItem = {
+        id: cleanId,
+        vendor,
+        product,
+        title,
+        description,
+        dateAdded: datePublished,
+        dueDate: '',
+        requiredAction,
+        patchStatus: detectPatchStatus(requiredAction),
+        ransomware: false,
+        isKev: false,
+        isExternal: true,
+        source: 'global_cve',
+        sourceLabel: 'GLOBALNA BAZA CVE (Pre-KEV / CVE.org)',
+        category,
+        categoryName: CVE_CATEGORIES[category] ? CVE_CATEGORIES[category].name : 'Inne',
+        score,
+        severity,
+        nvdUrl: `https://nvd.nist.gov/vuln/detail/${cleanId}`,
+        cveOrgUrl: `https://www.cve.org/CVERecord?id=${cleanId}`
+      };
+
+      saveExternalCveItem(newItem);
+      return { success: true, item: newItem, source: 'global_cve' };
+    }
+  } catch (netErr) {
+    console.warn(`[CVE Engine] Błąd odpytywania CVE.org dla ${cleanId}:`, netErr.message);
+  }
+
+  // 4. Fallback do OSV.dev
+  try {
+    const osvRes = await fetch(`https://api.osv.dev/v1/vulns/${encodeURIComponent(cleanId)}`, {
+      headers: { 'User-Agent': 'KnowOps-SecOps-Radar/1.0' }
+    });
+    if (osvRes.ok) {
+      const osvData = await osvRes.json();
+      const desc = osvData.details || osvData.summary || '';
+      const title = osvData.summary || cleanId;
+      const datePublished = String(osvData.published || osvData.modified || new Date().toISOString()).slice(0, 10);
+      const category = categorizeVulnerability('', '', `${title} ${desc}`);
+      const est = estimateSeverity({ vulnerabilityName: title, shortDescription: desc });
+
+      const newItem = {
+        id: cleanId,
+        vendor: 'Open Source',
+        product: osvData.affected?.[0]?.package?.name || 'Komponent',
+        title,
+        description: desc,
+        dateAdded: datePublished,
+        dueDate: '',
+        requiredAction: 'Zastosować najnowszą wersję pakietu.',
+        patchStatus: detectPatchStatus('apply patch'),
+        ransomware: false,
+        isKev: false,
+        isExternal: true,
+        source: 'global_cve',
+        sourceLabel: 'GLOBALNA BAZA CVE (Pre-KEV / OSV.dev)',
+        category,
+        categoryName: CVE_CATEGORIES[category] ? CVE_CATEGORIES[category].name : 'Inne',
+        score: est.score,
+        severity: est.severity,
+        nvdUrl: `https://nvd.nist.gov/vuln/detail/${cleanId}`,
+        cveOrgUrl: `https://www.cve.org/CVERecord?id=${cleanId}`
+      };
+
+      saveExternalCveItem(newItem);
+      return { success: true, item: newItem, source: 'global_cve' };
+    }
+  } catch (osvErr) {}
+
+  return { success: false, error: `Nie znaleziono rekordu podatności ${cleanId} w oficjalnych rejestrach globalnych.` };
+}
 
 // Definicja standardowych kategorii infrastruktury SecOps
 export const CVE_CATEGORIES = {
@@ -270,6 +470,15 @@ export async function fetchCveFeed(forceRefresh = false) {
       if (ageMs < CACHE_TTL_MS) {
         const cachedContent = JSON.parse(fs.readFileSync(CVE_CACHE_FILE, 'utf8'));
         if (cachedContent && Array.isArray(cachedContent.items) && cachedContent.items.length > 0) {
+          const extItems = getExternalCveItems();
+          const existingIds = new Set(cachedContent.items.map(i => i.id));
+          for (const ext of extItems) {
+            if (!existingIds.has(ext.id)) {
+              cachedContent.items.unshift(ext);
+              existingIds.add(ext.id);
+            }
+          }
+          cachedContent.totalCount = cachedContent.items.length;
           return cachedContent;
         }
       }
@@ -332,13 +541,23 @@ export async function fetchCveFeed(forceRefresh = false) {
       };
     });
 
+    // Dołącz elementy z bufora zewnętrznego (Pre-KEV)
+    const extItems = getExternalCveItems();
+    const existingIds = new Set(items.map(i => i.id));
+    for (const ext of extItems) {
+      if (!existingIds.has(ext.id)) {
+        items.unshift(ext);
+        existingIds.add(ext.id);
+      }
+    }
+
     // Sortowanie od najnowszych
-    items.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+    items.sort((a, b) => new Date(b.dateAdded || 0) - new Date(a.dateAdded || 0));
 
     const result = {
       lastUpdated: new Date().toISOString(),
       totalCount: items.length,
-      kevCount: items.length,
+      kevCount: items.filter(i => i.isKev).length,
       categories: CVE_CATEGORIES,
       items
     };

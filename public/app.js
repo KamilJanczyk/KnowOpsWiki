@@ -10329,7 +10329,7 @@ async function renderCveRadar() {
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:10px;">
           <div>
             <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">WYSZUKAJ PODATNOŚĆ:</label>
-            <input type="text" id="cveSearchInput" placeholder="Szukaj po CVE, producencie, oprogramowaniu..." oninput="window.handleCveSearchInput(this.value)" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
+            <input type="text" id="cveSearchInput" placeholder="Szukaj po CVE, producencie, oprogramowaniu..." oninput="window.handleCveSearchInput(this.value)" onkeydown="if(event.key==='Enter'&&window.checkAndTriggerGlobalCveLookup)window.checkAndTriggerGlobalCveLookup(this.value)" style="width:100%; background:#18181b; border:1px solid #333; color:#fff; padding:6px 10px; border-radius:4px; font-size:0.75rem; box-sizing:border-box;">
           </div>
           <div>
             <label style="display:block; font-size:0.7rem; color:#a1a1aa; margin-bottom:4px; font-weight:600;">KATEGORIA TECHNOLOGICZNA:</label>
@@ -10658,10 +10658,24 @@ function renderCveCards(items, audited) {
   if (!container) return;
 
   if (items.length === 0) {
+    const isCvePattern = /^CVE-\d{4}-\d+$/i.test((cveFilters.search || '').trim());
     container.innerHTML = `
-      <div style="background:#111; border:1px solid #27272a; padding:30px; text-align:center; color:#888; border-radius:6px;">
-        <div style="font-size:0.9rem; color:#ccc; margin-bottom:6px;">Nie znaleziono żadnych podatności spełniających bieżące filtry.</div>
-        <div style="font-size:0.75rem; color:#71717a;">Zmień parametry wyszukiwania, wyczyść zapytanie lub zresetuj aktywne filtry kategorii i krytyczności.</div>
+      <div style="background:#111; border:1px solid #27272a; padding:32px 20px; text-align:center; color:#888; border-radius:6px;">
+        <div style="font-size:0.95rem; color:#fff; font-weight:700; margin-bottom:8px;">
+          Brak wyników w katalogu CISA KEV dla: "${escapeHtml(cveFilters.search || 'wybranych filtrów')}"
+        </div>
+        <p style="font-size:0.75rem; color:#a1a1aa; margin:0 auto 16px auto; max-width:620px; line-height:1.5;">
+          Katalog CISA KEV zawiera wyłącznie podatności, w przypadku których potwierdzono aktywne ataki w sieci. Nowo ujawnione podatności w Twoim stosie (np. serwerze Apache) lub luki pre-KEV znajdują się w globalnej bazie CVE.org / MITRE.
+        </p>
+        ${isCvePattern ? `
+          <button type="button" class="btn-action" onclick="window.fetchGlobalCveLookup('${escapeHtml(cveFilters.search.trim())}')" style="font-size:0.75rem; padding:8px 16px;">
+            Wyszukaj ${escapeHtml(cveFilters.search.trim())} w globalnej bazie CVE.org / NVD
+          </button>
+        ` : (cveFilters.search ? `
+          <div style="font-size:0.73rem; color:#71717a;">
+            Wskazówka: Wpisz dokładny identyfikator (np. <code style="color:var(--sw-gold); cursor:pointer;" onclick="document.getElementById('cveSearchInput').value='CVE-2026-119618'; window.handleCveSearchInput('CVE-2026-119618'); window.checkAndTriggerGlobalCveLookup('CVE-2026-119618');">CVE-2026-119618</code>), aby odpytać globalny rejestr w czasie rzeczywistym.
+          </div>
+        ` : '')}
       </div>
     `;
     return;
@@ -10710,6 +10724,11 @@ function renderCveCards(items, audited) {
       severityBadgeStyle = 'background:#431407; color:#fdba74; border:1px solid #f97316;';
       severityLabel = `WYSOKI (${score})`;
     }
+
+    const isGlobal = Boolean(item.isExternal || item.source === 'global_cve');
+    const sourceBadgeHtml = isGlobal
+      ? '<span style="font-size:0.62rem; font-weight:700; background:#083344; color:#67e8f9; border:1px solid #06b6d4; padding:2px 6px; border-radius:3px; letter-spacing:0.3px;" title="Podatność zarejestrowana w globalnym rejestrze CVE.org / MITRE (Pre-KEV)">ŹRÓDŁO: GLOBALNA BAZA (PRE-KEV)</span>'
+      : '<span style="font-size:0.62rem; font-weight:700; background:#1e1b4b; color:#c7d2fe; border:1px solid #4338ca; padding:2px 6px; border-radius:3px; letter-spacing:0.3px;" title="Podatność z katalogu CISA KEV (Potwierdzona aktywna broń w atakach)">ŹRÓDŁO: CISA KEV</span>';
 
     const ransomwareBadge = item.ransomware
       ? `<span style="font-size:0.62rem; font-weight:700; background:#3b0764; color:#d8b4fe; border:1px solid #a855f7; padding:2px 6px; border-radius:3px; letter-spacing:0.4px;">KAMPANIA RANSOMWARE</span>`
@@ -10769,6 +10788,7 @@ function renderCveCards(items, audited) {
             <span style="font-family:monospace; font-weight:700; color:var(--sw-gold); font-size:0.95rem; letter-spacing:0.5px;">${cveId}</span>
             <span style="font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:3px; ${severityBadgeStyle}">${severityLabel}</span>
             <span style="font-size:0.65rem; font-weight:600; background:#1e293b; color:#cbd5e1; border:1px solid #475569; padding:2px 6px; border-radius:3px;">${categoryName}</span>
+            ${sourceBadgeHtml}
             ${patchBadgeHtml}
             ${ransomwareBadge}
           </div>
@@ -10847,6 +10867,54 @@ window.handleCveSearchInput = function(val) {
     cveFilters.currentPage = 1;
     applyCveFiltersAndRender();
   }, 250);
+};
+
+window.checkAndTriggerGlobalCveLookup = function(val) {
+  if (!val) return;
+  const clean = val.trim().toUpperCase();
+  if (!/^CVE-\d{4}-\d+$/i.test(clean)) return;
+
+  const items = (window.cveState && window.cveState.cache && Array.isArray(window.cveState.cache.items)) ? window.cveState.cache.items : [];
+  const exists = items.some(i => i.id.toUpperCase() === clean);
+  if (!exists) {
+    window.fetchGlobalCveLookup(clean);
+  }
+};
+
+window.fetchGlobalCveLookup = async function(cveId) {
+  if (!cveId) return;
+  const cleanId = cveId.trim().toUpperCase();
+  const searchInput = document.getElementById('cveSearchInput');
+  const resultsDisplay = document.getElementById('cveResultsCountDisplay');
+  if (resultsDisplay) resultsDisplay.innerHTML = `<span style="color:var(--sw-gold);">Odpytywanie oficjalnego API CVE.org (MITRE v5) dla ${cleanId}...</span>`;
+
+  try {
+    const res = await fetch(`/api/cve-lookup?cveId=${encodeURIComponent(cleanId)}`);
+    const data = await res.json();
+    if (res.ok && data.success && data.item) {
+      if (window.cveState && window.cveState.cache && Array.isArray(window.cveState.cache.items)) {
+        const existingIdx = window.cveState.cache.items.findIndex(i => i.id.toUpperCase() === cleanId);
+        if (existingIdx >= 0) {
+          window.cveState.cache.items[existingIdx] = data.item;
+        } else {
+          window.cveState.cache.items.unshift(data.item);
+          window.cveState.cache.totalCount = window.cveState.cache.items.length;
+        }
+      }
+      cveFilters.search = cleanId;
+      if (searchInput) searchInput.value = cleanId;
+      applyCveFiltersAndRender();
+      if (typeof showToast === 'function') {
+        showToast(`Pomyślnie pobrano podatność ${cleanId} z bazy globalnej CVE.org (Pre-KEV).`, 'success');
+      }
+    } else {
+      alert(`Nie znaleziono podatności ${cleanId}: ` + (data.error || 'Błąd API'));
+      if (resultsDisplay) resultsDisplay.textContent = 'Błąd wyszukiwania w bazie globalnej.';
+    }
+  } catch (err) {
+    alert(`Błąd połączenia z API: ${err.message}`);
+    if (resultsDisplay) resultsDisplay.textContent = 'Błąd połączenia z API.';
+  }
 };
 
 window.handleCveCategoryChange = function(val) {

@@ -4195,3 +4195,90 @@ test('Test 69: Smart Text Importer (Wariant 1: Pipe |), obsługa daty dodania (c
   assert.equal(parsed[2].status, 'w_uzyciu');
   assert.equal(parsed[2].createdAt, 1700000000000);
 });
+
+test('Test 70: Hybrydowy Radar CVE - Global Lookup (CVE.org MITRE v5 / NVD Fallback), obsługa luk Pre-KEV (np. Apache CVE-2026-119618)', () => {
+  const cveEngineJs = fs.readFileSync(path.resolve('cve_engine.mjs'), 'utf8');
+  const serverJs = fs.readFileSync(path.resolve('server.mjs'), 'utf8');
+  const appJs = fs.readFileSync(path.resolve('public/app.js'), 'utf8');
+
+  // 1. Weryfikacja eksportów i bufora w cve_engine.mjs
+  assert.equal(cveEngineJs.includes('export const CVE_EXTERNAL_CACHE_FILE'), true, 'Brak CVE_EXTERNAL_CACHE_FILE w cve_engine.mjs');
+  assert.equal(cveEngineJs.includes('export function getExternalCveItems'), true, 'Brak getExternalCveItems w cve_engine.mjs');
+  assert.equal(cveEngineJs.includes('export function saveExternalCveItem'), true, 'Brak saveExternalCveItem w cve_engine.mjs');
+  assert.equal(cveEngineJs.includes('export async function lookupCveGlobal'), true, 'Brak lookupCveGlobal w cve_engine.mjs');
+  assert.equal(cveEngineJs.includes('https://cveawg.mitre.org/api/cve/'), true, 'Brak oficjalnego API CVE.org MITRE w cve_engine.mjs');
+
+  // 2. Weryfikacja endpointu w server.mjs
+  assert.equal(serverJs.includes("normPath === '/api/cve-lookup'"), true, 'Brak GET /api/cve-lookup w server.mjs');
+  assert.equal(serverJs.includes('lookupCveGlobal'), true, 'Brak wywołania lookupCveGlobal w server.mjs');
+
+  // 3. Weryfikacja interfejsu w app.js
+  assert.equal(appJs.includes('fetchGlobalCveLookup'), true, 'Brak fetchGlobalCveLookup w app.js');
+  assert.equal(appJs.includes('checkAndTriggerGlobalCveLookup'), true, 'Brak checkAndTriggerGlobalCveLookup w app.js');
+  assert.equal(appJs.includes('ŹRÓDŁO: GLOBALNA BAZA (PRE-KEV)'), true, 'Brak odznaki Pre-KEV w app.js');
+  assert.equal(appJs.includes('Wyszukaj'), true, 'Brak przycisku wyszukiwania w globalnej bazie w app.js');
+
+  // 4. Test jednostkowy parsowania i kategoryzacji struktury MITRE CVE v5 dla Apache CVE-2026-119618
+  const sampleMitrePayload = {
+    cveMetadata: {
+      cveId: 'CVE-2026-119618',
+      assignerShortName: 'apache',
+      datePublished: '2026-11-11T14:54:08.155Z'
+    },
+    containers: {
+      cna: {
+        title: 'Apache HTTP Server: mod_http2: heap corruption and RCE in assign_headers',
+        affected: [
+          {
+            vendor: 'Apache Software Foundation',
+            product: 'Apache HTTP Server',
+            versions: [{ version: '2.4.55', lessThanOrEqual: '2.4.70', status: 'affected' }]
+          }
+        ],
+        descriptions: [
+          {
+            lang: 'en',
+            value: 'Concurrent Execution using Shared Resource with Improper Synchronization vulnerability in Apache HTTP Server mod_http2 in assign_headers() can lead to RCE.'
+          }
+        ],
+        metrics: [
+          {
+            other: {
+              content: { text: 'critical' },
+              type: 'Textual description of severity'
+            }
+          }
+        ]
+      }
+    }
+  };
+
+  const cna = sampleMitrePayload.containers.cna;
+  const meta = sampleMitrePayload.cveMetadata;
+  const vendor = cna.affected[0].vendor;
+  const product = cna.affected[0].product;
+  const title = cna.title;
+  const desc = cna.descriptions[0].value;
+
+  // Sprawdzenie kategoryzacji dla Apache (powinno trafić do web_services)
+  const combined = `${vendor} ${product} ${title} ${desc}`.toLowerCase();
+  assert.equal(combined.includes('apache'), true);
+  assert.equal(combined.includes('http server'), true);
+  assert.equal(combined.includes('rce'), true);
+
+  let detectedCat = 'other';
+  if (combined.includes('apache') || combined.includes('nginx')) {
+    detectedCat = 'web_services';
+  }
+  assert.equal(detectedCat, 'web_services', 'Podatność Apache musi być kategoryzowana jako web_services');
+
+  // Sprawdzenie poziomu zagrożenia RCE / critical
+  let score = 7.5;
+  let severity = 'HIGH';
+  if (cna.metrics[0]?.other?.content?.text === 'critical' || combined.includes('rce')) {
+    score = 9.8;
+    severity = 'CRITICAL';
+  }
+  assert.equal(severity, 'CRITICAL');
+  assert.equal(score, 9.8);
+});

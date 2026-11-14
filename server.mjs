@@ -7,7 +7,7 @@ import os from 'node:os';
 import { createWikiBackup, exportWikiZip, rotateBackups, BACKUPS_DIR, initBackupScheduler, executeBackupJob, getBackupSchedulerStatus, checkBackupsDirWritable } from './backup_wiki.mjs';
 import { generateNavigation, extractMarkdownTags, extractMarkdownStatus } from './build_navigation.mjs';
 import { analyzeDocsFilenames } from './scripts/sync_markdown_filenames.mjs';
-import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, translateLiveText, batchTranslateLive, getTranslationsCache } from './cve_engine.mjs';
+import { fetchCveFeed, getCveWatchlist, saveCveWatchlist, setCveAuditStatus, translateLiveText, batchTranslateLive, getTranslationsCache, lookupCveGlobal } from './cve_engine.mjs';
 
 // Global uncaught exception handlers to prevent container crashes
 process.on('uncaughtException', (err) => {
@@ -2826,6 +2826,24 @@ const server = http.createServer(async (req, res) => {
       } catch (err) {
         console.error('[CVE API Refresh Error]', err);
         return sendJson(500, { error: 'Błąd podczas odświeżania bazy CVE ze źródła CISA.' });
+      }
+    }
+
+    if (normPath === '/api/cve-lookup' && req.method === 'GET') {
+      const urlObj = new URL(req.url, 'http://localhost');
+      const query = (urlObj.searchParams.get('cveId') || urlObj.searchParams.get('q') || '').trim();
+      if (!query) {
+        return sendJson(400, { error: 'Wymagany parametr cveId lub q' });
+      }
+
+      try {
+        const result = await lookupCveGlobal(query);
+        if (!result || !result.success) {
+          return sendJson(404, { error: result?.error || `Nie znaleziono podatności ${query} w globalnych rejestrach CVE.` });
+        }
+        return sendJson(200, result);
+      } catch (err) {
+        return sendJson(500, { error: `Błąd podczas odpytywania bazy globalnej: ${err.message}` });
       }
     }
 
