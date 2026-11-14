@@ -474,7 +474,7 @@ export async function fetchCveFeed(forceRefresh = false) {
           const existingIds = new Set(cachedContent.items.map(i => i.id));
           for (const ext of extItems) {
             if (!existingIds.has(ext.id)) {
-              cachedContent.items.unshift(ext);
+              cachedContent.items.push(ext);
               existingIds.add(ext.id);
             }
           }
@@ -546,7 +546,7 @@ export async function fetchCveFeed(forceRefresh = false) {
     const existingIds = new Set(items.map(i => i.id));
     for (const ext of extItems) {
       if (!existingIds.has(ext.id)) {
-        items.unshift(ext);
+        items.push(ext);
         existingIds.add(ext.id);
       }
     }
